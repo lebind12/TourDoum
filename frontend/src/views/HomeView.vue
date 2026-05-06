@@ -18,14 +18,14 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue'
-import { useHealthStore } from '@/stores/health'
+import { useHealthStore } from "@/stores/health";
+import { onMounted } from "vue";
 
-const healthStore = useHealthStore()
+const healthStore = useHealthStore();
 
 onMounted(() => {
-  healthStore.fetchHealth()
-})
+	healthStore.fetchHealth();
+});
 </script>
 
 <style scoped>

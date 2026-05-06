@@ -32,6 +32,6 @@ repos:
     hooks:
       - id: conventional-commit-msg
         name: conventional commit message
-        entry: bash -c 'grep -Eq "^(feat|fix|refactor|test|docs|chore|perf|build|ci|revert)(\(.+\))?: " "$1" || { echo "commit msg must follow Conventional Commits"; exit 1; }' --
-        language: system
+        entry: .harness-hooks/check-commit-msg.sh
+        language: script
         stages: [commit-msg]
