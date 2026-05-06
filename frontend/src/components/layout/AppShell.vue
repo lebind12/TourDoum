@@ -33,10 +33,26 @@ function closeDrawer() {
           TourDoum
         </RouterLink>
 
+        <!-- Domain nav (≥768px) — 항상 노출 -->
+        <nav class="hidden md:flex items-center gap-1 ml-6">
+          <RouterLink to="/attractions">
+            <Button variant="ghost" size="sm">여행지</Button>
+          </RouterLink>
+          <RouterLink to="/accommodations">
+            <Button variant="ghost" size="sm">숙박</Button>
+          </RouterLink>
+          <RouterLink to="/chat">
+            <Button variant="ghost" size="sm">채팅</Button>
+          </RouterLink>
+          <RouterLink v-if="authStore.currentUser" to="/favorites">
+            <Button variant="ghost" size="sm">즐겨찾기</Button>
+          </RouterLink>
+        </nav>
+
         <!-- Spacer -->
         <div class="flex-1" />
 
-        <!-- Desktop nav (≥768px) -->
+        <!-- Auth nav (≥768px) -->
         <nav class="hidden md:flex items-center gap-2">
           <template v-if="authStore.currentUser">
             <span class="text-sm text-muted-foreground hidden sm:inline">
@@ -101,6 +117,26 @@ function closeDrawer() {
       </SheetHeader>
 
       <nav class="flex flex-col gap-1 p-4">
+        <!-- Domain section -->
+        <p class="px-3 py-2 text-xs font-semibold text-muted-foreground uppercase">
+          탐색
+        </p>
+        <RouterLink to="/attractions" @click="closeDrawer">
+          <Button variant="ghost" class="w-full justify-start" size="sm">여행지</Button>
+        </RouterLink>
+        <RouterLink to="/accommodations" @click="closeDrawer">
+          <Button variant="ghost" class="w-full justify-start" size="sm">숙박</Button>
+        </RouterLink>
+        <RouterLink to="/chat" @click="closeDrawer">
+          <Button variant="ghost" class="w-full justify-start" size="sm">채팅</Button>
+        </RouterLink>
+        <RouterLink v-if="authStore.currentUser" to="/favorites" @click="closeDrawer">
+          <Button variant="ghost" class="w-full justify-start" size="sm">즐겨찾기</Button>
+        </RouterLink>
+
+        <Separator class="my-2" />
+
+        <!-- Auth section -->
         <template v-if="authStore.currentUser">
           <p class="px-3 py-2 text-sm font-medium text-muted-foreground">
             {{ authStore.currentUser.nickname }}님
