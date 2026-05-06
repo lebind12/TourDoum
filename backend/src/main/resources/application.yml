@@ -27,8 +27,10 @@ spring:
 
   session:
     store-type: redis
+    timeout: 30m
     redis:
       namespace: tourdoum:session
+      flush-mode: on_save
 
 management:
   endpoints:
