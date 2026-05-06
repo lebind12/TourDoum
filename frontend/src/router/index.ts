@@ -33,6 +33,49 @@ const router = createRouter({
 			component: () => import("@/views/MeView.vue"),
 			meta: { requiresAuth: true },
 		},
+		// ── Mockup 화면 (Task #4) ───────────────────────────────────────────
+		{
+			path: "/attractions",
+			name: "attractions",
+			component: () => import("@/views/AttractionsView.vue"),
+		},
+		{
+			path: "/attractions/:id",
+			name: "attraction-detail",
+			component: () => import("@/views/AttractionDetailView.vue"),
+		},
+		{
+			path: "/favorites",
+			name: "favorites",
+			component: () => import("@/views/FavoritesView.vue"),
+			meta: { requiresAuth: true },
+		},
+		{
+			path: "/accommodations",
+			name: "accommodations",
+			component: () => import("@/views/AccommodationsView.vue"),
+		},
+		{
+			path: "/accommodations/:id",
+			name: "accommodation-detail",
+			component: () => import("@/views/AccommodationDetailView.vue"),
+		},
+		{
+			path: "/chat",
+			name: "chat",
+			component: () => import("@/views/ChatView.vue"),
+		},
+		{
+			path: "/chat/:channelId",
+			name: "chat-channel",
+			component: () => import("@/views/ChatChannelView.vue"),
+		},
+		{
+			path: "/dm/:userId",
+			name: "dm",
+			component: () => import("@/views/DMView.vue"),
+			meta: { requiresAuth: true },
+		},
 	],
 });
 
