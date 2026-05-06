@@ -21,9 +21,20 @@ PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 BACKEND_DIR="$PROJECT_ROOT/backend"
 OUTPUT_FILE="$BACKEND_DIR/src/main/resources/db/migration/V4__tour_api_attractions.sql"
 
-# .env 자동 로드 (현재 셸 환경변수가 우선)
-ENV_FILE="$PROJECT_ROOT/.env"
-if [[ -f "$ENV_FILE" ]]; then
+# .env 자동 로드 — 현재 셸 환경변수가 우선.
+# git worktree 구조상 .env 위치: 프로젝트 루트(../../../) 또는 worktree 루트 중 발견되는 첫 번째.
+ENV_FILE=""
+for candidate in \
+    "$PROJECT_ROOT/.env" \
+    "$PROJECT_ROOT/../.env" \
+    "$PROJECT_ROOT/../../.env"; do
+  if [[ -f "$candidate" ]]; then
+    ENV_FILE="$(cd "$(dirname "$candidate")" && pwd)/$(basename "$candidate")"
+    break
+  fi
+done
+
+if [[ -n "$ENV_FILE" ]]; then
   # shellcheck disable=SC1090
   set -a
   source "$ENV_FILE"
@@ -32,8 +43,9 @@ fi
 
 # TOUR_API_KEY 검증
 if [[ -z "${TOUR_API_KEY:-}" ]]; then
+  CANDIDATE_ENV="$PROJECT_ROOT/.env (또는 부모 디렉터리)"
   echo "✗ TOUR_API_KEY 미설정."
-  echo "  방법 1: $ENV_FILE 에 TOUR_API_KEY=<인코딩 키> 추가"
+  echo "  방법 1: $CANDIDATE_ENV 에 TOUR_API_KEY=<인코딩 키> 추가"
   echo "  방법 2: export TOUR_API_KEY=<인코딩 키> 후 재실행"
   echo ""
   echo "  키 발급: https://www.data.go.kr/data/15101578/openapi.do"
@@ -56,9 +68,11 @@ echo "▶ 의존성 준비 중..."
 ./mvnw -q -B dependency:copy-dependencies -DincludeScope=runtime -DoutputDirectory=target/dependency
 
 # SqlGeneratorMain 실행 → V4 SQL 생성
+# -Dlogback.configurationFile: 로그를 System.err 로 분리 (stdout=SQL만)
 echo "▶ API 호출 및 SQL 생성 중... (17개 지역 × 3 contentTypeId — 시간이 걸릴 수 있음)"
 TOUR_API_KEY="$TOUR_API_KEY" \
   java \
+    -Dlogback.configurationFile=src/main/resources/logback-etl.xml \
     -cp "target/classes:target/dependency/*" \
     com.ssafy.tourdoum.integration.tourapi.TourApiSqlGeneratorMain \
     > "$OUTPUT_FILE"
