@@ -20,6 +20,10 @@ public interface AttractionRepository extends JpaRepository<Attraction, Long> {
    * <p>ADR-0002: location 컬럼은 DB GENERATED STORED POINT(lng, lat) SRID 4326. ST_Distance_Sphere 는
    * 미터 단위로 구면 거리를 계산한다. H2는 이 함수를 지원하지 않으므로 공간 검색은 MySQL Testcontainers 통합 테스트에서 검증한다.
    *
+   * <p>ADR-0007: projection 패턴 — {@code SELECT *}는 distance 별칭을 엔티티 매핑 단계에서 버리므로, 컬럼을 명시적으로 열거하고
+   * {@link AttractionWithDistance} projection으로 수신한다. {@code imageUrl} 별칭은 projection getter {@code
+   * getImageUrl()}과 대응한다.
+   *
    * @param lat 위도 (WGS84)
    * @param lng 경도 (WGS84)
    * @param radiusMeters 반경 (미터)
@@ -29,14 +33,15 @@ public interface AttractionRepository extends JpaRepository<Attraction, Long> {
       nativeQuery = true,
       value =
           """
-          SELECT *,
+          SELECT id, name, region, category, address, latitude, longitude, description,
+                 image_url AS imageUrl,
                  ST_Distance_Sphere(location, ST_SRID(POINT(:lng, :lat), 4326)) AS distance
           FROM attractions
           WHERE ST_Distance_Sphere(location, ST_SRID(POINT(:lng, :lat), 4326)) <= :radiusMeters
           ORDER BY distance
           LIMIT :limit
           """)
-  List<Attraction> findNearby(
+  List<AttractionWithDistance> findNearby(
       @Param("lat") double lat,
       @Param("lng") double lng,
       @Param("radiusMeters") int radiusMeters,
