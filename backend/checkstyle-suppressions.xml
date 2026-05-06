@@ -1,0 +1,11 @@
+<?xml version="1.0"?>
+<!DOCTYPE suppressions PUBLIC
+    "-//Checkstyle//DTD SuppressionFilter Configuration 1.2//EN"
+    "https://checkstyle.org/dtds/suppressions_1_2.dtd">
+<suppressions>
+    <!-- QueryDSL 생성 Q-클래스 체크스타일 제외 -->
+    <suppress files="[\\/]generated-sources[\\/]" checks=".*"/>
+    <!-- 테스트 코드 일부 규칙 완화 -->
+    <suppress files="[\\/]test[\\/]" checks="MagicNumber"/>
+    <suppress files="[\\/]test[\\/]" checks="DesignForExtension"/>
+</suppressions>

@@ -1,0 +1,30 @@
+# Maven build outputs
+target/
+!.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+# Maven wrapper jar (binary, 커밋 제외)
+.mvn/wrapper/maven-wrapper.jar
+
+# Secrets
+.env
+*.env
+
+# IDE
+.idea/
+*.iml
+.classpath
+.project
+.settings/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Spring Boot devtools
+spring-devtools.properties
