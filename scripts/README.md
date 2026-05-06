@@ -9,6 +9,8 @@
 ./scripts/dev-up.sh
 
 # 터미널 1 — 백엔드 (hot reload)
+# 프로젝트 루트에 .java-version=21이 박제돼 있어 jenv가 자동으로 JDK 21로 전환한다.
+# (jenv 미사용자: export JAVA_HOME=$(/usr/libexec/java_home -v 21) 한 번 실행)
 cd backend && ./mvnw spring-boot:run -Dspring-boot.run.profiles=dev
 
 # 터미널 2 — 프론트엔드 (HMR)
@@ -61,6 +63,7 @@ cd frontend && npm run dev
 | BE: redis 포트 충돌 | 본 프로젝트는 호스트 6380. `.env`/`application.yml`에서 `REDIS_PORT=6380` 확인. |
 | FE: API 호출 실패 | `frontend/.env`의 `VITE_API_BASE_URL=http://localhost:8080` 확인. CORS 문제면 BE에 CORS 설정 추가 필요(추후 ADR). |
 | DevTools가 재시작 안 함 | `target/classes`를 다시 만들지 않은 것. IDE auto-make 켜졌는지, 또는 `./mvnw compile`을 안 돌렸는지. |
+| `release version 21 not supported` | 셸의 java가 17 등이라 그렇다. 본 프로젝트는 jenv `.java-version=21`을 박제했으나 jenv 미사용자는 수동으로 `JAVA_HOME=$(/usr/libexec/java_home -v 21)` 지정 필요. 또는 `brew install jenv` 후 `eval "$(jenv init -)"` 셸 rc에 추가. |
 | 포트 8080 사용 중 | 다른 프로세스가 점유. `lsof -i :8080`로 확인 후 종료. |
 
 ## 포트 매핑 정리
