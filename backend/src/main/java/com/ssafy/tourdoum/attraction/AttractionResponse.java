@@ -48,4 +48,24 @@ public record AttractionResponse(
         attraction.getImageUrl(),
         distanceMeters);
   }
+
+  /**
+   * AttractionWithDistance projection에서 변환 (반경 검색 + distanceMeters 포함).
+   *
+   * <p>ADR-0007: native query projection → DTO. projection의 {@code getCategory()}는 String이므로 enum
+   * 변환을 수행한다.
+   */
+  public static AttractionResponse from(AttractionWithDistance projection) {
+    return new AttractionResponse(
+        projection.getId(),
+        projection.getName(),
+        projection.getRegion(),
+        AttractionCategory.valueOf(projection.getCategory()),
+        projection.getAddress(),
+        projection.getLatitude(),
+        projection.getLongitude(),
+        projection.getDescription(),
+        projection.getImageUrl(),
+        projection.getDistance());
+  }
 }
