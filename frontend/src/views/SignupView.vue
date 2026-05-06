@@ -1,69 +1,3 @@
-<template>
-  <section class="auth-page">
-    <h2>회원가입</h2>
-
-    <form @submit.prevent="handleSubmit" novalidate aria-label="회원가입 폼">
-      <div class="field">
-        <label for="email">이메일</label>
-        <input
-          id="email"
-          v-model="form.email"
-          type="email"
-          autocomplete="email"
-          placeholder="example@email.com"
-          required
-        />
-        <span v-if="validationErrors.email" class="field-error" role="alert">
-          {{ validationErrors.email }}
-        </span>
-      </div>
-
-      <div class="field">
-        <label for="password">비밀번호</label>
-        <input
-          id="password"
-          v-model="form.password"
-          type="password"
-          autocomplete="new-password"
-          placeholder="8자 이상"
-          required
-        />
-        <span v-if="validationErrors.password" class="field-error" role="alert">
-          {{ validationErrors.password }}
-        </span>
-      </div>
-
-      <div class="field">
-        <label for="nickname">닉네임</label>
-        <input
-          id="nickname"
-          v-model="form.nickname"
-          type="text"
-          autocomplete="nickname"
-          placeholder="2~50자"
-          required
-        />
-        <span v-if="validationErrors.nickname" class="field-error" role="alert">
-          {{ validationErrors.nickname }}
-        </span>
-      </div>
-
-      <div v-if="authStore.error" role="alert" aria-live="polite" class="error-msg">
-        {{ authStore.error }}
-      </div>
-
-      <button type="submit" :disabled="authStore.loading" class="btn-primary">
-        {{ authStore.loading ? '처리 중...' : '회원가입' }}
-      </button>
-    </form>
-
-    <p class="link-row">
-      이미 계정이 있으신가요?
-      <RouterLink to="/login">&larr; 로그인</RouterLink>
-    </p>
-  </section>
-</template>
-
 <script setup lang="ts">
 import { useAuthStore } from "@/stores/auth";
 import { reactive } from "vue";
@@ -117,84 +51,111 @@ async function handleSubmit() {
 }
 </script>
 
-<style scoped>
-.auth-page {
-  max-width: 400px;
-  margin: 2rem auto;
-  padding: 0 1rem;
-}
+<template>
+  <div class="flex min-h-[calc(100vh-8rem)] items-center justify-center py-8">
+    <div class="w-full max-w-sm">
+      <div class="rounded-lg border bg-card text-card-foreground shadow-sm">
+        <div class="flex flex-col space-y-1.5 p-6">
+          <h2 class="text-2xl font-semibold leading-none tracking-tight">회원가입</h2>
+          <p class="text-sm text-muted-foreground">계정을 만들어 TourDoum을 시작하세요.</p>
+        </div>
 
-.auth-page h2 {
-  margin-bottom: 1.5rem;
-}
+        <div class="p-6 pt-0">
+          <form @submit.prevent="handleSubmit" novalidate aria-label="회원가입 폼" class="space-y-4">
+            <!-- 이메일 -->
+            <div class="space-y-1">
+              <label
+                for="email"
+                class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+              >
+                이메일
+              </label>
+              <input
+                id="email"
+                v-model="form.email"
+                type="email"
+                autocomplete="email"
+                placeholder="example@email.com"
+                required
+                class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              />
+              <span v-if="validationErrors.email" class="text-xs text-destructive" role="alert">
+                {{ validationErrors.email }}
+              </span>
+            </div>
 
-.field {
-  display: flex;
-  flex-direction: column;
-  margin-bottom: 1rem;
-}
+            <!-- 비밀번호 -->
+            <div class="space-y-1">
+              <label
+                for="password"
+                class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+              >
+                비밀번호
+              </label>
+              <input
+                id="password"
+                v-model="form.password"
+                type="password"
+                autocomplete="new-password"
+                placeholder="8자 이상"
+                required
+                class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              />
+              <span v-if="validationErrors.password" class="text-xs text-destructive" role="alert">
+                {{ validationErrors.password }}
+              </span>
+            </div>
 
-.field label {
-  font-size: 0.9rem;
-  margin-bottom: 0.3rem;
-  font-weight: 600;
-}
+            <!-- 닉네임 -->
+            <div class="space-y-1">
+              <label
+                for="nickname"
+                class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+              >
+                닉네임
+              </label>
+              <input
+                id="nickname"
+                v-model="form.nickname"
+                type="text"
+                autocomplete="nickname"
+                placeholder="2~50자"
+                required
+                class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              />
+              <span v-if="validationErrors.nickname" class="text-xs text-destructive" role="alert">
+                {{ validationErrors.nickname }}
+              </span>
+            </div>
 
-.field input {
-  padding: 0.5rem 0.75rem;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  font-size: 1rem;
-}
+            <div
+              v-if="authStore.error"
+              role="alert"
+              aria-live="polite"
+              class="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive"
+            >
+              {{ authStore.error }}
+            </div>
 
-.field input:focus {
-  outline: 2px solid #4a90e2;
-  outline-offset: 1px;
-}
+            <button
+              type="submit"
+              :disabled="authStore.loading"
+              class="inline-flex h-10 w-full items-center justify-center whitespace-nowrap rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground ring-offset-background transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+            >
+              {{ authStore.loading ? '처리 중...' : '회원가입' }}
+            </button>
+          </form>
+        </div>
 
-.field-error {
-  color: #c0392b;
-  font-size: 0.8rem;
-  margin-top: 0.2rem;
-}
-
-.error-msg {
-  color: #c0392b;
-  font-size: 0.875rem;
-  margin-bottom: 0.75rem;
-  background: #fde8e8;
-  border-radius: 4px;
-  padding: 0.5rem 0.75rem;
-}
-
-.btn-primary {
-  width: 100%;
-  padding: 0.6rem;
-  background: #4a90e2;
-  color: #fff;
-  border: none;
-  border-radius: 4px;
-  font-size: 1rem;
-  cursor: pointer;
-}
-
-.btn-primary:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.link-row {
-  margin-top: 1rem;
-  font-size: 0.9rem;
-  color: #555;
-}
-
-.link-row a {
-  color: #4a90e2;
-  text-decoration: none;
-}
-
-.link-row a:hover {
-  text-decoration: underline;
-}
-</style>
+        <div class="flex items-center p-6 pt-0">
+          <p class="text-sm text-muted-foreground">
+            이미 계정이 있으신가요?
+            <RouterLink to="/login" class="font-medium text-primary underline-offset-4 hover:underline">
+              &larr; 로그인
+            </RouterLink>
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
