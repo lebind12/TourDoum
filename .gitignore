@@ -1,0 +1,47 @@
+# --- worktrees & harness artifacts ---
+.worktrees/
+.codex-*.log
+
+# --- secrets ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*_rsa
+*_ed25519
+
+# --- OS / editor ---
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*~
+
+# --- Java / Gradle ---
+build/
+.gradle/
+out/
+*.class
+
+# --- Python ---
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# --- Node ---
+node_modules/
+dist/
+.next/
+.cache/
+coverage/
+
+# --- Docker ---
+*.log

@@ -1,0 +1,76 @@
+name: ci
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+
+jobs:
+  detect:
+    runs-on: ubuntu-latest
+    outputs:
+      java: ${{ steps.f.outputs.java }}
+      python: ${{ steps.f.outputs.python }}
+      node: ${{ steps.f.outputs.node }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: f
+        run: |
+          test -f build.gradle    -o -f build.gradle.kts && echo "java=true"   >> $GITHUB_OUTPUT || true
+          test -f pyproject.toml  && echo "python=true" >> $GITHUB_OUTPUT || true
+          test -f package.json    && echo "node=true"   >> $GITHUB_OUTPUT || true
+
+  java:
+    needs: detect
+    if: needs.detect.outputs.java == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '17', cache: gradle }
+      - run: ./gradlew spotlessCheck test jacocoTestCoverageVerification build
+
+  python:
+    needs: detect
+    if: needs.detect.outputs.python == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12', cache: pip }
+      - run: pip install -e ".[dev]" || pip install -r requirements-dev.txt
+      - run: ruff check .
+      - run: black --check .
+      - run: pytest --cov --cov-fail-under=60
+
+  node:
+    needs: detect
+    if: needs.detect.outputs.node == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20', cache: npm }
+      - run: npm ci
+      - run: npm run -s lint
+      - run: npm test
+      - run: npm run -s build
+
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: gitleaks/gitleaks-action@v2
+        env: { GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }} }
+      - name: Trivy fs scan
+        uses: aquasecurity/trivy-action@0.24.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          severity: CRITICAL,HIGH
+          exit-code: '1'
+          ignore-unfixed: true
+      - name: Semgrep
+        uses: returntocorp/semgrep-action@v1
+        with:
+          config: p/owasp-top-ten p/ci p/secrets
