@@ -108,6 +108,7 @@ cd .. && .harness/scripts/wt-new.sh 20-spec-tourdoum be feat-bootstrap
 - **ADR-0004(2026-05-06 Accepted)으로 Flyway+validate 전환됨.** `ddl-auto=update`는 폐기, Flyway(`db/migration/V1__init.sql` baseline)가 스키마를 관리한다.
 - 동일 이유로 `application-dev.yml`도 삭제. 환경별 차이가 다시 필요해지는 시점에 재도입.
 - Redis 호스트 포트는 `tourdoum-redis` 컨테이너에서 **6380:6379**로 매핑(다른 프로젝트 redis와 충돌 회피). 앱 측 default도 `6380`으로 동기화.
+- **ADR-0007(2026-05-07 Accepted)으로 ORM 결정 근거 박제됨.** JPA(Hibernate)+QueryDSL 채택의 명시적 비교표·근거 7개 항목 기록. 공간/집계 native+projection 패턴화 및 N+1 방지 가이드라인 후속 반영.
 
 ## 미해결 / 후속
 
