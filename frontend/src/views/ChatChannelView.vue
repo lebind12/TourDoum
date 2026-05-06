@@ -1,71 +1,9 @@
-<template>
-  <main class="h-screen flex flex-col bg-slate-50">
-    <!-- 헤더 -->
-    <div class="bg-white border-b border-slate-200 px-4 py-3 flex items-center gap-3">
-      <RouterLink to="/chat" class="text-slate-400 hover:text-slate-600 transition-colors">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
-        </svg>
-      </RouterLink>
-      <div class="w-8 h-8 rounded-full bg-sky-100 flex items-center justify-center">
-        <span class="text-sky-600 font-bold text-sm">#</span>
-      </div>
-      <div>
-        <h1 class="font-semibold text-slate-900">{{ chatStore.activeChannel?.name ?? '' }}</h1>
-        <p class="text-xs text-slate-500">{{ chatStore.activeChannel?.memberCount.toLocaleString() }}명 참여중</p>
-      </div>
-    </div>
-
-    <!-- 채널 없음 -->
-    <div v-if="!chatStore.activeChannel" class="flex-1 flex items-center justify-center">
-      <p class="text-slate-400">채널을 찾을 수 없습니다.</p>
-    </div>
-
-    <template v-else>
-      <!-- 메시지 목록 -->
-      <div ref="messagesEl" class="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-3">
-        <div
-          v-for="msg in chatStore.activeMessages"
-          :key="msg.id"
-          class="flex items-start gap-3"
-        >
-          <div class="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center shrink-0 mt-0.5">
-            <span class="text-slate-600 text-xs font-medium">{{ msg.authorName[0] }}</span>
-          </div>
-          <div>
-            <div class="flex items-baseline gap-2">
-              <span class="text-sm font-medium text-slate-900">{{ msg.authorName }}</span>
-              <span class="text-xs text-slate-400">{{ formatTime(msg.createdAt) }}</span>
-            </div>
-            <p class="text-sm text-slate-700 mt-0.5">{{ msg.content }}</p>
-          </div>
-        </div>
-      </div>
-
-      <!-- 메시지 입력 -->
-      <div class="bg-white border-t border-slate-200 px-4 py-3">
-        <form class="flex gap-2" @submit.prevent="handleSend">
-          <input
-            v-model="inputText"
-            type="text"
-            :placeholder="`#${chatStore.activeChannel.name} 채널에 메시지 보내기`"
-            class="flex-1 px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500 text-sm"
-          />
-          <button
-            type="submit"
-            :disabled="!inputText.trim()"
-            class="bg-sky-500 text-white px-4 py-2 rounded-lg font-medium hover:bg-sky-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors text-sm"
-          >
-            전송
-          </button>
-        </form>
-      </div>
-    </template>
-  </main>
-</template>
-
 <script setup lang="ts">
+import { Avatar } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useChatStore } from "@/stores/chat";
+import { ChevronLeft, Send } from "lucide-vue-next";
 import { nextTick, onMounted, ref, watch } from "vue";
 import { RouterLink, useRoute } from "vue-router";
 
@@ -109,3 +47,67 @@ onMounted(() => {
 	nextTick(scrollToBottom);
 });
 </script>
+
+<template>
+  <div class="h-[calc(100vh-4rem)] flex flex-col -mx-4 sm:-mx-6 lg:-mx-8">
+    <!-- 헤더 -->
+    <header class="bg-background border-b border-border px-4 py-3 flex items-center gap-3 shrink-0">
+      <RouterLink to="/chat" aria-label="채팅 목록으로 돌아가기">
+        <Button variant="ghost" size="icon" class="shrink-0">
+          <ChevronLeft class="w-5 h-5" />
+        </Button>
+      </RouterLink>
+      <Avatar name="#" variant="sky" size="sm" />
+      <div>
+        <h1 class="font-semibold text-sm">{{ chatStore.activeChannel?.name ?? '' }}</h1>
+        <p class="text-xs text-muted-foreground">{{ chatStore.activeChannel?.memberCount.toLocaleString() }}명 참여중</p>
+      </div>
+    </header>
+
+    <!-- 채널 없음 -->
+    <div v-if="!chatStore.activeChannel" class="flex-1 flex items-center justify-center">
+      <p class="text-muted-foreground">채널을 찾을 수 없습니다.</p>
+    </div>
+
+    <template v-else>
+      <!-- 메시지 목록 -->
+      <div ref="messagesEl" class="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-4 bg-muted/20">
+        <div
+          v-for="msg in chatStore.activeMessages"
+          :key="msg.id"
+          class="flex items-start gap-3"
+        >
+          <Avatar :name="msg.authorName" variant="slate" size="sm" class="mt-0.5" />
+          <div>
+            <div class="flex items-baseline gap-2">
+              <span class="text-sm font-medium">{{ msg.authorName }}</span>
+              <span class="text-xs text-muted-foreground">{{ formatTime(msg.createdAt) }}</span>
+            </div>
+            <p class="text-sm text-foreground mt-0.5 leading-relaxed">{{ msg.content }}</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- 메시지 입력 -->
+      <div class="bg-background border-t border-border px-4 py-3 shrink-0">
+        <form class="flex gap-2" @submit.prevent="handleSend">
+          <Input
+            v-model="inputText"
+            type="text"
+            :placeholder="`#${chatStore.activeChannel.name} 채널에 메시지 보내기`"
+            class="flex-1"
+            aria-label="메시지 입력"
+          />
+          <Button
+            type="submit"
+            size="icon"
+            :disabled="!inputText.trim()"
+            aria-label="메시지 전송"
+          >
+            <Send class="w-4 h-4" />
+          </Button>
+        </form>
+      </div>
+    </template>
+  </div>
+</template>
