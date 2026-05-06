@@ -105,6 +105,7 @@ cd .. && .harness/scripts/wt-new.sh 20-spec-tourdoum be feat-bootstrap
 ## 운영 메모 (2026-05-06 업데이트)
 
 - 부트스트랩에서 도입한 dev 프로파일 분리(default=validate / dev=update)는 **학습 단계엔 과설계**로 판단되어 일시 폐기. 현재 `application.yml` 단일에 `ddl-auto=update`. ADR-0004(DB 마이그레이션 — Flyway/Liquibase) 도입 시점에 `validate`로 다시 전환하고 마이그레이션 도구가 스키마를 관리한다.
+- **ADR-0004(2026-05-06 Accepted)으로 Flyway+validate 전환됨.** `ddl-auto=update`는 폐기, Flyway(`db/migration/V1__init.sql` baseline)가 스키마를 관리한다.
 - 동일 이유로 `application-dev.yml`도 삭제. 환경별 차이가 다시 필요해지는 시점에 재도입.
 - Redis 호스트 포트는 `tourdoum-redis` 컨테이너에서 **6380:6379**로 매핑(다른 프로젝트 redis와 충돌 회피). 앱 측 default도 `6380`으로 동기화.
 

@@ -13,6 +13,11 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.H2Dialect
 
+  # Flyway 비활성 (ADR-0004): 슬라이스/스모크 테스트는 H2 + ddl-auto=create-drop로 스키마 관리.
+  # MySQL 전용 DDL(V1__init.sql)이 H2와 충돌하는 것을 방지한다.
+  flyway:
+    enabled: false
+
   data:
     redis:
       host: localhost
