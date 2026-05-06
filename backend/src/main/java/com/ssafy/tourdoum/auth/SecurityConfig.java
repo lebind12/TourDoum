@@ -2,7 +2,9 @@ package com.ssafy.tourdoum.auth;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletResponse;
+import java.util.List;
 import java.util.Map;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpStatus;
@@ -10,6 +12,7 @@ import org.springframework.http.MediaType;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.ProviderManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -18,6 +21,9 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 /**
  * Spring Security 6.x 설정. ADR-0003: 폼 로그인(JSON body) + Redis 세션 + BCrypt 비번 해시. CSRF: dev 비활성
@@ -30,9 +36,30 @@ public class SecurityConfig {
   private final MemberDetailsService memberDetailsService;
   private final ObjectMapper objectMapper;
 
+  /**
+   * 허용 origin 목록. 쉼표 구분. dev 기본값은 Vite dev 서버(5173) + Playwright 전용(5174). 운영 환경에선 배포 URL을 명시 주입.
+   */
+  @Value("${tourdoum.cors.allowed-origins:http://localhost:5173,http://localhost:5174}")
+  private List<String> allowedOrigins;
+
   public SecurityConfig(MemberDetailsService memberDetailsService, ObjectMapper objectMapper) {
     this.memberDetailsService = memberDetailsService;
     this.objectMapper = objectMapper;
+  }
+
+  @Bean
+  public CorsConfigurationSource corsConfigurationSource() {
+    CorsConfiguration cfg = new CorsConfiguration();
+    cfg.setAllowedOrigins(allowedOrigins);
+    cfg.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+    cfg.setAllowedHeaders(List.of("*"));
+    cfg.setExposedHeaders(List.of("Set-Cookie"));
+    cfg.setAllowCredentials(true); // 세션 쿠키 송수신 허용
+    cfg.setMaxAge(3600L); // preflight 캐시 1시간
+
+    UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+    source.registerCorsConfiguration("/**", cfg);
+    return source;
   }
 
   @Bean
@@ -79,6 +106,9 @@ public class SecurityConfig {
   @Bean
   public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
     http
+        // CORS: 별도 빈으로 설정 주입 (Spring Security가 우선 처리)
+        .cors(Customizer.withDefaults())
+
         // CSRF: dev 비활성 (TODO: prod에서 SameSite=Lax로 완화 후 활성화 검토)
         .csrf(AbstractHttpConfigurer::disable)
 
