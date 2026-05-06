@@ -1,7 +1,12 @@
-# 테스트 전용 설정 — 단위/슬라이스 테스트에서 사용
+# 테스트 전용 설정 — 단위/슬라이스/스모크 테스트에서 사용
 spring:
+  datasource:
+    # @SpringBootTest 컨텍스트 스모크는 H2 인메모리로 실행 (Docker 의존 X)
+    url: jdbc:h2:mem:tourdoum_test;MODE=MYSQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
   jpa:
-    # H2 인메모리 DB 사용 시 방언 자동 감지
     hibernate:
       ddl-auto: create-drop
     properties:
@@ -14,4 +19,4 @@ spring:
       port: 6379
 
   session:
-    store-type: none  # 슬라이스 테스트에서 Redis 불필요
+    store-type: none  # 슬라이스/스모크 테스트에서 Redis 불필요
