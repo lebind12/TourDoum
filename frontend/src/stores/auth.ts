@@ -73,7 +73,9 @@ export const useAuthStore = defineStore("auth", () => {
 			return false;
 		}
 
-		// 로그인 성공 후 /api/me 로 사용자 정보를 채운다
+		// BE 응답 계약 (확정): POST /api/auth/login 200
+		// {"id": number, "email": string, "nickname": string, "role": "ROLE_USER"}
+		// 응답 본문이 있으면 직접 세팅, 204 No Content 등 빈 응답이면 /api/me 로 폴백.
 		if (result.data) {
 			currentUser.value = result.data;
 		} else {
