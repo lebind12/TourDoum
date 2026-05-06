@@ -119,6 +119,7 @@ public class SecurityConfig {
                         "/api/auth/**",
                         "/api/health",
                         "/api/members/signup",
+                        "/api/attractions/**",
                         "/actuator/**",
                         "/actuator/health")
                     .permitAll()
