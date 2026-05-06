@@ -62,3 +62,15 @@ cd frontend && npm run dev
 | FE: API 호출 실패 | `frontend/.env`의 `VITE_API_BASE_URL=http://localhost:8080` 확인. CORS 문제면 BE에 CORS 설정 추가 필요(추후 ADR). |
 | DevTools가 재시작 안 함 | `target/classes`를 다시 만들지 않은 것. IDE auto-make 켜졌는지, 또는 `./mvnw compile`을 안 돌렸는지. |
 | 포트 8080 사용 중 | 다른 프로세스가 점유. `lsof -i :8080`로 확인 후 종료. |
+
+## 포트 매핑 정리
+
+| 포트 | 용도 | 비고 |
+|---|---|---|
+| 8080 | BE Spring Boot | `application.yml` `server.port` |
+| 5173 | FE 개발 서버 (`npm run dev`) | Vite 기본 |
+| 5174 | FE Playwright e2e 전용 | `playwright.config.ts`에서 자동 부팅, 5173과 격리 |
+| 3306 | MySQL | docker-compose |
+| 6380 | Redis | docker-compose (호스트만 6380, 컨테이너 내부 6379) |
+| 8081 | Jenkins | docker-compose, 운영 학습용 |
+| 4173 | (예약) `vite preview` | 프로덕션 빌드 미리보기. 현재 미사용 |
