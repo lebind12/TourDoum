@@ -12,8 +12,9 @@ spring:
     driver-class-name: com.mysql.cj.jdbc.Driver
 
   jpa:
+    # ddl-auto=update: 학습 단계 단일 설정. ADR-0004(Flyway 도입) 시점에 validate로 전환 + 마이그레이션 도구가 스키마 관리.
     hibernate:
-      ddl-auto: validate
+      ddl-auto: update
     show-sql: false
     properties:
       hibernate:
@@ -23,7 +24,9 @@ spring:
   data:
     redis:
       host: ${REDIS_HOST:localhost}
-      port: ${REDIS_PORT:6379}
+      # docker-compose host 매핑이 6380:6379 (다른 프로젝트의 redis와 호스트 포트 충돌 회피).
+      # 환경변수로 오버라이드 가능. .env 파일은 Spring Boot가 자동 로드하지 않음 — shell env 또는 IDE run config에서 주입.
+      port: ${REDIS_PORT:6380}
 
   session:
     store-type: redis
