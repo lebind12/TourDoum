@@ -7,13 +7,14 @@ import { createRouter, createWebHistory } from "vue-router";
 import LoginView from "../LoginView.vue";
 
 // MSW 서버 설정 — /api/auth/login 엔드포인트를 모킹
+// BE 응답 계약 (확정): {"id", "email", "nickname", "role": "ROLE_USER"}
 const server = setupServer(
 	http.post("http://localhost:8080/api/auth/login", () => {
 		return HttpResponse.json({
 			id: 1,
 			email: "test@example.com",
 			nickname: "테스터",
-			role: "USER",
+			role: "ROLE_USER",
 		});
 	}),
 );
