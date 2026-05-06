@@ -9,6 +9,9 @@
 /self-review.md
 /handoff.md
 
+# Codex review 산출물 (.harness/scripts/codex-review.sh)
+/review-*.md
+
 # --- secrets ---
 .env
 .env.*
