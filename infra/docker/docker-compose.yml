@@ -3,6 +3,8 @@ services:
     image: mysql:8.4
     container_name: tourdoum-mysql
     restart: unless-stopped
+    networks:
+      - tourdoum-net
     environment:
       MYSQL_DATABASE: tourdoum
       MYSQL_USER: tourdoum
@@ -27,6 +29,8 @@ services:
     image: redis:7.4-alpine
     container_name: tourdoum-redis
     restart: unless-stopped
+    networks:
+      - tourdoum-net
     ports:
       - "6379:6379"
     volumes:
@@ -42,6 +46,8 @@ services:
     container_name: tourdoum-jenkins
     restart: unless-stopped
     user: root
+    networks:
+      - tourdoum-net
     ports:
       - "8081:8080"
       - "50000:50000"
@@ -55,3 +61,7 @@ volumes:
   mysql_data:
   redis_data:
   jenkins_home:
+
+networks:
+  tourdoum-net:
+    name: tourdoum-net
