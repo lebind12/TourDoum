@@ -12,14 +12,21 @@ spring:
     driver-class-name: com.mysql.cj.jdbc.Driver
 
   jpa:
-    # ddl-auto=update: 학습 단계 단일 설정. ADR-0004(Flyway 도입) 시점에 validate로 전환 + 마이그레이션 도구가 스키마 관리.
+    # ADR-0004(2026-05-06 Accepted): Flyway가 스키마를 관리하므로 ddl-auto=validate로 전환.
+    # 참고: docs/adr/0004-db-migration.md
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
     show-sql: false
     properties:
       hibernate:
         format_sql: true
         dialect: org.hibernate.dialect.MySQL8Dialect
+
+  # Flyway 마이그레이션 설정 (ADR-0004)
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    locations: classpath:db/migration
 
   data:
     redis:
