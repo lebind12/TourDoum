@@ -3,6 +3,7 @@ package com.ssafy.tourdoum.global;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;
@@ -16,8 +17,16 @@ import org.springframework.session.data.redis.config.annotation.web.http.EnableR
  *
  * <p>Spring Security 객체(Authentication, DefaultSavedRequest 등)는 default constructor가 없어 Jackson이
  * 역직렬화하지 못한다. {@link SecurityJackson2Modules}가 제공하는 mixin들을 ObjectMapper에 등록해 해결.
+ *
+ * <p>ADR-0005: {@code spring.session.store-type=redis} 일 때만 이 설정을 로드한다 (matchIfMissing=true). 테스트
+ * 컨텍스트에서 store-type=none 설정 시 @EnableRedisIndexedHttpSession 이 Redis 연결을 시도하지 않도록 방어한다. store-type
+ * 프로퍼티가 없으면 기존 동작(Redis 세션 활성화)을 유지한다.
  */
 @Configuration
+@ConditionalOnProperty(
+    name = "spring.session.store-type",
+    havingValue = "redis",
+    matchIfMissing = true)
 @EnableRedisIndexedHttpSession(maxInactiveIntervalInSeconds = 1800) // 30분 idle
 public class RedisSessionConfig {
 
