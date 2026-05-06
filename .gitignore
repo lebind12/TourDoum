@@ -19,11 +19,14 @@ Thumbs.db
 *.swp
 *~
 
-# --- Java / Gradle ---
+# --- Java / Maven / Gradle ---
 build/
 .gradle/
 out/
 *.class
+target/
+.mvn/wrapper/maven-wrapper.jar
+HELP.md
 
 # --- Python ---
 __pycache__/
