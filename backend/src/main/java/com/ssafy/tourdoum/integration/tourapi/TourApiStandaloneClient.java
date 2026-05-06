@@ -15,8 +15,8 @@ import org.slf4j.LoggerFactory;
 /**
  * TourAPI 4.0 독립 HTTP 클라이언트 (java.net.http.HttpClient 기반).
  *
- * <p>Spring 컨텍스트 없이 {@link TourApiSqlGeneratorMain}에서 직접 사용.
- * serviceKey는 URL 파라미터로만 전달하며, 로그·출력에 노출 금지.
+ * <p>Spring 컨텍스트 없이 {@link TourApiSqlGeneratorMain}에서 직접 사용. serviceKey는 URL 파라미터로만 전달하며, 로그·출력에 노출
+ * 금지.
  */
 public class TourApiStandaloneClient {
 
@@ -29,11 +29,9 @@ public class TourApiStandaloneClient {
 
   public TourApiStandaloneClient(TourApiProperties props, ObjectMapper objectMapper) {
     this.props = props;
-    this.objectMapper = objectMapper.copy()
-        .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
-    this.httpClient = HttpClient.newBuilder()
-        .connectTimeout(Duration.ofSeconds(10))
-        .build();
+    this.objectMapper =
+        objectMapper.copy().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+    this.httpClient = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
   }
 
   /** 지역 + contentTypeId 전체 페이지 수집. */
@@ -44,11 +42,20 @@ public class TourApiStandaloneClient {
     if (firstResp == null
         || firstResp.response() == null
         || !SUCCESS_CODE.equals(firstResp.response().header().resultCode())) {
-      String code = (firstResp != null && firstResp.response() != null)
-          ? firstResp.response().header().resultCode() : "null";
-      String msg = (firstResp != null && firstResp.response() != null)
-          ? firstResp.response().header().resultMsg() : "응답없음";
-      log.warn("TourAPI 오류: resultCode={} msg={} areaCode={} contentTypeId={}", code, msg, areaCode, contentTypeId);
+      String code =
+          (firstResp != null && firstResp.response() != null)
+              ? firstResp.response().header().resultCode()
+              : "null";
+      String msg =
+          (firstResp != null && firstResp.response() != null)
+              ? firstResp.response().header().resultMsg()
+              : "응답없음";
+      log.warn(
+          "TourAPI 오류: resultCode={} msg={} areaCode={} contentTypeId={}",
+          code,
+          msg,
+          areaCode,
+          contentTypeId);
       return List.of();
     }
 
@@ -66,14 +73,20 @@ public class TourApiStandaloneClient {
     for (int page = 2; page <= totalPages; page++) {
       try {
         TourApiResponse resp = fetchPage(areaCode, contentTypeId, page);
-        if (resp != null && resp.response() != null
+        if (resp != null
+            && resp.response() != null
             && SUCCESS_CODE.equals(resp.response().header().resultCode())
             && resp.response().body() != null
             && resp.response().body().items() != null) {
           result.addAll(resp.response().body().items().itemSafe());
         }
       } catch (Exception e) {
-        log.warn("페이지 {} 스킵 areaCode={} contentTypeId={}: {}", page, areaCode, contentTypeId, e.getMessage());
+        log.warn(
+            "페이지 {} 스킵 areaCode={} contentTypeId={}: {}",
+            page,
+            areaCode,
+            contentTypeId,
+            e.getMessage());
       }
     }
 
@@ -81,22 +94,26 @@ public class TourApiStandaloneClient {
   }
 
   private TourApiResponse fetchPage(int areaCode, int contentTypeId, int pageNo) throws Exception {
-    String url = props.baseUrl()
-        + "/areaBasedList2"
-        + "?serviceKey=" + props.serviceKey()
-        + "&MobileOS=ETC"
-        + "&MobileApp=" + props.mobileApp()
-        + "&_type=json"
-        + "&numOfRows=" + props.pageSize()
-        + "&pageNo=" + pageNo
-        + "&areaCode=" + areaCode
-        + "&contentTypeId=" + contentTypeId;
+    String url =
+        props.baseUrl()
+            + "/areaBasedList2"
+            + "?serviceKey="
+            + props.serviceKey()
+            + "&MobileOS=ETC"
+            + "&MobileApp="
+            + props.mobileApp()
+            + "&_type=json"
+            + "&numOfRows="
+            + props.pageSize()
+            + "&pageNo="
+            + pageNo
+            + "&areaCode="
+            + areaCode
+            + "&contentTypeId="
+            + contentTypeId;
 
-    HttpRequest request = HttpRequest.newBuilder()
-        .uri(URI.create(url))
-        .timeout(Duration.ofSeconds(30))
-        .GET()
-        .build();
+    HttpRequest request =
+        HttpRequest.newBuilder().uri(URI.create(url)).timeout(Duration.ofSeconds(30)).GET().build();
 
     HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
     String body = response.body();

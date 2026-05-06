@@ -16,12 +16,12 @@ import org.slf4j.LoggerFactory;
 /**
  * TourAPI → V4 SQL 생성기 (독립 main 클래스).
  *
- * <p>Spring Boot 컨텍스트를 기동하지 않는다 — DB 연결 / Flyway 불필요.
- * 결과 INSERT 문은 stdout으로 출력. 스크립트가 파일로 리다이렉트한다.
+ * <p>Spring Boot 컨텍스트를 기동하지 않는다 — DB 연결 / Flyway 불필요. 결과 INSERT 문은 stdout으로 출력. 스크립트가 파일로 리다이렉트한다.
  *
  * <p>ADR-0005: TOUR_API_KEY는 환경변수로만 주입. 출력 SQL에 키 미포함.
  *
  * <p>사용 예:
+ *
  * <pre>
  *   TOUR_API_KEY=... scripts/etl-tour-api.sh
  *   # 또는
@@ -123,8 +123,7 @@ public class TourApiSqlGeneratorMain {
   /**
    * SqlInsertRow → SQL INSERT 문 생성.
    *
-   * <p>H2 호환을 위해 INSERT IGNORE / ON DUPLICATE KEY 미사용.
-   * 중복 제거는 SQL Generator 레벨 (ADR-0005).
+   * <p>H2 호환을 위해 INSERT IGNORE / ON DUPLICATE KEY 미사용. 중복 제거는 SQL Generator 레벨 (ADR-0005).
    */
   static String toInsertSql(SqlInsertRow row) {
     String nameSql = sqlStr(row.name());

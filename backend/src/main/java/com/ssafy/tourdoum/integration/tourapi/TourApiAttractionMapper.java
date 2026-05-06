@@ -8,11 +8,8 @@ import org.springframework.stereotype.Component;
 /**
  * TourAPI DTO → SQL INSERT 행 변환기.
  *
- * <p>ADR-0005:
- * - mapx/mapy 가 비어있거나 0.0이면 스킵 (null 반환).
- * - title 이 null/blank면 스킵.
- * - areaCode → 한국어 지역명 매핑 (17개 광역 단위).
- * - contentTypeId → AttractionCategory 매핑 (12→OTHER, 14→HISTORY, 28→ACTIVITY).
+ * <p>ADR-0005: - mapx/mapy 가 비어있거나 0.0이면 스킵 (null 반환). - title 이 null/blank면 스킵. - areaCode → 한국어
+ * 지역명 매핑 (17개 광역 단위). - contentTypeId → AttractionCategory 매핑 (12→OTHER, 14→HISTORY, 28→ACTIVITY).
  */
 @Component
 public class TourApiAttractionMapper {
@@ -63,7 +60,8 @@ public class TourApiAttractionMapper {
     double lng = parseCoord(item.mapx());
     double lat = parseCoord(item.mapy());
     if (lng == 0.0 || lat == 0.0) {
-      log.debug("스킵: 좌표 없음 contentId={} mapx={} mapy={}", item.contentId(), item.mapx(), item.mapy());
+      log.debug(
+          "스킵: 좌표 없음 contentId={} mapx={} mapy={}", item.contentId(), item.mapx(), item.mapy());
       return null;
     }
 
@@ -72,8 +70,10 @@ public class TourApiAttractionMapper {
 
     String name = sanitize(item.title());
     String address = buildAddress(item.addr1(), item.addr2());
-    String imageUrl = (item.firstImage() != null && !item.firstImage().isBlank())
-        ? sanitize(item.firstImage()) : null;
+    String imageUrl =
+        (item.firstImage() != null && !item.firstImage().isBlank())
+            ? sanitize(item.firstImage())
+            : null;
     String tourApiId = sanitize(item.contentId());
 
     return new SqlInsertRow(name, region, category, address, lat, lng, imageUrl, tourApiId);

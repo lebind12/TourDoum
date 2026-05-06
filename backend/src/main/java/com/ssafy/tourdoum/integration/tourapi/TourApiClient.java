@@ -10,8 +10,8 @@ import org.springframework.web.util.UriComponentsBuilder;
 /**
  * 한국관광공사 TourAPI 4.0 (KorService2) HTTP 클라이언트.
  *
- * <p>ADR-0005: Spring RestClient 사용 (spring-boot-starter-web 내장, 추가 의존성 불필요).
- * serviceKey는 URL 파라미터로 전달하되 로그에 절대 출력하지 않는다.
+ * <p>ADR-0005: Spring RestClient 사용 (spring-boot-starter-web 내장, 추가 의존성 불필요). serviceKey는 URL 파라미터로
+ * 전달하되 로그에 절대 출력하지 않는다.
  */
 @Component
 public class TourApiClient {
@@ -52,11 +52,14 @@ public class TourApiClient {
             .toUriString();
 
     try {
-      TourApiResponse response =
-          restClient.get().uri(uri).retrieve().body(TourApiResponse.class);
+      TourApiResponse response = restClient.get().uri(uri).retrieve().body(TourApiResponse.class);
 
       if (response == null || response.response() == null) {
-        log.warn("TourAPI: null 응답 areaCode={} contentTypeId={} page={}", areaCode, contentTypeId, pageNo);
+        log.warn(
+            "TourAPI: null 응답 areaCode={} contentTypeId={} page={}",
+            areaCode,
+            contentTypeId,
+            pageNo);
         return List.of();
       }
 
@@ -114,16 +117,23 @@ public class TourApiClient {
     try {
       firstResponse = restClient.get().uri(firstUri).retrieve().body(TourApiResponse.class);
     } catch (Exception e) {
-      log.warn("TourAPI: 첫 페이지 조회 실패 areaCode={} contentTypeId={} — {}", areaCode, contentTypeId, e.getMessage());
+      log.warn(
+          "TourAPI: 첫 페이지 조회 실패 areaCode={} contentTypeId={} — {}",
+          areaCode,
+          contentTypeId,
+          e.getMessage());
       return List.of();
     }
 
     if (firstResponse == null
         || firstResponse.response() == null
         || !SUCCESS_CODE.equals(firstResponse.response().header().resultCode())) {
-      String code = firstResponse != null && firstResponse.response() != null
-          ? firstResponse.response().header().resultCode() : "null";
-      log.warn("TourAPI: resultCode={} areaCode={} contentTypeId={}", code, areaCode, contentTypeId);
+      String code =
+          firstResponse != null && firstResponse.response() != null
+              ? firstResponse.response().header().resultCode()
+              : "null";
+      log.warn(
+          "TourAPI: resultCode={} areaCode={} contentTypeId={}", code, areaCode, contentTypeId);
       return List.of();
     }
 

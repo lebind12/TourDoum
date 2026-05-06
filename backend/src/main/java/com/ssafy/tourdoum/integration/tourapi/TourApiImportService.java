@@ -12,8 +12,7 @@ import org.springframework.stereotype.Service;
 /**
  * TourAPI 수집 서비스.
  *
- * <p>모든 지역 + contentTypeId 조합을 순회해 SqlInsertRow 목록을 반환한다.
- * 중복 tour_api_id는 Set으로 제거.
+ * <p>모든 지역 + contentTypeId 조합을 순회해 SqlInsertRow 목록을 반환한다. 중복 tour_api_id는 Set으로 제거.
  */
 @Service
 public class TourApiImportService {

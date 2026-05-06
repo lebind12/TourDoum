@@ -10,18 +10,14 @@ import java.util.List;
  * <p>구조: response.body.items.item[].
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
-public record TourApiResponse(
-    @JsonProperty("response") Response response) {
+public record TourApiResponse(@JsonProperty("response") Response response) {
 
   @JsonIgnoreProperties(ignoreUnknown = true)
-  public record Response(
-      @JsonProperty("header") Header header,
-      @JsonProperty("body") Body body) {}
+  public record Response(@JsonProperty("header") Header header, @JsonProperty("body") Body body) {}
 
   @JsonIgnoreProperties(ignoreUnknown = true)
   public record Header(
-      @JsonProperty("resultCode") String resultCode,
-      @JsonProperty("resultMsg") String resultMsg) {}
+      @JsonProperty("resultCode") String resultCode, @JsonProperty("resultMsg") String resultMsg) {}
 
   @JsonIgnoreProperties(ignoreUnknown = true)
   public record Body(
