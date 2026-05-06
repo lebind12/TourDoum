@@ -50,3 +50,14 @@ management:
   endpoint:
     health:
       show-details: when-authorized
+
+# ADR-0005: 한국관광공사 TourAPI 4.0 (KorService2) 설정
+# serviceKey는 TOUR_API_KEY 환경변수로 주입. 코드·로그·Git에 키 값 노출 금지.
+# ETL 실행: scripts/etl-tour-api.sh (Spring 컨텍스트 미기동, DB 연결 불필요)
+tourapi:
+  base-url: https://apis.data.go.kr/B551011/KorService2
+  service-key: ${TOUR_API_KEY:}
+  mobile-app: tourdoum
+  page-size: 100
+  area-codes: [1, 2, 3, 4, 5, 6, 7, 8, 31, 32, 33, 34, 35, 36, 37, 38, 39]
+  content-type-ids: [12, 14, 28]
