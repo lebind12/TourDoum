@@ -11,7 +11,8 @@
 # 터미널 1 — 백엔드 (hot reload)
 # 프로젝트 루트에 .java-version=21이 박제돼 있어 jenv가 자동으로 JDK 21로 전환한다.
 # (jenv 미사용자: export JAVA_HOME=$(/usr/libexec/java_home -v 21) 한 번 실행)
-cd backend && ./mvnw spring-boot:run -Dspring-boot.run.profiles=dev
+# 프로파일은 환경변수로 — -Dspring-boot.run.profiles 인자가 일부 환경에서 안 먹는 케이스가 있어 env가 더 안전.
+cd backend && SPRING_PROFILES_ACTIVE=dev ./mvnw spring-boot:run
 
 # 터미널 2 — 프론트엔드 (HMR)
 cd frontend && npm run dev
@@ -64,6 +65,7 @@ cd frontend && npm run dev
 | FE: API 호출 실패 | `frontend/.env`의 `VITE_API_BASE_URL=http://localhost:8080` 확인. CORS 문제면 BE에 CORS 설정 추가 필요(추후 ADR). |
 | DevTools가 재시작 안 함 | `target/classes`를 다시 만들지 않은 것. IDE auto-make 켜졌는지, 또는 `./mvnw compile`을 안 돌렸는지. |
 | `release version 21 not supported` | 셸의 java가 17 등이라 그렇다. 본 프로젝트는 jenv `.java-version=21`을 박제했으나 jenv 미사용자는 수동으로 `JAVA_HOME=$(/usr/libexec/java_home -v 21)` 지정 필요. 또는 `brew install jenv` 후 `eval "$(jenv init -)"` 셸 rc에 추가. |
+| `Schema-validation: missing table [members]` 등 | dev 프로파일이 활성되지 않아 `ddl-auto=validate`로 부팅된 상태. **`SPRING_PROFILES_ACTIVE=dev ./mvnw spring-boot:run`**로 다시 실행하면 `application-dev.yml`의 `ddl-auto=update`가 적용돼 테이블이 자동 생성된다. 부팅 로그에 `The following 1 profile is active: "dev"` 한 줄이 떠야 정상. |
 | 포트 8080 사용 중 | 다른 프로세스가 점유. `lsof -i :8080`로 확인 후 종료. |
 
 ## 포트 매핑 정리
