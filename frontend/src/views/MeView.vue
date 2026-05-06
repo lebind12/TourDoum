@@ -1,97 +1,61 @@
-<template>
-  <section class="me-page">
-    <h2>내 정보</h2>
-
-    <div v-if="authStore.loading" class="loading">불러오는 중...</div>
-
-    <div v-else-if="authStore.currentUser" class="user-card">
-      <dl class="info-list">
-        <div class="info-row">
-          <dt>ID</dt>
-          <dd>{{ authStore.currentUser.id }}</dd>
-        </div>
-        <div class="info-row">
-          <dt>이메일</dt>
-          <dd>{{ authStore.currentUser.email }}</dd>
-        </div>
-        <div class="info-row">
-          <dt>닉네임</dt>
-          <dd>{{ authStore.currentUser.nickname }}</dd>
-        </div>
-        <div class="info-row">
-          <dt>역할</dt>
-          <dd>{{ authStore.currentUser.role }}</dd>
-        </div>
-        <div v-if="authStore.currentUser.createdAt" class="info-row">
-          <dt>가입일</dt>
-          <dd>{{ authStore.currentUser.createdAt }}</dd>
-        </div>
-      </dl>
-    </div>
-
-    <div v-else class="error-msg" role="alert" aria-live="polite">
-      사용자 정보를 불러올 수 없습니다.
-    </div>
-  </section>
-</template>
-
 <script setup lang="ts">
 import { useAuthStore } from "@/stores/auth";
 
 const authStore = useAuthStore();
 </script>
 
-<style scoped>
-.me-page {
-  max-width: 480px;
-  margin: 2rem auto;
-  padding: 0 1rem;
-}
+<template>
+  <div class="mx-auto max-w-lg space-y-6">
+    <div>
+      <h2 class="text-2xl font-semibold tracking-tight">내 정보</h2>
+      <p class="text-sm text-muted-foreground mt-1">계정 정보를 확인합니다.</p>
+    </div>
 
-.me-page h2 {
-  margin-bottom: 1.5rem;
-}
+    <!-- 로딩 -->
+    <div v-if="authStore.loading" class="text-sm text-muted-foreground animate-pulse">
+      불러오는 중...
+    </div>
 
-.loading {
-  color: #555;
-}
+    <!-- 사용자 정보 카드 -->
+    <div v-else-if="authStore.currentUser" class="rounded-lg border bg-card text-card-foreground shadow-sm">
+      <div class="p-6">
+        <dl class="space-y-0 divide-y divide-border">
+          <div class="flex items-center gap-4 py-3 first:pt-0 last:pb-0">
+            <dt class="w-20 flex-shrink-0 text-sm font-medium text-muted-foreground">ID</dt>
+            <dd class="text-sm">{{ authStore.currentUser.id }}</dd>
+          </div>
+          <div class="flex items-center gap-4 py-3">
+            <dt class="w-20 flex-shrink-0 text-sm font-medium text-muted-foreground">이메일</dt>
+            <dd class="text-sm">{{ authStore.currentUser.email }}</dd>
+          </div>
+          <div class="flex items-center gap-4 py-3">
+            <dt class="w-20 flex-shrink-0 text-sm font-medium text-muted-foreground">닉네임</dt>
+            <dd class="text-sm font-medium text-primary">{{ authStore.currentUser.nickname }}</dd>
+          </div>
+          <div class="flex items-center gap-4 py-3">
+            <dt class="w-20 flex-shrink-0 text-sm font-medium text-muted-foreground">역할</dt>
+            <dd class="text-sm">
+              <span class="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold">
+                {{ authStore.currentUser.role }}
+              </span>
+            </dd>
+          </div>
+          <div v-if="authStore.currentUser.createdAt" class="flex items-center gap-4 py-3 last:pb-0">
+            <dt class="w-20 flex-shrink-0 text-sm font-medium text-muted-foreground">가입일</dt>
+            <dd class="text-sm text-muted-foreground">{{ authStore.currentUser.createdAt }}</dd>
+          </div>
+        </dl>
+      </div>
+    </div>
 
-.user-card {
-  border: 1px solid #e0e0e0;
-  border-radius: 6px;
-  padding: 1.5rem;
-}
-
-.info-list {
-  margin: 0;
-}
-
-.info-row {
-  display: flex;
-  gap: 1rem;
-  padding: 0.5rem 0;
-  border-bottom: 1px solid #f0f0f0;
-}
-
-.info-row:last-child {
-  border-bottom: none;
-}
-
-.info-row dt {
-  font-weight: 600;
-  min-width: 80px;
-  color: #333;
-}
-
-.info-row dd {
-  margin: 0;
-  color: #555;
-}
-
-.error-msg {
-  color: #c0392b;
-  background: #fde8e8;
-  border-radius: 4px;
-  padding: 0.75rem;
-}
-</style>
+    <!-- 에러 -->
+    <div
+      v-else
+      role="alert"
+      aria-live="polite"
+      class="rounded-md bg-destructive/10 px-4 py-3 text-sm text-destructive"
+    >
+      사용자 정보를 불러올 수 없습니다.
+    </div>
+  </div>
+</template>

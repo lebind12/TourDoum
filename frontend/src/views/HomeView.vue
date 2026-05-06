@@ -1,47 +1,3 @@
-<template>
-  <section class="home">
-    <!-- 인증 사용자 환영 영역 -->
-    <div v-if="authStore.currentUser" class="welcome-bar">
-      <p class="welcome-msg">
-        안녕하세요, <strong>{{ authStore.currentUser.nickname }}</strong>님
-      </p>
-      <div class="welcome-actions">
-        <RouterLink to="/me" class="link-btn">내 정보</RouterLink>
-        <button
-          type="button"
-          class="btn-logout"
-          :disabled="authStore.loading"
-          @click="handleLogout"
-        >
-          {{ authStore.loading ? '처리 중...' : '로그아웃' }}
-        </button>
-      </div>
-    </div>
-
-    <!-- 비인증 사용자 -->
-    <div v-else class="guest-bar">
-      <RouterLink to="/login" class="link-btn">로그인</RouterLink>
-      <RouterLink to="/signup" class="link-btn">회원가입</RouterLink>
-    </div>
-
-    <!-- 서버 상태 영역 -->
-    <h2>서버 상태</h2>
-
-    <div v-if="healthStore.loading" class="status-badge loading">확인 중...</div>
-
-    <div v-else-if="healthStore.status" class="status-badge up">
-      {{ healthStore.status }}
-    </div>
-
-    <div v-else class="status-badge down">백엔드 미가동</div>
-
-    <p class="hint">
-      백엔드가 실행 중이면 <code>GET /api/health</code> 응답이 표시됩니다.<br />
-      여행지 검색 / 숙박 추천 기능은 이후 개발 예정입니다.
-    </p>
-  </section>
-</template>
-
 <script setup lang="ts">
 import { useAuthStore } from "@/stores/auth";
 import { useHealthStore } from "@/stores/health";
@@ -62,90 +18,82 @@ async function handleLogout() {
 }
 </script>
 
-<style scoped>
-.home {
-  padding: 1rem 0;
-}
+<template>
+  <div class="space-y-6">
+    <!-- 환영 / 게스트 배너 -->
+    <div
+      v-if="authStore.currentUser"
+      class="flex items-center gap-4 rounded-lg border bg-primary/5 px-4 py-3"
+    >
+      <p class="flex-1 text-sm">
+        안녕하세요, <strong class="font-semibold text-primary">{{ authStore.currentUser.nickname }}</strong>님
+      </p>
+      <div class="flex gap-2">
+        <RouterLink
+          to="/me"
+          class="inline-flex h-8 items-center justify-center rounded-md border border-input bg-background px-3 text-xs font-medium ring-offset-background transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+        >
+          내 정보
+        </RouterLink>
+        <button
+          type="button"
+          :disabled="authStore.loading"
+          class="inline-flex h-8 items-center justify-center rounded-md px-3 text-xs font-medium text-muted-foreground ring-offset-background transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+          @click="handleLogout"
+        >
+          {{ authStore.loading ? '처리 중...' : '로그아웃' }}
+        </button>
+      </div>
+    </div>
 
-.welcome-bar,
-.guest-bar {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  margin-bottom: 1.5rem;
-  padding: 0.75rem 1rem;
-  background: #f0f7ff;
-  border-radius: 6px;
-}
+    <div
+      v-else
+      class="flex items-center gap-3 rounded-lg border bg-muted/50 px-4 py-3"
+    >
+      <p class="flex-1 text-sm text-muted-foreground">로그인하여 TourDoum을 이용하세요.</p>
+      <RouterLink
+        to="/login"
+        class="inline-flex h-8 items-center justify-center rounded-md border border-input bg-background px-3 text-xs font-medium ring-offset-background transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+      >
+        로그인
+      </RouterLink>
+      <RouterLink
+        to="/signup"
+        class="inline-flex h-8 items-center justify-center rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground ring-offset-background transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+      >
+        회원가입
+      </RouterLink>
+    </div>
 
-.welcome-msg {
-  margin: 0;
-  flex: 1;
-}
+    <!-- 서버 상태 카드 -->
+    <div class="rounded-lg border bg-card text-card-foreground shadow-sm">
+      <div class="flex flex-col space-y-1.5 p-6">
+        <h2 class="text-xl font-semibold leading-none tracking-tight">서버 상태</h2>
+        <p class="text-sm text-muted-foreground">
+          백엔드가 실행 중이면 <code class="rounded bg-muted px-1 py-0.5 text-xs">GET /api/health</code> 응답이 표시됩니다.
+        </p>
+      </div>
 
-.welcome-actions {
-  display: flex;
-  gap: 0.5rem;
-}
+      <div class="p-6 pt-0">
+        <div v-if="healthStore.loading" class="inline-flex items-center gap-2 rounded-md bg-muted px-3 py-1.5 text-sm text-muted-foreground">
+          <span class="h-2 w-2 animate-pulse rounded-full bg-muted-foreground" />
+          확인 중...
+        </div>
 
-.link-btn {
-  display: inline-block;
-  padding: 0.4rem 0.9rem;
-  background: #4a90e2;
-  color: #fff;
-  border-radius: 4px;
-  text-decoration: none;
-  font-size: 0.875rem;
-}
+        <div v-else-if="healthStore.status" class="inline-flex items-center gap-2 rounded-md bg-green-50 px-3 py-1.5 text-sm font-medium text-green-700">
+          <span class="h-2 w-2 rounded-full bg-green-500" />
+          {{ healthStore.status }}
+        </div>
 
-.link-btn:hover {
-  background: #357abd;
-}
+        <div v-else class="inline-flex items-center gap-2 rounded-md bg-destructive/10 px-3 py-1.5 text-sm font-medium text-destructive">
+          <span class="h-2 w-2 rounded-full bg-destructive" />
+          백엔드 미가동
+        </div>
 
-.btn-logout {
-  padding: 0.4rem 0.9rem;
-  background: #e0e0e0;
-  color: #333;
-  border: none;
-  border-radius: 4px;
-  font-size: 0.875rem;
-  cursor: pointer;
-}
-
-.btn-logout:hover {
-  background: #c0c0c0;
-}
-
-.btn-logout:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.status-badge {
-  display: inline-block;
-  padding: 0.4rem 1rem;
-  border-radius: 4px;
-  font-weight: bold;
-  margin-bottom: 1rem;
-}
-
-.loading {
-  background-color: #f0f0f0;
-  color: #555;
-}
-
-.up {
-  background-color: #d4edda;
-  color: #155724;
-}
-
-.down {
-  background-color: #f8d7da;
-  color: #721c24;
-}
-
-.hint {
-  color: #666;
-  font-size: 0.9rem;
-}
-</style>
+        <p class="mt-4 text-sm text-muted-foreground">
+          여행지 검색 / 숙박 추천 기능은 이후 개발 예정입니다.
+        </p>
+      </div>
+    </div>
+  </div>
+</template>
