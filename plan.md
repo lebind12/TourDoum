@@ -1,45 +1,64 @@
-# plan — ui/feat-mockups-polish
+# plan — QA 첫 dispatch: 회귀 + e2e
 
-**역할:** UI/UX Designer | **브랜치:** `ui/feat-mockups-polish`
+**역할:** QA / Test Runner | **브랜치:** `qa/feat-regression-e2e`
 
 ## 목표
 
-Task #4(FE 스켈레톤)에서 생성된 8개 도메인 뷰를 디자인 시스템에 수렴시킨다.
-- 하드코딩 색상(text-slate-*, bg-sky-*, bg-white) → CSS 변수 토큰
-- 날 Tailwind div → shadcn 컴포넌트 (Card, Badge, Button, Input, Avatar)
-- inline SVG → lucide-vue-next 아이콘
-- aria-label / role 접근성 속성 추가
-- 스크립트 셋업 로직·라우트·스토어 **무변경**
+develop 브랜치의 누적 머지(#1·#2·#3, Mockup+폴리싱, nearby distance/IT)에 대해:
+- 회귀 테스트 실행 (BE unit/integration, FE unit)
+- 도메인횡단 e2e 2개 시나리오 검증
+- 발견 사항 정리 및 Architect 결정 필요 항목 보고
 
 ## 스펙 출처
 
-- Task #5 JSON 명세 (team-lead 발행)
-- `frontend/src/index.css` CSS 변수 정의
-- 기존 shadcn 컴포넌트: Button, Card, Input, Label
-
-## 변경 후보 파일
-
-신규:
-- `frontend/src/components/ui/badge/Badge.vue` + `index.ts`
-- `frontend/src/components/ui/avatar/Avatar.vue` + `index.ts`
-
-수정:
-- `frontend/src/views/AttractionsView.vue`
-- `frontend/src/views/AttractionDetailView.vue`
-- `frontend/src/views/AccommodationsView.vue`
-- `frontend/src/views/AccommodationDetailView.vue`
-- `frontend/src/views/FavoritesView.vue`
-- `frontend/src/views/ChatView.vue`
-- `frontend/src/views/ChatChannelView.vue`
-- `frontend/src/views/DMView.vue`
+- Task #2: QA 첫 dispatch 할당
+- CLAUDE.md §3: QA 역할 = 회귀·e2e·CI 트러블슈팅
+- 현재 브랜치: develop (HEAD: cf7a0b8)
 
 ## 테스트 전략
 
-- 단위: vitest 기존 19개 (스크립트 로직 무변경 → 신규 테스트 불필요)
-- 통합: 없음 (UI 전용)
-- e2e: 해당 없음
+### 1. Backend 회귀 (mvnw verify)
+```bash
+mvnw -DskipITs=false -Dtourdoum.it=true verify
+```
+- 단위 테스트 + 통합 테스트 전체 실행
+- 깨진 케이스 식별 → 별도 task로 보고 (기능 코드 수정 금지)
 
-## 리스크 / 미해결
+### 2. Frontend 빌드 + 테스트
+```bash
+npm run build
+vitest --run
+```
+- 25개 unit tests 실행
+- 커버리지 확인
 
-- biome 버전 불일치(1.8.3 hook vs 1.9.x local): pre-commit 자동 수정 → staged 재적용 후 재커밋
-- shadcn-vue CLI 사용 불가(components.json 스키마 불일치): 수동 CVA 작성으로 우회
+### 3. Playwright e2e (E2E_BACKEND=1)
+```bash
+npm run e2e
+```
+- BE + FE 동시 실행 환경에서 e2e 테스트 실행
+
+### 4. 도메인횡단 e2e 시나리오
+**Scenario A**: 회원가입 → 로그인 → /me → /attractions → /favorites → 로그아웃
+- auth guard 통과 확인
+
+**Scenario B**: 비로그인 /favorites 접근 → 리다이렉트 → 로그인 → 자동 복귀
+- 보호된 라우트 동작
+
+## 변경 파일 (테스트 코드만, 기능 코드 X)
+
+- `backend/src/test/**/*`: 필요 시 회귀 테스트 추가
+- `frontend/src/**/__tests__/**/*`: vitest 체크
+- `e2e/**/*`: Playwright 시나리오 추가
+
+## 리스크
+
+- E2E_BACKEND 환경 미설정: 즉시 중단 + Architect 보고
+- 외부 API/DB 연결 실패: silent fallback 금지
+- 테스트 자체 버그: handoff.md에 명시
+
+## 산출물
+
+1. `self-review.md`: 각 단계별 결과 + harness check 게이트 표
+2. `handoff.md`: 발견된 회귀/이슈, 미해결 사항
+3. 필요 시 회귀 테스트 코드 (테스트만)
