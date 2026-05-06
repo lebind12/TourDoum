@@ -86,7 +86,7 @@ class AuthIntegrationTest {
         .andExpect(jsonPath("$.email").value("it@example.com"))
         .andExpect(jsonPath("$.nickname").value("ituser"));
 
-    // 2. 로그인 — SESSION 쿠키 수신
+    // 2. 로그인 — SESSION 쿠키 수신 + 응답 계약: MeResponse({id,email,nickname,role})
     MvcResult loginResult =
         mockMvc
             .perform(
@@ -97,6 +97,10 @@ class AuthIntegrationTest {
                         {"email":"it@example.com","password":"password123"}
                         """))
             .andExpect(status().isOk())
+            .andExpect(jsonPath("$.id").isNumber())
+            .andExpect(jsonPath("$.email").value("it@example.com"))
+            .andExpect(jsonPath("$.nickname").value("ituser"))
+            .andExpect(jsonPath("$.role").value("ROLE_USER"))
             .andReturn();
 
     // 세션 추출

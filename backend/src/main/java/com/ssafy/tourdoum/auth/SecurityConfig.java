@@ -1,6 +1,8 @@
 package com.ssafy.tourdoum.auth;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ssafy.tourdoum.member.Member;
+import com.ssafy.tourdoum.member.MemberRepository;
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.List;
 import java.util.Map;
@@ -35,6 +37,7 @@ public class SecurityConfig {
 
   private final MemberDetailsService memberDetailsService;
   private final ObjectMapper objectMapper;
+  private final MemberRepository memberRepository;
 
   /**
    * 허용 origin 목록. 쉼표 구분. dev 기본값은 Vite dev 서버(5173) + Playwright 전용(5174). 운영 환경에선 배포 URL을 명시 주입.
@@ -42,9 +45,13 @@ public class SecurityConfig {
   @Value("${tourdoum.cors.allowed-origins:http://localhost:5173,http://localhost:5174}")
   private List<String> allowedOrigins;
 
-  public SecurityConfig(MemberDetailsService memberDetailsService, ObjectMapper objectMapper) {
+  public SecurityConfig(
+      MemberDetailsService memberDetailsService,
+      ObjectMapper objectMapper,
+      MemberRepository memberRepository) {
     this.memberDetailsService = memberDetailsService;
     this.objectMapper = objectMapper;
+    this.memberRepository = memberRepository;
   }
 
   @Bean
@@ -82,13 +89,18 @@ public class SecurityConfig {
     filter.setAuthenticationManager(authenticationManager());
     filter.setSecurityContextRepository(new HttpSessionSecurityContextRepository());
 
-    // 로그인 성공: 200 OK + SESSION 쿠키 자동 발급
+    // 로그인 성공: 200 OK + SESSION 쿠키 자동 발급 + MeResponse({id,email,nickname,role}) 반환
     filter.setAuthenticationSuccessHandler(
         (request, response, authentication) -> {
+          String email = authentication.getName();
+          Member member =
+              memberRepository
+                  .findByEmail(email)
+                  .orElseThrow(() -> new IllegalStateException("인증된 회원을 DB에서 찾을 수 없습니다: " + email));
           response.setStatus(HttpServletResponse.SC_OK);
           response.setContentType(MediaType.APPLICATION_JSON_VALUE);
           response.setCharacterEncoding("UTF-8");
-          response.getWriter().write("{\"message\":\"로그인 성공\"}");
+          objectMapper.writeValue(response.getWriter(), MeResponse.from(member));
         });
 
     // 로그인 실패: 401 Unauthorized
