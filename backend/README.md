@@ -110,6 +110,56 @@ Flyway는 파일 체크섬을 검증하며, 불일치 시 애플리케이션 기
 | 통합 테스트 (Testcontainers MySQL) | MySQL 8.4 | 비활성 (현행) | `update` |
 | 실제 운영/개발 서버 | MySQL 8 | **활성** | `validate` |
 
+## TourAPI 데이터 갱신 (ADR-0005)
+
+한국관광공사 TourAPI 4.0 (KorService2)에서 전국 여행지 데이터를 수집해 V4 마이그레이션으로 적재한다.
+
+### 키 발급 절차
+
+1. [공공데이터포털](https://www.data.go.kr/data/15101578/openapi.do) 접속
+2. "활용신청" → 서비스: **한국관광공사_국문 관광정보 서비스_GW**
+3. 승인(보통 1~2 영업일) 후 "인코딩 키(encoding key)" 복사
+4. `.env` 파일에 추가:
+   ```
+   TOUR_API_KEY=<발급받은 인코딩 키>
+   ```
+
+> ⚠ **디코딩 키(decoding key)가 아닌 인코딩 키**를 사용한다. 두 키는 값이 다르다.
+
+### ETL 실행
+
+```bash
+# 프로젝트 루트에서 (20-spec-tourdoum/)
+scripts/etl-tour-api.sh
+```
+
+스크립트가 수행하는 작업:
+1. `.env` 에서 `TOUR_API_KEY` 자동 로드
+2. Maven 컴파일 + 런타임 의존성 준비
+3. `TourApiSqlGeneratorMain` 실행 (Spring 컨텍스트 미기동, DB 연결 불필요)
+4. 결과 INSERT 문 → `src/main/resources/db/migration/V4__tour_api_attractions.sql`
+5. 출력 파일에 키 노출 여부 자동 검증
+
+### 수집 범위
+
+| 구분 | 내용 |
+|---|---|
+| 지역 | 17개 광역시·도 (서울·인천·대전·대구·광주·부산·울산·세종·경기·강원·충북·충남·경북·경남·전북·전남·제주) |
+| contentTypeId | 12(관광지→OTHER), 14(문화시설→HISTORY), 28(레포츠→ACTIVITY) |
+| 카테고리 상세 분류 | 후속 ADR (detailCommon2 cat1~3 매핑) |
+
+### V4 갱신 후 개발 흐름
+
+```bash
+# ETL 실행 후
+git add backend/src/main/resources/db/migration/V4__tour_api_attractions.sql
+git commit -m "feat(etl): V4 TourAPI 수집 데이터 적재"
+# develop 머지 후 Flyway가 MySQL에 자동 적용
+```
+
+V5 마이그레이션(`V5__tour_api_unique.sql`)이 `tour_api_id`에 UNIQUE 제약을 추가하므로,
+V4와 V5는 세트로 develop에 머지해야 한다.
+
 ## 코드 품질
 
 ```bash
