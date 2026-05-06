@@ -6,7 +6,9 @@ repos:
       - id: end-of-file-fixer
       - id: check-yaml
       - id: check-added-large-files
-        args: ["--maxkb=1024"]
+        # 8MB로 상향 — TourAPI 같은 데이터 스냅샷 마이그레이션(V4__tour_api_attractions.sql ~5.5MB)이
+        # 정상 케이스. 실수로 큰 파일 들어오는 것 막는 용도가 본래 목적이라 8MB로도 충분.
+        args: ["--maxkb=8192"]
       - id: check-merge-conflict
       - id: detect-private-key
 

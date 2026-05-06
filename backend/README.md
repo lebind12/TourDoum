@@ -23,8 +23,8 @@ cp .env.example .env
 # 2. 빌드 + 단위/슬라이스 테스트
 ./mvnw -B verify
 
-# 3. 서버 실행 (dev profile)
-./mvnw spring-boot:run -Dspring-boot.run.profiles=dev
+# 3. 서버 실행
+./mvnw spring-boot:run
 
 # 4. 헬스 확인
 curl http://localhost:8080/api/health
@@ -101,6 +101,50 @@ Flyway는 파일 체크섬을 검증하며, 불일치 시 애플리케이션 기
 변경이 필요하다면:
 - 새 파일 `V{n+1}__compensate_xxx.sql`을 작성해 보상(역변환) 마이그레이션을 적용한다.
 - 개발 중 깨진 상태 복구: `./mvnw flyway:repair` (체크섬 재계산)
+
+### TourAPI 데이터 갱신
+
+V4(`V4__tour_api_attractions.sql`)에 한국관광공사 TourAPI 4.0 (KorService2) 수집 스냅샷 13,155건이 박제되어 있다. 갱신은 **새 V{N+1} 마이그레이션**으로 보강한다.
+
+#### 1) data.go.kr 활용신청
+
+1. https://www.data.go.kr/ 로그인 → 마이페이지 → 활용신청 현황
+2. **"한국관광공사_국문 관광정보 서비스_GW"**(ID 15101578) 활용신청
+3. 자동승인 후 인코딩 키 발급
+4. 워크스페이스 루트 `.env` 의 `TOUR_API_KEY=` 에 주입 (이미 있다면 갱신)
+
+#### 2) 신규 데이터 수집 스냅샷 작성
+
+본 V4 박제 시 사용한 명령(향후 동일 패턴):
+
+```bash
+# 1. 라이브 ETL 실행 (별도 worktree에서 TourApiClient 호출 — ADR-0006 후속)
+# 2. MySQL에 적재 후, 새 V{N+1} 작성을 위한 스냅샷 dump:
+WT_OUT=src/main/resources/db/migration/V{N+1}__tour_api_refresh.sql
+docker exec tourdoum-mysql mysqldump \
+  --no-create-info --skip-extended-insert --complete-insert \
+  --default-character-set=utf8mb4 \
+  -u root -prootpw \
+  --where="tour_api_id IS NOT NULL AND tour_api_id NOT IN (SELECT tour_api_id FROM ... 기존 V4 셋)" \
+  tourdoum attractions \
+  | grep '^INSERT' >> $WT_OUT
+```
+
+기존 데이터와 충돌은 V5의 `tour_api_id UNIQUE` 제약이 막는다. 갱신 마이그레이션은 `INSERT IGNORE` 또는 `ON DUPLICATE KEY UPDATE` 형태 권장.
+
+#### 3) 로컬 DB가 이미 깨진 상태일 때
+
+체크섬 불일치 등으로 Flyway 기동 거부 시:
+
+```bash
+# 깨진 메타데이터 정리 (성공 row만 유지, 체크섬 재계산)
+./mvnw flyway:repair
+
+# 또는 dev 데이터 통째로 리셋 (주의)
+docker compose -f ../infra/docker/docker-compose.yml down -v
+docker compose -f ../infra/docker/docker-compose.yml up -d mysql redis
+./mvnw spring-boot:run   # Flyway가 V1~V5 처음부터 적용
+```
 
 ### 테스트 환경 전략
 
