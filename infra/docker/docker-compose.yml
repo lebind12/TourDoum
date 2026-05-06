@@ -49,10 +49,12 @@ services:
     networks:
       - tourdoum-net
     ports:
-      - "8081:8080"
-      - "50000:50000"
-    environment:
-      JAVA_OPTS: "-Djenkins.install.runSetupWizard=false"
+      # 호스트 바인딩을 127.0.0.1로 강제 — 외부 인터페이스 노출 방지.
+      # ngrok/cloudflared 등으로 임시 노출은 production 절대 금지(infra/jenkins/README.md 참조).
+      - "127.0.0.1:8081:8080"
+      - "127.0.0.1:50000:50000"
+    # setupWizard 활성 — 첫 부팅 시 initialAdminPassword 발급, 사용자가 admin 계정 직접 설정.
+    # 이전 'runSetupWizard=false' 설정은 anonymous full-control 위험으로 폐기 (Codex review 차단 #3).
     volumes:
       - jenkins_home:/var/jenkins_home
       - /var/run/docker.sock:/var/run/docker.sock

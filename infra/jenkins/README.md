@@ -18,11 +18,19 @@ docker compose -f infra/docker/docker-compose.yml ps jenkins
 docker compose -f infra/docker/docker-compose.yml logs -f jenkins
 ```
 
-접속: <http://localhost:8081>
+접속: <http://localhost:8081> (호스트 바인딩 127.0.0.1로 제한 — 같은 머신에서만 접근 가능)
 
-> 초기 비밀번호(setup wizard 활성 시): `docker exec tourdoum-jenkins cat /var/jenkins_home/secrets/initialAdminPassword`
-> 현재 설정(`JAVA_OPTS: "-Djenkins.install.runSetupWizard=false"`)은 wizard를 **비활성화**하므로
-> 초기 비밀번호 없이 바로 Jenkins 대시보드가 열린다.
+### 첫 부팅 — setup wizard 절차
+
+1. 컨테이너 첫 부팅 시 `setup wizard`가 활성화돼 있다(2026-05-07 변경, Codex review 차단 #3 해소).
+2. 초기 비밀번호 추출:
+   ```bash
+   docker exec tourdoum-jenkins cat /var/jenkins_home/secrets/initialAdminPassword
+   ```
+3. 브라우저에서 비밀번호 입력 → "Install suggested plugins" → admin 계정(이름/비번/이메일) 생성 → URL 그대로 두고 마침.
+4. 이후 모든 접근은 본인 계정으로만 가능. 익명 권한 없음.
+
+> 기존 컨테이너에 익명 admin이 박혀 있던 상태였다면 한 번 `docker compose down -v` 후 새로 띄워야 setup wizard가 다시 등장. **개발 데이터(빌드 히스토리, 자격증명) 사라지므로 의식적으로 결정**할 것.
 
 ---
 
@@ -74,20 +82,26 @@ ID:       github-pat          ← Jenkinsfile에서 credentialsId로 참조
 
 ---
 
-## 5. GitHub Webhook 설정 (권장)
+## 5. GitHub Webhook 설정
 
-> 로컬 Jenkins는 외부에서 접근 불가. 로컬 개발에선 **ngrok** 또는 **주기적 폴링**으로 대체한다.
+### 권장 — 폴링만 사용
+
+학습 단계에선 **Multibranch Pipeline의 _Scan_ 주기를 1~5분으로 설정**하면 webhook 없이도 충분. 외부 노출 없이 가장 안전하다.
+
+### ngrok으로 로컬 노출 — ⚠ 임시 검증용에 한정
 
 ```bash
-# ngrok으로 로컬 Jenkins를 임시 노출 (옵션)
+# 임시 노출이 정말 필요할 때만 사용. 항상 인증 활성된 상태에서만.
 ngrok http 8081
-# → GitHub 리포 Settings → Webhooks → Add webhook
-#   Payload URL: https://<ngrok-url>/github-webhook/
-#   Content type: application/json
-#   Events: Push, Pull request
 ```
 
-폴링만 사용할 경우: Multibranch Pipeline _Scan_ 주기를 1~5분으로 설정하면 된다.
+⚠ **반드시 다음 조건 모두 만족해야 외부 노출 시도**:
+- setup wizard로 admin 계정 생성 완료 (익명 접근 불가)
+- 일회성 검증이 끝나면 즉시 ngrok 종료
+- 회사/공용 네트워크에서는 사용 금지
+- production/실배포 환경에선 **절대 사용 금지** — Jenkins는 groovy script console로 임의 코드 실행이 가능해 자격증명 탈취 시 호스트 장악 위험
+
+대신 production은 사내 VPN 또는 reverse-proxy(NGINX + TLS + IP allowlist) 뒤에 둬야 한다. 본 워크스페이스는 학습 한정이므로 production 절차는 ADR로 분리.
 
 ---
 
