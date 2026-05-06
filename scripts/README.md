@@ -13,6 +13,11 @@
 # (jenv 미사용자: export JAVA_HOME=$(/usr/libexec/java_home -v 21) 한 번 실행)
 cd backend && ./mvnw spring-boot:run
 
+# 터미널 1-watch — 코드 변경 시 자동 재컴파일 (선택)
+# IntelliJ auto-build를 안 쓰는 경우, 별도 창에서 워처를 띄운다.
+# Gradle의 `gradle build -t`에 해당. brew install entr 필요.
+./scripts/dev-watch-be.sh
+
 # 터미널 2 — 프론트엔드 (HMR)
 cd frontend && npm run dev
 ```
