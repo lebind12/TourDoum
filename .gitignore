@@ -2,6 +2,13 @@
 .worktrees/
 .codex-*.log
 
+# H6 산출물 — worktree 루트의 transient 작업 노트. develop 히스토리에 남기지 않는다.
+# (defense in depth: 에이전트는 본인 worktree에서 별도 ignore하므로 여기엔 안 들어와야 정상)
+/plan.md
+/diff.md
+/self-review.md
+/handoff.md
+
 # --- secrets ---
 .env
 .env.*
