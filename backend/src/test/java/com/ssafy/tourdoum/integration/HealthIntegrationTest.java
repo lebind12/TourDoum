@@ -54,10 +54,14 @@ class HealthIntegrationTest {
                 + "/tourdoum?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true");
     registry.add("spring.datasource.username", mysql::getUsername);
     registry.add("spring.datasource.password", mysql::getPassword);
+    // test application.yml의 org.h2.Driver 오버라이드 — MySQL Testcontainer 사용 시 필요
+    registry.add("spring.datasource.driver-class-name", () -> "com.mysql.cj.jdbc.Driver");
     registry.add("spring.data.redis.host", redis::getHost);
     registry.add("spring.data.redis.port", () -> redis.getMappedPort(6379));
     // Testcontainers 환경에서는 ddl-auto=update 로 자동 스키마 생성
     registry.add("spring.jpa.hibernate.ddl-auto", () -> "update");
+    registry.add(
+        "spring.jpa.properties.hibernate.dialect", () -> "org.hibernate.dialect.MySQLDialect");
   }
 
   @LocalServerPort private int port;
