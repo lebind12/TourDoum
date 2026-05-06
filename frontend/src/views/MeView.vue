@@ -1,4 +1,11 @@
 <script setup lang="ts">
+import {
+	Card,
+	CardContent,
+	CardDescription,
+	CardHeader,
+	CardTitle,
+} from "@/components/ui/card";
 import { useAuthStore } from "@/stores/auth";
 
 const authStore = useAuthStore();
@@ -17,8 +24,12 @@ const authStore = useAuthStore();
     </div>
 
     <!-- 사용자 정보 카드 -->
-    <div v-else-if="authStore.currentUser" class="rounded-lg border bg-card text-card-foreground shadow-sm">
-      <div class="p-6">
+    <Card v-else-if="authStore.currentUser">
+      <CardHeader>
+        <CardTitle class="text-base">계정 정보</CardTitle>
+        <CardDescription>가입한 계정의 기본 정보입니다.</CardDescription>
+      </CardHeader>
+      <CardContent>
         <dl class="space-y-0 divide-y divide-border">
           <div class="flex items-center gap-4 py-3 first:pt-0 last:pb-0">
             <dt class="w-20 flex-shrink-0 text-sm font-medium text-muted-foreground">ID</dt>
@@ -45,8 +56,8 @@ const authStore = useAuthStore();
             <dd class="text-sm text-muted-foreground">{{ authStore.currentUser.createdAt }}</dd>
           </div>
         </dl>
-      </div>
-    </div>
+      </CardContent>
+    </Card>
 
     <!-- 에러 -->
     <div
