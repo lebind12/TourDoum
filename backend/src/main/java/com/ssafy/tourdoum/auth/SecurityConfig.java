@@ -1,0 +1,136 @@
+package com.ssafy.tourdoum.auth;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.servlet.http.HttpServletResponse;
+import java.util.Map;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.ProviderManager;
+import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
+
+/**
+ * Spring Security 6.x 설정. ADR-0003: 폼 로그인(JSON body) + Redis 세션 + BCrypt 비번 해시. CSRF: dev 비활성
+ * (TODO: prod 활성화 - handoff.md 참고).
+ */
+@Configuration
+@EnableWebSecurity
+public class SecurityConfig {
+
+  private final MemberDetailsService memberDetailsService;
+  private final ObjectMapper objectMapper;
+
+  public SecurityConfig(MemberDetailsService memberDetailsService, ObjectMapper objectMapper) {
+    this.memberDetailsService = memberDetailsService;
+    this.objectMapper = objectMapper;
+  }
+
+  @Bean
+  public PasswordEncoder passwordEncoder() {
+    return new BCryptPasswordEncoder();
+  }
+
+  @Bean
+  public AuthenticationManager authenticationManager() {
+    DaoAuthenticationProvider provider = new DaoAuthenticationProvider();
+    provider.setUserDetailsService(memberDetailsService);
+    provider.setPasswordEncoder(passwordEncoder());
+    return new ProviderManager(provider);
+  }
+
+  @Bean
+  public JsonAuthenticationFilter jsonAuthenticationFilter() throws Exception {
+    JsonAuthenticationFilter filter = new JsonAuthenticationFilter(objectMapper);
+    filter.setFilterProcessesUrl("/api/auth/login");
+    filter.setAuthenticationManager(authenticationManager());
+    filter.setSecurityContextRepository(new HttpSessionSecurityContextRepository());
+
+    // 로그인 성공: 200 OK + SESSION 쿠키 자동 발급
+    filter.setAuthenticationSuccessHandler(
+        (request, response, authentication) -> {
+          response.setStatus(HttpServletResponse.SC_OK);
+          response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+          response.setCharacterEncoding("UTF-8");
+          response.getWriter().write("{\"message\":\"로그인 성공\"}");
+        });
+
+    // 로그인 실패: 401 Unauthorized
+    filter.setAuthenticationFailureHandler(
+        (request, response, exception) -> {
+          response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+          response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+          response.setCharacterEncoding("UTF-8");
+          response.getWriter().write("{\"message\":\"이메일 또는 비밀번호가 올바르지 않습니다.\"}");
+        });
+
+    return filter;
+  }
+
+  @Bean
+  public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    http
+        // CSRF: dev 비활성 (TODO: prod에서 SameSite=Lax로 완화 후 활성화 검토)
+        .csrf(AbstractHttpConfigurer::disable)
+
+        // 인가 규칙
+        .authorizeHttpRequests(
+            auth ->
+                auth.requestMatchers(
+                        "/api/auth/**",
+                        "/api/health",
+                        "/api/members/signup",
+                        "/actuator/**",
+                        "/actuator/health")
+                    .permitAll()
+                    .anyRequest()
+                    .authenticated())
+
+        // JSON 로그인 필터: UsernamePasswordAuthenticationFilter 교체
+        .addFilterAt(jsonAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class)
+
+        // 로그아웃
+        .logout(
+            logout ->
+                logout
+                    .logoutUrl("/api/auth/logout")
+                    .deleteCookies("SESSION")
+                    .invalidateHttpSession(true)
+                    .logoutSuccessHandler(
+                        (request, response, authentication) ->
+                            response.setStatus(HttpServletResponse.SC_NO_CONTENT)))
+
+        // 401/403 JSON 응답
+        .exceptionHandling(
+            ex ->
+                ex.authenticationEntryPoint(
+                        (request, response, authException) -> {
+                          response.setStatus(HttpStatus.UNAUTHORIZED.value());
+                          response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                          response.setCharacterEncoding("UTF-8");
+                          String body =
+                              objectMapper.writeValueAsString(Map.of("message", "인증이 필요합니다."));
+                          response.getWriter().write(body);
+                        })
+                    .accessDeniedHandler(
+                        (request, response, accessDeniedException) -> {
+                          response.setStatus(HttpStatus.FORBIDDEN.value());
+                          response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                          response.setCharacterEncoding("UTF-8");
+                          String body =
+                              objectMapper.writeValueAsString(Map.of("message", "접근 권한이 없습니다."));
+                          response.getWriter().write(body);
+                        }));
+
+    return http.build();
+  }
+}
