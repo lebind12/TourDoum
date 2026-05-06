@@ -1,0 +1,26 @@
+# Drop-in baseline for Python projects. Merge into project pyproject.toml.
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-select = ["E", "F", "I", "B", "UP", "S", "C90", "ARG", "RET", "SIM"]
+ignore = ["S101"]  # allow assert in tests
+
+[tool.ruff.per-file-ignores]
+"tests/**" = ["S", "ARG"]
+
+[tool.black]
+line-length = 100
+target-version = ["py312"]
+
+[tool.pytest.ini_options]
+addopts = "-ra --strict-markers"
+testpaths = ["tests"]
+
+[tool.coverage.run]
+branch = true
+source = ["src"]
+
+[tool.coverage.report]
+fail_under = 60
+show_missing = true

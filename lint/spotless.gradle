@@ -1,0 +1,16 @@
+// Apply with: apply from: '../path/to/spotless.gradle' or copy into build.gradle.
+// Requires: plugins { id 'com.diffplug.spotless' version '6.25.0' }
+spotless {
+  java {
+    target 'src/**/*.java'
+    googleJavaFormat('1.22.0')
+    removeUnusedImports()
+    endWithNewline()
+    trimTrailingWhitespace()
+  }
+  format 'misc', {
+    target '*.gradle', '*.md', '.gitignore'
+    trimTrailingWhitespace()
+    endWithNewline()
+  }
+}
