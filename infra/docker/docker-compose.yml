@@ -1,0 +1,57 @@
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: tourdoum-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: tourdoum
+      MYSQL_USER: tourdoum
+      MYSQL_PASSWORD: tourdoum
+      MYSQL_ROOT_PASSWORD: rootpw
+      TZ: Asia/Seoul
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_0900_ai_ci
+      - --default-time-zone=+09:00
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-u", "root", "-prootpw"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7.4-alpine
+    container_name: tourdoum-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
+  jenkins:
+    image: jenkins/jenkins:lts-jdk21
+    container_name: tourdoum-jenkins
+    restart: unless-stopped
+    user: root
+    ports:
+      - "8081:8080"
+      - "50000:50000"
+    environment:
+      JAVA_OPTS: "-Djenkins.install.runSetupWizard=false"
+    volumes:
+      - jenkins_home:/var/jenkins_home
+      - /var/run/docker.sock:/var/run/docker.sock
+
+volumes:
+  mysql_data:
+  redis_data:
+  jenkins_home:

@@ -1,0 +1,122 @@
+// TourDoum CI pipeline
+// 학습 친화 모드: test 실패는 unstable, 안정화 후 failure로 격상.
+// 실행 위치: 워크스페이스의 develop 또는 PR 브랜치.
+
+pipeline {
+    agent any
+
+    options {
+        timestamps()
+        ansiColor('xterm')
+        timeout(time: 30, unit: 'MINUTES')
+        buildDiscarder(logRotator(numToKeepStr: '20'))
+    }
+
+    environment {
+        // CI는 Testcontainers의 ryuk를 비활성화하면 깔끔. 로컬은 켜둠.
+        TESTCONTAINERS_RYUK_DISABLED = 'true'
+    }
+
+    stages {
+        stage('Checkout') {
+            steps { checkout scm }
+        }
+
+        stage('Lint') {
+            parallel {
+                stage('BE — spotless + checkstyle') {
+                    when { changeset 'backend/**' }
+                    steps {
+                        dir('backend') {
+                            sh './mvnw -B -ntp spotless:check checkstyle:check'
+                        }
+                    }
+                }
+                stage('FE — biome') {
+                    when { changeset 'frontend/**' }
+                    steps {
+                        dir('frontend') {
+                            sh 'npm ci'
+                            sh 'npx biome check .'
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Test') {
+            parallel {
+                stage('BE — junit + testcontainers') {
+                    when { changeset 'backend/**' }
+                    steps {
+                        catchError(buildResult: 'UNSTABLE', stageResult: 'UNSTABLE') {
+                            dir('backend') {
+                                sh './mvnw -B -ntp verify'
+                            }
+                        }
+                    }
+                    post {
+                        always {
+                            junit allowEmptyResults: true, testResults: 'backend/target/surefire-reports/*.xml,backend/target/failsafe-reports/*.xml'
+                            archiveArtifacts artifacts: 'backend/target/site/jacoco/**', allowEmptyArchive: true
+                        }
+                    }
+                }
+                stage('FE — vitest') {
+                    when { changeset 'frontend/**' }
+                    steps {
+                        catchError(buildResult: 'UNSTABLE', stageResult: 'UNSTABLE') {
+                            dir('frontend') {
+                                sh 'npm test -- --run'
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Build') {
+            parallel {
+                stage('BE jar') {
+                    when { changeset 'backend/**' }
+                    steps {
+                        dir('backend') { sh './mvnw -B -ntp -DskipTests package' }
+                        archiveArtifacts artifacts: 'backend/target/*.jar', fingerprint: true
+                    }
+                }
+                stage('FE dist') {
+                    when { changeset 'frontend/**' }
+                    steps {
+                        dir('frontend') { sh 'npm run build' }
+                        archiveArtifacts artifacts: 'frontend/dist/**', fingerprint: true
+                    }
+                }
+            }
+        }
+
+        stage('Security (H10)') {
+            parallel {
+                stage('Semgrep') {
+                    steps {
+                        catchError(buildResult: 'UNSTABLE', stageResult: 'UNSTABLE') {
+                            sh 'docker run --rm -v "$PWD":/src returntocorp/semgrep:latest semgrep --config auto --error --quiet || true'
+                        }
+                    }
+                }
+                stage('Trivy fs') {
+                    steps {
+                        catchError(buildResult: 'UNSTABLE', stageResult: 'UNSTABLE') {
+                            sh 'docker run --rm -v "$PWD":/src aquasec/trivy:latest fs --severity HIGH,CRITICAL --exit-code 0 /src || true'
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            echo "Build #${env.BUILD_NUMBER} on ${env.BRANCH_NAME ?: 'unknown branch'} → ${currentBuild.currentResult}"
+        }
+    }
+}
