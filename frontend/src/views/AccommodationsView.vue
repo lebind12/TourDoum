@@ -2,6 +2,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import { useAccommodationsStore } from "@/stores/accommodations";
 import { onMounted, ref } from "vue";
 import { RouterLink } from "vue-router";
@@ -35,22 +36,20 @@ onMounted(() => {
             class="flex-1"
             @input="store.setSearch(searchInput)"
           />
-          <select
+          <Select
             v-model="selectedType"
-            class="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             @change="store.setType(selectedType)"
           >
             <option value="">전체 숙소 유형</option>
             <option v-for="t in store.types" :key="t" :value="t">{{ t }}</option>
-          </select>
-          <select
+          </Select>
+          <Select
             v-model="selectedSido"
-            class="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             @change="store.setSido(selectedSido)"
           >
             <option value="">전체 지역</option>
             <option v-for="sido in store.sidos" :key="sido" :value="sido">{{ sido }}</option>
-          </select>
+          </Select>
         </div>
         <p class="text-muted-foreground text-xs mt-2">검색 결과: {{ store.filtered.length }}건</p>
       </CardContent>
