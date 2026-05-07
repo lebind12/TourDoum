@@ -161,6 +161,17 @@ const router = createRouter({
 	],
 });
 
+// ── dev-only: 디자인 시스템 카탈로그 (Round 4 / G) ─────────────────────
+// production build(import.meta.env.DEV === false)에서는 등록되지 않는다.
+// 도메인 store / API import 0 — UI/UX 역할 격리 가드.
+if (import.meta.env.DEV) {
+	router.addRoute({
+		path: "/dev/ui-catalog",
+		name: "dev-ui-catalog",
+		component: () => import("@/views/dev/UiCatalogView.vue"),
+	});
+}
+
 router.beforeEach(async (to) => {
 	const auth = useAuthStore();
 
