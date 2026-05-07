@@ -1,0 +1,15 @@
+# infra/observability/grafana/provisioning/dashboards/dashboards.yml
+# 같은 폴더의 *.json 대시보드를 자동 import.
+apiVersion: 1
+
+providers:
+  - name: tourdoum-default
+    orgId: 1
+    folder: Tourdoum
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/provisioning/dashboards
+      foldersFromFilesStructure: false
