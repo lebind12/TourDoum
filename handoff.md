@@ -1,124 +1,78 @@
-# handoff — be/notifications-domain
+# handoff — be/chat-domain (Task #16 BE-7)
 
 ## 완료 내용
 
-- `GET /api/notifications` — 알림 목록 (최신순 페이징, page/size 파라미터)
-- `GET /api/notifications/unread-count` — 미읽음 알림 수 (폴링용)
-- `POST /api/notifications/{id}/read` — 단건 읽음 처리 (403 권한 체크)
-- `POST /api/notifications/read-all` — 전체 읽음 처리
-- `publish()` 내부 트리거:
-  - `ReviewService.create()` → `REVIEW_REPLY` 알림 발행
-  - `ReservationService.confirm()` → `RESERVATION_CONFIRMED` 알림 발행
-- Flyway V12: notifications 테이블 + 복합 인덱스 `(member_id, read_at)`
-- GlobalExceptionHandler: NotificationNotFound(404), NotificationForbidden(403) 추가
-- Mockito 단위테스트 2종 (권한 체크 403, 정상 읽음 처리)
+- V13__chat.sql: chat_channels, chat_members(복합PK), chat_messages 마이그레이션
+- ChatChannel, ChatMember(@IdClass), ChatMessage 엔티티
+- ChatChannelRepository: findMyChannels(JPQL), findDmChannel(JPQL)
+- ChatMessageRepository: sinceId 폴링 (findTop50ByChannelIdAndIdGreaterThan...)
+- ChatService: listMyChannels, messages(sinceId), send, openDm(자동생성/중복방지)
+- ChatController: 4 엔드포인트 (SESSION 인증, Swagger 박제)
+- GlobalExceptionHandler: Chat 404(ChatChannelNotFoundException), 403(ChatForbiddenException) 추가
+- ChatServiceTest: DM 자동생성/중복방지/자기자신 예외 3종 (43/43 pass)
 
 ---
 
-## FE 연결 가이드 (Task #27 — FE-wire-6)
+## FE store 연결 가이드 (Task #29 — FE-wire-7)
 
-### 1. FE store `notifications.ts` 필드 매핑
+### API 엔드포인트
 
-| FE store 필드 | BE 응답 필드 | 변환 |
+| 메서드 | URL | 설명 |
 |---|---|---|
-| `id` (string) | `id` (Long) | `res.id.toString()` |
-| `type` (소문자) | `type` (대문자) | `.toLowerCase()` |
-| `title` | `title` | 동일 |
-| `message` | `body` | 필드명 다름: `body` |
-| `link` | `linkUrl` | 필드명 다름: `linkUrl` |
-| `read` (boolean) | `unread` (boolean) | `!unread` |
-| `createdAt` | `createdAt` | ISO 동일 |
+| GET | `/api/chat/channels` | 내 채널 목록 (인증 필수) |
+| GET | `/api/chat/channels/{id}/messages?sinceId=0` | 채널 메시지 폴링 |
+| POST | `/api/chat/channels/{id}/messages` | 메시지 전송 `{ content: string }` |
+| POST | `/api/chat/dm` | DM 채널 열기 `{ otherMemberId: number }` |
 
-### 2. 폴링 패턴 (FE 권장)
+### 폴링 패턴 (1~3초 주기)
 
 ```typescript
-// 5-30초 주기로 unread-count 폴링
-let pollTimer: ReturnType<typeof setInterval> | null = null
-
-function startPolling() {
-  pollTimer = setInterval(async () => {
-    const { count } = await $fetch('/api/notifications/unread-count')
-    store.unreadCount = count
-  }, 15_000)  // 15초
+// chat store (Pinia)
+async function pollMessages(channelId: number, sinceId: number) {
+  const msgs = await $fetch(`/api/chat/channels/${channelId}/messages`, {
+    params: { sinceId }
+  })
+  if (msgs.length > 0) {
+    messages.value.push(...msgs)
+    lastSinceId.value = msgs[msgs.length - 1].id
+  }
 }
-function stopPolling() {
-  if (pollTimer) clearInterval(pollTimer)
+// setInterval(() => pollMessages(channelId, lastSinceId.value), 2000)
+// onUnmounted(() => clearInterval(timer))
+```
+
+### 응답 타입
+
+```typescript
+interface ChatChannelResponse {
+  id: number
+  name: string
+  type: 'PUBLIC' | 'DM'
+  createdAt: string
 }
-```
 
-### 3. 알림 목록 조회
-
-```typescript
-// GET /api/notifications?page=0&size=20
-const result = await fetch('/api/notifications?page=0&size=20').then(r => r.json())
-// result: { content: [...], page, size, totalElements, totalPages, last }
-
-// FE 변환
-const storeItems = result.content.map(n => ({
-  id: n.id.toString(),
-  type: n.type.toLowerCase(),   // 'REVIEW_REPLY' → 'review_reply'
-  title: n.title,
-  message: n.body,              // BE 'body' → FE 'message'
-  link: n.linkUrl,              // BE 'linkUrl' → FE 'link'
-  read: !n.unread,              // BE 'unread' 반전 → FE 'read'
-  createdAt: n.createdAt,
-}))
-```
-
-### 4. 읽음 처리
-
-```typescript
-// 단건
-await fetch(`/api/notifications/${id}/read`, { method: 'POST' })
-
-// 전체
-await fetch('/api/notifications/read-all', { method: 'POST' })
-```
-
-### 5. Pinia store 교체 패턴
-
-```typescript
-// src/stores/notifications.ts
-actions: {
-  async fetchList(page = 0) {
-    const res = await $fetch(`/api/notifications?page=${page}&size=20`)
-    this.notifications = res.content.map(this.toStoreItem)
-    this.hasMore = !res.last
-  },
-  async fetchUnreadCount() {
-    const { count } = await $fetch('/api/notifications/unread-count')
-    this.unreadCount = count
-  },
-  async markRead(id: string) {
-    await $fetch(`/api/notifications/${id}/read`, { method: 'POST' })
-    const n = this.notifications.find(n => n.id === id)
-    if (n) n.read = true
-    this.unreadCount = Math.max(0, this.unreadCount - 1)
-  },
-  async markAllRead() {
-    await $fetch('/api/notifications/read-all', { method: 'POST' })
-    this.notifications.forEach(n => (n.read = true))
-    this.unreadCount = 0
-  },
-  toStoreItem(n: NotificationResponse) {
-    return {
-      id: n.id.toString(),
-      type: n.type.toLowerCase(),
-      title: n.title,
-      message: n.body,
-      link: n.linkUrl,
-      read: !n.unread,
-      createdAt: n.createdAt,
-    }
-  },
+interface ChatMessageResponse {
+  id: number
+  channelId: number
+  senderId: number
+  content: string
+  createdAt: string
 }
 ```
+
+### 에러 코드
+
+| 상태 | 의미 |
+|---|---|
+| 401 | 미인증 |
+| 403 | 채널 구성원 아님 |
+| 404 | 채널 미존재 |
+| 400 | 자기 자신에게 DM / content 빈값 |
 
 ---
 
 ## 미해결 질문 / Reviewer 검토 포인트
 
-1. **publish 트리거 학습 모드**: 현재 후기 작성자가 자신에게 알림을 받는다. 실제론 대상 숙박/관광지 오너에게 발행해야 하나 오너 개념이 없어 학습 모드로 처리.
-2. **페이징 응답 구조**: `PageResponse`가 `attraction` 패키지에 있음 — 향후 `common` 패키지로 이동 권장 (follow-up).
-3. **알림 삭제 엔드포인트 없음**: 스펙 없어서 미구현. 필요 시 추가 요청.
-4. **폴링 주기**: FE와 협의 필요. 현재 권장값 15초.
+1. **공개 채널 생성 API 없음** — PUBLIC 채널은 현재 시드/마이그레이션으로만 생성 가능. FE-wire-7에서 필요하면 BE에 POST `/api/chat/channels` 추가 요청.
+2. **읽음 처리** — `ChatMember.lastReadMessageId` 필드 있으나 업데이트 API 미구현 (스펙 외). 필요 시 PATCH 추가.
+3. **메시지 TEXT vs VARCHAR** — DB는 TEXT, DTO `@Size(max=2000)` 검증. 변경 시 DTO만 수정.
