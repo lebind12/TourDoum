@@ -122,4 +122,56 @@ describe("usePlansStore", () => {
 			expect.any(String),
 		);
 	});
+
+	it("reorderItems — 앞에서 뒤로 이동한다", () => {
+		const store = usePlansStore();
+		const plan = store.createPlan("reorder 테스트", "2026-09-10", "2026-09-11");
+		store.addItem(plan.id, 0, { type: "attraction", refId: 1 });
+		store.addItem(plan.id, 0, { type: "attraction", refId: 2 });
+		store.addItem(plan.id, 0, { type: "attraction", refId: 3 });
+
+		const found = store.getById(plan.id);
+		if (!found) throw new Error("plan not found");
+		const originalFirst = found.days[0].items[0].refId; // 1
+
+		// index 0 → index 2 로 이동
+		store.reorderItems(plan.id, 0, 0, 2);
+
+		const updated = store.getById(plan.id);
+		if (!updated) throw new Error("plan not found after reorder");
+		expect(updated.days[0].items[2].refId).toBe(originalFirst);
+		expect(updated.days[0].items[0].refId).toBe(2);
+		expect(updated.days[0].items[1].refId).toBe(3);
+	});
+
+	it("reorderItems — 뒤에서 앞으로 이동한다", () => {
+		const store = usePlansStore();
+		const plan = store.createPlan("reorder 역방향", "2026-10-01", "2026-10-02");
+		store.addItem(plan.id, 0, { type: "attraction", refId: 10 });
+		store.addItem(plan.id, 0, { type: "attraction", refId: 20 });
+		store.addItem(plan.id, 0, { type: "attraction", refId: 30 });
+
+		// index 2 → index 0
+		store.reorderItems(plan.id, 0, 2, 0);
+
+		const updated = store.getById(plan.id);
+		if (!updated) throw new Error("plan not found after reorder");
+		expect(updated.days[0].items[0].refId).toBe(30);
+		expect(updated.days[0].items[1].refId).toBe(10);
+		expect(updated.days[0].items[2].refId).toBe(20);
+	});
+
+	it("reorderItems — fromIdx === toIdx 이면 변경 없다", () => {
+		const store = usePlansStore();
+		const plan = store.createPlan("reorder noop", "2026-11-01", "2026-11-02");
+		store.addItem(plan.id, 0, { type: "attraction", refId: 5 });
+		store.addItem(plan.id, 0, { type: "attraction", refId: 6 });
+
+		store.reorderItems(plan.id, 0, 1, 1);
+
+		const updated = store.getById(plan.id);
+		if (!updated) throw new Error("plan not found");
+		expect(updated.days[0].items[0].refId).toBe(5);
+		expect(updated.days[0].items[1].refId).toBe(6);
+	});
 });
