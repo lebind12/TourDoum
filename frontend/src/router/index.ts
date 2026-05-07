@@ -146,6 +146,18 @@ const router = createRouter({
 			component: () => import("@/views/DMView.vue"),
 			meta: { requiresAuth: true },
 		},
+		// ── 통합 검색 / 알림 (batch 2-B) ────────────────────────────────────
+		{
+			path: "/search",
+			name: "search",
+			component: () => import("@/views/SearchView.vue"),
+		},
+		{
+			path: "/notifications",
+			name: "notifications",
+			component: () => import("@/views/NotificationsView.vue"),
+			meta: { requiresAuth: true },
+		},
 	],
 });
 

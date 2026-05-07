@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import NotificationDrawer from "@/components/layout/NotificationDrawer.vue";
+import SearchWidget from "@/components/layout/SearchWidget.vue";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Sheet, SheetHeader } from "@/components/ui/sheet";
@@ -54,6 +56,10 @@ function closeDrawer() {
 
         <!-- Auth nav (≥768px) -->
         <nav class="hidden md:flex items-center gap-2">
+          <!-- 검색 위젯 -->
+          <SearchWidget />
+          <!-- 알림 (로그인 시) -->
+          <NotificationDrawer v-if="authStore.currentUser" />
           <template v-if="authStore.currentUser">
             <span class="text-sm text-muted-foreground hidden sm:inline">
               {{ authStore.currentUser.nickname }}님
@@ -83,6 +89,8 @@ function closeDrawer() {
 
         <!-- Mobile: ThemeToggle + Hamburger (<768px) -->
         <div class="flex md:hidden items-center gap-1">
+          <SearchWidget />
+          <NotificationDrawer v-if="authStore.currentUser" />
           <ThemeToggle />
           <Button
             variant="ghost"
@@ -121,6 +129,9 @@ function closeDrawer() {
         <p class="px-3 py-2 text-xs font-semibold text-muted-foreground uppercase">
           탐색
         </p>
+        <RouterLink to="/search" @click="closeDrawer">
+          <Button variant="ghost" class="w-full justify-start" size="sm">🔍 검색</Button>
+        </RouterLink>
         <RouterLink to="/attractions" @click="closeDrawer">
           <Button variant="ghost" class="w-full justify-start" size="sm">여행지</Button>
         </RouterLink>
@@ -141,6 +152,9 @@ function closeDrawer() {
           <p class="px-3 py-2 text-sm font-medium text-muted-foreground">
             {{ authStore.currentUser.nickname }}님
           </p>
+          <RouterLink to="/notifications" @click="closeDrawer">
+            <Button variant="ghost" class="w-full justify-start" size="sm">🔔 알림</Button>
+          </RouterLink>
           <RouterLink to="/me" @click="closeDrawer">
             <Button variant="ghost" class="w-full justify-start" size="sm">내 정보</Button>
           </RouterLink>
