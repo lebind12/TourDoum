@@ -1,5 +1,6 @@
 package com.ssafy.tourdoum.attraction;
 
+import com.ssafy.tourdoum.common.PageResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
