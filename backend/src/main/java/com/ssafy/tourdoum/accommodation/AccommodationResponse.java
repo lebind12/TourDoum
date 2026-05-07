@@ -5,6 +5,8 @@ import java.math.BigDecimal;
 /**
  * 숙박 단건 응답 DTO.
  *
+ * @param sido 시·도 (#43 V16 도입; FE 필터 옵션 노출용).
+ * @param gugun 시·군·구.
  * @param distanceMeters 반경 검색 시 거리(미터). 목록/단건 조회에서는 null.
  */
 public record AccommodationResponse(
@@ -12,6 +14,8 @@ public record AccommodationResponse(
     String name,
     AccommodationType type,
     String address,
+    String sido,
+    String gugun,
     BigDecimal lat,
     BigDecimal lng,
     Integer priceFrom,
@@ -27,6 +31,8 @@ public record AccommodationResponse(
         accommodation.getName(),
         accommodation.getType(),
         accommodation.getAddress(),
+        accommodation.getSido(),
+        accommodation.getGugun(),
         accommodation.getLat(),
         accommodation.getLng(),
         accommodation.getPriceFrom(),
@@ -48,6 +54,8 @@ public record AccommodationResponse(
         projection.getName(),
         AccommodationType.valueOf(projection.getType()),
         projection.getAddress(),
+        projection.getSido(),
+        projection.getGugun(),
         projection.getLat(),
         projection.getLng(),
         projection.getPriceFrom(),

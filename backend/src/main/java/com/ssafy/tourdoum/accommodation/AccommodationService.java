@@ -3,7 +3,10 @@ package com.ssafy.tourdoum.accommodation;
 import com.ssafy.tourdoum.common.algorithm.KmpMatcher;
 import com.ssafy.tourdoum.review.ReviewRepository;
 import com.ssafy.tourdoum.review.ReviewTargetType;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -108,6 +111,25 @@ public class AccommodationService {
       return 0L;
     }
     return ((Number) aggregate[1]).longValue();
+  }
+
+  /**
+   * 행정구역 옵션 조회 — `GET /api/accommodations/regions`. FE 시·도/시·군·구 필터 select 옵션 소스.
+   *
+   * <p>{@link AccommodationRepository#findDistinctSidoGugunPairs}이 한글 사전순 (sido, gugun) 페어를 반환하므로
+   * 그룹화만 수행. {@code LinkedHashMap}으로 sido 정렬 유지.
+   */
+  public AccommodationRegionsResponse getRegions() {
+    Map<String, List<String>> mutable = new LinkedHashMap<>();
+    for (Object[] pair : accommodationRepository.findDistinctSidoGugunPairs()) {
+      String sido = (String) pair[0];
+      String gugun = (String) pair[1];
+      mutable.computeIfAbsent(sido, k -> new ArrayList<>()).add(gugun);
+    }
+    Map<String, List<String>> immutable = new LinkedHashMap<>();
+    mutable.forEach((k, v) -> immutable.put(k, List.copyOf(v)));
+    List<String> sidos = List.copyOf(immutable.keySet());
+    return new AccommodationRegionsResponse(sidos, immutable);
   }
 
   /**

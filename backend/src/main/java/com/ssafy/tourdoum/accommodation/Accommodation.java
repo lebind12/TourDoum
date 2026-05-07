@@ -46,6 +46,14 @@ public class Accommodation {
   @Column(length = 500)
   private String address;
 
+  /** 시·도 (예: 서울특별시, 부산광역시). #43 V16 도입, FE 필터 옵션 소스. */
+  @Column(nullable = false, length = 20)
+  private String sido;
+
+  /** 시·군·구 (예: 강남구, 해운대구, 강릉시). #43 V16 도입. */
+  @Column(nullable = false, length = 40)
+  private String gugun;
+
   @Column(nullable = false, precision = 9, scale = 6)
   private BigDecimal lat;
 
@@ -99,6 +107,8 @@ public class Accommodation {
       String name,
       AccommodationType type,
       String address,
+      String sido,
+      String gugun,
       BigDecimal lat,
       BigDecimal lng,
       Integer priceFrom,
@@ -113,6 +123,9 @@ public class Accommodation {
     this.name = name;
     this.type = type;
     this.address = address;
+    // NOT NULL — builder 미지정 시 빈 문자열 기본 (V16 default와 일치).
+    this.sido = sido == null ? "" : sido;
+    this.gugun = gugun == null ? "" : gugun;
     this.lat = lat;
     this.lng = lng;
     this.priceFrom = priceFrom;

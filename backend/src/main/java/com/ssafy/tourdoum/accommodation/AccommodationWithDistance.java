@@ -22,6 +22,12 @@ public interface AccommodationWithDistance {
 
   String getAddress();
 
+  /** 시·도 (#43 V16). */
+  String getSido();
+
+  /** 시·군·구 (#43 V16). */
+  String getGugun();
+
   BigDecimal getLat();
 
   BigDecimal getLng();
