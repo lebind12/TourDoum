@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { Avatar } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { useChatStore } from "@/stores/chat";
 import { onMounted, ref } from "vue";
@@ -8,15 +7,6 @@ import { RouterLink } from "vue-router";
 
 const chatStore = useChatStore();
 const activeTab = ref<"channels" | "dm">("channels");
-
-function formatTime(iso: string): string {
-	const d = new Date(iso);
-	const now = new Date();
-	const diff = now.getTime() - d.getTime();
-	if (diff < 60 * 60 * 1000) return `${Math.floor(diff / 60000)}분 전`;
-	if (diff < 24 * 60 * 60 * 1000) return `${Math.floor(diff / 3600000)}시간 전`;
-	return `${d.getMonth() + 1}/${d.getDate()}`;
-}
 
 onMounted(() => {
 	chatStore.fetchChannels();
@@ -65,28 +55,33 @@ onMounted(() => {
 
     <!-- 공개 채널 목록 -->
     <template v-if="activeTab === 'channels'">
-      <div class="flex flex-col gap-3">
+      <div v-if="chatStore.loading" class="flex justify-center py-8">
+        <p class="text-muted-foreground text-sm">채널 목록을 불러오는 중...</p>
+      </div>
+      <div v-else-if="chatStore.publicChannels.length === 0">
+        <Card>
+          <CardContent class="p-12 text-center">
+            <p class="text-muted-foreground">참여 중인 공개 채널이 없습니다.</p>
+          </CardContent>
+        </Card>
+      </div>
+      <div v-else class="flex flex-col gap-3">
         <RouterLink
-          v-for="channel in chatStore.channels"
+          v-for="channel in chatStore.publicChannels"
           :key="channel.id"
           :to="{ name: 'chat-channel', params: { channelId: channel.id } }"
           class="block"
         >
           <Card class="hover:shadow-md transition-shadow cursor-pointer">
             <CardContent class="p-4">
-              <div class="flex items-start justify-between gap-3">
-                <div class="flex items-center gap-3">
-                  <Avatar name="#" variant="sky" size="md" />
-                  <div>
-                    <h2 class="font-semibold">{{ channel.name }}</h2>
-                    <p class="text-xs text-muted-foreground">{{ channel.description }}</p>
-                  </div>
+              <div class="flex items-center gap-3">
+                <Avatar name="#" variant="sky" size="md" />
+                <div>
+                  <h2 class="font-semibold">{{ channel.name }}</h2>
+                  <p class="text-xs text-muted-foreground">
+                    채널 #{{ channel.id }}
+                  </p>
                 </div>
-                <span class="text-xs text-muted-foreground shrink-0">{{ channel.memberCount.toLocaleString() }}명</span>
-              </div>
-              <div class="mt-3 flex items-center gap-2">
-                <p class="text-sm text-muted-foreground truncate flex-1">{{ channel.lastMessage }}</p>
-                <span class="text-xs text-muted-foreground shrink-0">{{ formatTime(channel.lastMessageAt) }}</span>
               </div>
             </CardContent>
           </Card>
@@ -96,7 +91,7 @@ onMounted(() => {
 
     <!-- DM 목록 -->
     <template v-else>
-      <div v-if="Object.keys(chatStore.dmThreads).length === 0">
+      <div v-if="chatStore.dmChannels.length === 0">
         <Card>
           <CardContent class="p-12 text-center">
             <p class="text-muted-foreground">다이렉트 메시지가 없습니다.</p>
@@ -107,24 +102,18 @@ onMounted(() => {
 
       <div v-else class="flex flex-col gap-3">
         <RouterLink
-          v-for="[partnerId, thread] in Object.entries(chatStore.dmThreads)"
-          :key="partnerId"
-          :to="{ name: 'dm', params: { userId: partnerId } }"
+          v-for="channel in chatStore.dmChannels"
+          :key="channel.id"
+          :to="{ name: 'chat-channel', params: { channelId: channel.id } }"
           class="block"
         >
           <Card class="hover:shadow-md transition-shadow cursor-pointer">
             <CardContent class="p-4">
               <div class="flex items-center gap-3">
-                <Avatar :name="thread.partnerName" variant="emerald" size="md" />
+                <Avatar :name="channel.name" variant="emerald" size="md" />
                 <div class="flex-1 min-w-0">
-                  <div class="flex items-center gap-2">
-                    <h2 class="font-semibold text-sm">{{ thread.partnerName }}</h2>
-                    <Badge variant="emerald">호스트</Badge>
-                  </div>
-                  <p class="text-xs text-muted-foreground truncate">{{ thread.accommodationName }}</p>
-                  <p class="text-sm text-muted-foreground truncate mt-1">
-                    {{ thread.messages[thread.messages.length - 1]?.content ?? '' }}
-                  </p>
+                  <h2 class="font-semibold text-sm">{{ channel.name }}</h2>
+                  <p class="text-xs text-muted-foreground">다이렉트 메시지</p>
                 </div>
               </div>
             </CardContent>

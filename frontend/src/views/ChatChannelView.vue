@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useChatStore } from "@/stores/chat";
 import { ChevronLeft, Send } from "lucide-vue-next";
-import { nextTick, onMounted, ref, watch } from "vue";
+import { nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { RouterLink, useRoute } from "vue-router";
 
 const route = useRoute();
@@ -12,7 +12,7 @@ const chatStore = useChatStore();
 const inputText = ref("");
 const messagesEl = ref<HTMLElement | null>(null);
 
-const channelId = Number(route.params.channelId);
+const channelId = String(route.params.channelId);
 
 function formatTime(iso: string): string {
 	const d = new Date(iso);
@@ -42,9 +42,13 @@ watch(
 	},
 );
 
-onMounted(() => {
-	chatStore.setActiveChannel(channelId);
+onMounted(async () => {
+	await chatStore.setActiveChannel(channelId);
 	nextTick(scrollToBottom);
+});
+
+onUnmounted(() => {
+	chatStore.stopPolling();
 });
 </script>
 
@@ -60,12 +64,17 @@ onMounted(() => {
       <Avatar name="#" variant="sky" size="sm" />
       <div>
         <h1 class="font-semibold text-sm">{{ chatStore.activeChannel?.name ?? '' }}</h1>
-        <p class="text-xs text-muted-foreground">{{ chatStore.activeChannel?.memberCount.toLocaleString() }}명 참여중</p>
+        <p class="text-xs text-muted-foreground">
+          {{ chatStore.activeChannel?.type === 'DM' ? '다이렉트 메시지' : '공개 채널' }}
+        </p>
       </div>
     </header>
 
     <!-- 채널 없음 -->
-    <div v-if="!chatStore.activeChannel" class="flex-1 flex items-center justify-center">
+    <div v-if="chatStore.loading && !chatStore.activeChannel" class="flex-1 flex items-center justify-center">
+      <p class="text-muted-foreground">채널 정보를 불러오는 중...</p>
+    </div>
+    <div v-else-if="!chatStore.activeChannel" class="flex-1 flex items-center justify-center">
       <p class="text-muted-foreground">채널을 찾을 수 없습니다.</p>
     </div>
 
@@ -77,10 +86,10 @@ onMounted(() => {
           :key="msg.id"
           class="flex items-start gap-3"
         >
-          <Avatar :name="msg.authorName" variant="slate" size="sm" class="mt-0.5" />
+          <Avatar :name="msg.senderId" variant="slate" size="sm" class="mt-0.5" />
           <div>
             <div class="flex items-baseline gap-2">
-              <span class="text-sm font-medium">{{ msg.authorName }}</span>
+              <span class="text-sm font-medium">사용자 {{ msg.senderId }}</span>
               <span class="text-xs text-muted-foreground">{{ formatTime(msg.createdAt) }}</span>
             </div>
             <p class="text-sm text-foreground mt-0.5 leading-relaxed">{{ msg.content }}</p>
