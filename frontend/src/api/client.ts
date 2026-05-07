@@ -1,5 +1,5 @@
 /**
- * fetch 래퍼 — JWT Bearer 호환층 + refresh interceptor (ADR-0011 FE-1 보강).
+ * fetch 래퍼 — JWT Bearer 호환층 + refresh interceptor + CSRF 자동 주입 (ADR-0011 FE-1/FE-2).
  *
  * - `auth-token.ts`의 `getAccessToken()`이 토큰을 반환하면 매 요청에
  *   `Authorization: Bearer <token>` 헤더를 자동 부착.
@@ -7,12 +7,15 @@
  *     1) `skipRefresh` 옵션이 true 가 아니고 refresh 핸들러가 등록돼 있으면
  *        `tryRefresh()` 로 단일 in-flight refresh 호출 → 성공 시 원 요청 1회 재시도.
  *     2) refresh 실패하거나 재시도 후에도 401 이면 `notifyUnauthorized()` 호출.
- * - `credentials: "include"`는 BE-3(httpOnly refresh cookie) 도입 대비해 유지.
+ * - `credentials: "include"` 로 httpOnly refresh cookie + XSRF-TOKEN cookie 자동 송수신.
+ * - mutation(POST/PUT/PATCH/DELETE) 시 `X-XSRF-TOKEN` 헤더 자동 주입(double-submit).
+ *   GET/HEAD/OPTIONS + login/signup 은 BE 측에서 CSRF 면제 — cookie 부재 시 헤더 생략.
  *
  * VITE_API_BASE_URL이 없으면 사용자 로컬 dev(8080) 폴백. agent worktree는 .env.agent로 30080 주입.
  */
 
 import { getAccessToken, notifyUnauthorized, tryRefresh } from "./auth-token";
+import { CSRF_HEADER_NAME, isMutation, readXsrfToken } from "./csrf";
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8080";
 
@@ -38,8 +41,16 @@ async function extractError(res: Response): Promise<string> {
 	}
 }
 
-/** 인증 헤더를 구성한다. 호출자가 헤더를 추가로 넘기면 병합. */
-function buildHeaders(extra?: HeadersInit, withJson = true): Headers {
+/**
+ * 인증 + CSRF 헤더를 구성한다. 호출자가 헤더를 추가로 넘기면 병합.
+ * - mutation method 면 `X-XSRF-TOKEN` cookie 값을 echo (BE double-submit 검증).
+ * - cookie 가 없으면 헤더 미부착 (login/signup 은 BE 면제, 나머지는 403 응답이 호출자에게 전달).
+ */
+function buildHeaders(
+	method: string,
+	extra?: HeadersInit,
+	withJson = true,
+): Headers {
 	const headers = new Headers(extra);
 	if (withJson && !headers.has("Content-Type")) {
 		headers.set("Content-Type", "application/json");
@@ -47,6 +58,10 @@ function buildHeaders(extra?: HeadersInit, withJson = true): Headers {
 	const token = getAccessToken();
 	if (token && !headers.has("Authorization")) {
 		headers.set("Authorization", `Bearer ${token}`);
+	}
+	if (isMutation(method) && !headers.has(CSRF_HEADER_NAME)) {
+		const xsrf = readXsrfToken();
+		if (xsrf) headers.set(CSRF_HEADER_NAME, xsrf);
 	}
 	return headers;
 }
@@ -70,7 +85,11 @@ async function rawFetch(
 	const buildInit = (): RequestInit => ({
 		method: init.method,
 		credentials: "include",
-		headers: buildHeaders(init.headers ?? options?.headers, init.withJson),
+		headers: buildHeaders(
+			init.method,
+			init.headers ?? options?.headers,
+			init.withJson,
+		),
 		body: init.body,
 	});
 
