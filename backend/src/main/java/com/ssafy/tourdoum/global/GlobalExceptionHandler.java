@@ -2,6 +2,8 @@ package com.ssafy.tourdoum.global;
 
 import com.ssafy.tourdoum.accommodation.AccommodationNotFoundException;
 import com.ssafy.tourdoum.attraction.AttractionNotFoundException;
+import com.ssafy.tourdoum.chat.ChatChannelNotFoundException;
+import com.ssafy.tourdoum.chat.ChatForbiddenException;
 import com.ssafy.tourdoum.member.DuplicateEmailException;
 import com.ssafy.tourdoum.member.DuplicateNicknameException;
 import com.ssafy.tourdoum.notification.NotificationForbiddenException;
@@ -124,6 +126,20 @@ public class GlobalExceptionHandler {
   @ExceptionHandler(NotificationForbiddenException.class)
   @ResponseStatus(HttpStatus.FORBIDDEN)
   public ErrorResponse handleNotificationForbidden(NotificationForbiddenException ex) {
+    return new ErrorResponse("id", ex.getMessage());
+  }
+
+  /** 채팅 채널 미존재 → 404 Not Found. */
+  @ExceptionHandler(ChatChannelNotFoundException.class)
+  @ResponseStatus(HttpStatus.NOT_FOUND)
+  public ErrorResponse handleChatChannelNotFound(ChatChannelNotFoundException ex) {
+    return new ErrorResponse("id", ex.getMessage());
+  }
+
+  /** 채팅 채널 접근 권한 없음 → 403 Forbidden. */
+  @ExceptionHandler(ChatForbiddenException.class)
+  @ResponseStatus(HttpStatus.FORBIDDEN)
+  public ErrorResponse handleChatForbidden(ChatForbiddenException ex) {
     return new ErrorResponse("id", ex.getMessage());
   }
 
