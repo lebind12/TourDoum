@@ -137,10 +137,13 @@ if (typeof window !== "undefined") {
 </template>
 
 <style scoped>
+/* Round 8 (M): R7 모션 토큰(--motion-base / --ease-emphasized) 일원화.
+ * 이전 hardcode (0.2s/0.25s ease) 제거 — 토큰 변경이 자동 전파. */
+
 /* Overlay fade */
 .sheet-overlay-enter-active,
 .sheet-overlay-leave-active {
-  transition: opacity 0.2s ease;
+  transition: opacity var(--motion-base) var(--ease-standard);
 }
 .sheet-overlay-enter-from,
 .sheet-overlay-leave-to {
@@ -150,7 +153,7 @@ if (typeof window !== "undefined") {
 /* Left slide */
 .sheet-left-enter-active,
 .sheet-left-leave-active {
-  transition: transform 0.25s ease;
+  transition: transform var(--motion-base) var(--ease-emphasized);
 }
 .sheet-left-enter-from,
 .sheet-left-leave-to {
@@ -160,7 +163,7 @@ if (typeof window !== "undefined") {
 /* Right slide */
 .sheet-right-enter-active,
 .sheet-right-leave-active {
-  transition: transform 0.25s ease;
+  transition: transform var(--motion-base) var(--ease-emphasized);
 }
 .sheet-right-enter-from,
 .sheet-right-leave-to {
