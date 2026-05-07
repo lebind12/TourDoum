@@ -36,7 +36,6 @@ async function submit() {
 	const result = await reviewsStore.addReview(
 		props.targetType,
 		props.targetId,
-		authStore.currentUser.nickname,
 		rating.value,
 		comment.value.trim(),
 	);
