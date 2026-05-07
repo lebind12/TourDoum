@@ -1,6 +1,6 @@
 package com.ssafy.tourdoum.notification;
 
-import com.ssafy.tourdoum.attraction.PageResponse;
+import com.ssafy.tourdoum.common.PageResponse;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

@@ -1,6 +1,6 @@
 package com.ssafy.tourdoum.review;
 
-import com.ssafy.tourdoum.attraction.PageResponse;
+import com.ssafy.tourdoum.common.PageResponse;
 import com.ssafy.tourdoum.notification.NotificationService;
 import com.ssafy.tourdoum.notification.NotificationType;
 import org.springframework.data.domain.Page;

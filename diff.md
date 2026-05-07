@@ -1,6 +1,6 @@
-# diff — be/plan-item-delete
+# diff — be/common-page-response
 
-_generated: 2026-05-07T04:41:33Z_
+_generated: 2026-05-07T04:44:59Z_
 
 ## stat (vs HEAD~ … 또는 base)
 
@@ -13,6 +13,7 @@ _generated: 2026-05-07T04:41:33Z_
  .../accommodation/AccommodationService.java        | 130 +++++
  .../tourdoum/accommodation/AccommodationType.java  |   9 +
  .../accommodation/AccommodationWithDistance.java   |  40 ++
+ .../tourdoum/attraction/AttractionController.java  |   1 +
  .../com/ssafy/tourdoum/auth/SecurityConfig.java    |  21 +
  .../java/com/ssafy/tourdoum/chat/ChatChannel.java  |  48 ++
  .../chat/ChatChannelNotFoundException.java         |   9 +
@@ -30,6 +31,7 @@ _generated: 2026-05-07T04:41:33Z_
  .../com/ssafy/tourdoum/chat/ChatSendRequest.java   |   7 +
  .../java/com/ssafy/tourdoum/chat/ChatService.java  | 119 +++++
  .../com/ssafy/tourdoum/chat/OpenDmRequest.java     |   6 +
+ .../{attraction => common}/PageResponse.java       |   2 +-
  .../java/com/ssafy/tourdoum/favorite/Favorite.java |  63 +++
  .../tourdoum/favorite/FavoriteController.java      |  92 ++++
  .../tourdoum/favorite/FavoriteRepository.java      |  16 +
@@ -102,6 +104,7 @@ _generated: 2026-05-07T04:41:33Z_
  .../com/ssafy/tourdoum/plan/PlanServiceTest.java   | 141 ++++++
  .../reservation/ReservationServiceTest.java        | 102 ++++
  .../ssafy/tourdoum/review/ReviewServiceTest.java   |  95 ++++
+ diff.md                                            | 169 +++++++
  docs/screenshots/.gitkeep                          |   0
  docs/screenshots/README.md                         |  45 ++
  frontend/e2e/auth-flow.spec.ts                     | 129 +++--
@@ -159,8 +162,8 @@ _generated: 2026-05-07T04:41:33Z_
  handoff.md                                         |  78 +++
  scripts/e2e-auth-flow.sh                           |  15 +-
  scripts/mvnw-21.sh                                 |  28 ++
- self-review.md                                     | 134 ++++++
- 155 files changed, 11744 insertions(+), 1095 deletions(-)
+ self-review.md                                     | 254 ++++++++++
+ 158 files changed, 12035 insertions(+), 1096 deletions(-)
 ```
 
 ## untracked
