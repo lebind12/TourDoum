@@ -4,6 +4,8 @@ import com.ssafy.tourdoum.accommodation.AccommodationNotFoundException;
 import com.ssafy.tourdoum.attraction.AttractionNotFoundException;
 import com.ssafy.tourdoum.member.DuplicateEmailException;
 import com.ssafy.tourdoum.member.DuplicateNicknameException;
+import com.ssafy.tourdoum.review.ReviewForbiddenException;
+import com.ssafy.tourdoum.review.ReviewNotFoundException;
 import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.validation.FieldError;
@@ -60,6 +62,20 @@ public class GlobalExceptionHandler {
   @ExceptionHandler(AccommodationNotFoundException.class)
   @ResponseStatus(HttpStatus.NOT_FOUND)
   public ErrorResponse handleAccommodationNotFound(AccommodationNotFoundException ex) {
+    return new ErrorResponse("id", ex.getMessage());
+  }
+
+  /** 후기 미존재 → 404 Not Found. */
+  @ExceptionHandler(ReviewNotFoundException.class)
+  @ResponseStatus(HttpStatus.NOT_FOUND)
+  public ErrorResponse handleReviewNotFound(ReviewNotFoundException ex) {
+    return new ErrorResponse("id", ex.getMessage());
+  }
+
+  /** 후기 삭제 권한 없음 → 403 Forbidden. */
+  @ExceptionHandler(ReviewForbiddenException.class)
+  @ResponseStatus(HttpStatus.FORBIDDEN)
+  public ErrorResponse handleReviewForbidden(ReviewForbiddenException ex) {
     return new ErrorResponse("id", ex.getMessage());
   }
 }
