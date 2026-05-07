@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Sheet, SheetHeader } from "@/components/ui/sheet";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { Toaster } from "@/components/ui/toast";
 import { useAuthStore } from "@/stores/auth";
 import { useNotificationsStore } from "@/stores/notifications";
 import { Menu, X } from "lucide-vue-next";
@@ -207,5 +208,8 @@ function closeDrawer() {
         <p class="text-xs text-muted-foreground">© 2025 TourDoum. SSAFY 특화 프로젝트.</p>
       </div>
     </footer>
+
+    <!-- 글로벌 Toast 알림 -->
+    <Toaster />
   </div>
 </template>
