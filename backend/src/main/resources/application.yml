@@ -53,3 +53,16 @@ management:
   endpoint:
     health:
       show-details: when-authorized
+
+# Swagger / OpenAPI 설정 (ADR-0008)
+# prod 전환 시 springdoc.swagger-ui.enabled=false 로 비활성화.
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: alpha
+    tags-sorter: alpha
+    display-request-duration: true
+    csrf:
+      enabled: false  # dev 한정 (CSRF 비활성 상태와 정합)
+  api-docs:
+    path: /v3/api-docs

@@ -133,7 +133,12 @@ public class SecurityConfig {
                         "/api/members/signup",
                         "/api/attractions/**",
                         "/actuator/**",
-                        "/actuator/health")
+                        "/actuator/health",
+                        // Swagger UI + OpenAPI spec (ADR-0008) — dev 전용 공개
+                        "/swagger-ui/**",
+                        "/swagger-ui.html",
+                        "/v3/api-docs/**",
+                        "/v3/api-docs")
                     .permitAll()
                     .anyRequest()
                     .authenticated())
