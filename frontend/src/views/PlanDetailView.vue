@@ -8,7 +8,7 @@ import { useAttractionsStore } from "@/stores/attractions";
 import type { Plan, PlanDay, PlanItem } from "@/stores/plans";
 import { usePlansStore } from "@/stores/plans";
 import { GripVertical, Hotel, MapPin, X } from "lucide-vue-next";
-import { computed, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { RouterLink, useRoute, useRouter } from "vue-router";
 
 const route = useRoute();
@@ -19,6 +19,14 @@ const accommodationsStore = useAccommodationsStore();
 
 const planId = String(route.params.id);
 const plan = computed<Plan | undefined>(() => plansStore.getById(planId));
+
+onMounted(() => {
+	// 캐시 miss 또는 아이템 미로드 시 상세 fetch
+	const cached = plansStore.getById(planId);
+	if (!cached || cached.days.every((d) => d.items.length === 0)) {
+		plansStore.fetchPlanById(planId);
+	}
+});
 
 const activeDay = ref(0);
 
@@ -75,10 +83,12 @@ function removeItem(dayIndex: number, itemId: string) {
 	plansStore.removeItem(planId, dayIndex, itemId);
 }
 
-function deletePlan() {
+async function deletePlan() {
 	if (!window.confirm("이 여행 계획을 삭제하시겠습니까?")) return;
-	plansStore.deletePlan(planId);
-	router.push({ name: "plans" });
+	const success = await plansStore.deletePlan(planId);
+	if (success) {
+		router.push({ name: "plans" });
+	}
 }
 
 // ── Drag & Drop (HTML5 API) ──────────────────────────────────────────────────
@@ -102,7 +112,7 @@ function onDragOver(event: DragEvent) {
 	}
 }
 
-function onDrop(event: DragEvent, dayIdx: number, itemIdx: number) {
+async function onDrop(event: DragEvent, dayIdx: number, itemIdx: number) {
 	event.preventDefault();
 	if (!dragState.value) return;
 	// 같은 날짜 내에서만 reorder 지원
@@ -110,7 +120,12 @@ function onDrop(event: DragEvent, dayIdx: number, itemIdx: number) {
 		dragState.value = null;
 		return;
 	}
-	plansStore.reorderItems(planId, dayIdx, dragState.value.itemIdx, itemIdx);
+	await plansStore.reorderItems(
+		planId,
+		dayIdx,
+		dragState.value.itemIdx,
+		itemIdx,
+	);
 	dragState.value = null;
 }
 

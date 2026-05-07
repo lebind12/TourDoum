@@ -65,6 +65,31 @@ export async function post<T>(
 	}
 }
 
+export async function patch<T>(
+	path: string,
+	body: unknown,
+): Promise<ApiResponse<T>> {
+	try {
+		const res = await fetch(`${BASE_URL}${path}`, {
+			method: "PATCH",
+			headers: { "Content-Type": "application/json" },
+			credentials: "include",
+			body: JSON.stringify(body),
+		});
+		if (!res.ok) {
+			return { data: null, error: await extractError(res) };
+		}
+		const text = await res.text();
+		const data: T = text ? (JSON.parse(text) as T) : (null as T);
+		return { data, error: null };
+	} catch (err) {
+		return {
+			data: null,
+			error: err instanceof Error ? err.message : "알 수 없는 오류",
+		};
+	}
+}
+
 /** DELETE 요청. 204 No Content 정상 응답 처리. */
 export async function del(path: string): Promise<ApiResponse<null>> {
 	try {

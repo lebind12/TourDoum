@@ -67,13 +67,16 @@ async function submit() {
 	}
 	errorMsg.value = null;
 	submitting.value = true;
-	await new Promise((r) => setTimeout(r, 150));
-	const plan = store.createPlan(
+	const plan = await store.createPlan(
 		title.value.trim(),
 		startDate.value,
 		endDate.value,
 	);
 	submitting.value = false;
+	if (!plan) {
+		errorMsg.value = store.error ?? "계획 생성에 실패했습니다.";
+		return;
+	}
 	router.push({ name: "plan-detail", params: { id: plan.id } });
 }
 </script>
