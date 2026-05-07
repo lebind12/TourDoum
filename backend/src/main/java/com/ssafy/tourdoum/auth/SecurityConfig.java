@@ -42,8 +42,8 @@ public class SecurityConfig {
   private final MemberRepository memberRepository;
 
   /**
-   * 허용 origin 목록. 쉼표 구분.
-   * default: 사용자 로컬 dev(5173/5174) + agent worktree(30173/30174). 운영 환경에선 배포 URL을 명시 주입.
+   * 허용 origin 목록. 쉼표 구분. default: 사용자 로컬 dev(5173/5174) + agent worktree(30173/30174). 운영 환경에선 배포
+   * URL을 명시 주입.
    */
   @Value(
       "${tourdoum.cors.allowed-origins:http://localhost:5173,http://localhost:5174,http://localhost:30173,http://localhost:30174}")

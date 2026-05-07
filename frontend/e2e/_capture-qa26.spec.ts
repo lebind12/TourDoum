@@ -8,7 +8,7 @@ import { expect, test } from "@playwright/test";
 import { signupAndLogin } from "./_helpers/auth";
 
 const RUN = process.env.CAPTURE_QA26 === "1";
-const BASE = "http://localhost:8080";
+const BASE = process.env.VITE_API_BASE_URL ?? "http://localhost:30080";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const OUT = path.resolve(__dirname, "../../docs/screenshots/qa-26");
@@ -83,6 +83,8 @@ test.describe("qa-26 캡처", () => {
 			},
 		});
 		await page.reload();
+		// fetchPlan 응답 도착 후 li 3개 렌더 보장 (캡처 race 방지)
+		await expect(page.locator("ol li[draggable='true']")).toHaveCount(3);
 		await page.screenshot({
 			path: path.join(OUT, "03-plan-detail-after-reorder.png"),
 			fullPage: true,

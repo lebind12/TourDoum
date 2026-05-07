@@ -23,7 +23,8 @@ import { type Page, expect, test } from "@playwright/test";
 import { signupAndLogin } from "./_helpers/auth";
 
 const RUN = process.env.E2E_BACKEND === "1";
-const BASE = "http://localhost:8080";
+// agent worktree는 30080, 사용자 로컬 dev는 8080. .env.agent의 VITE_API_BASE_URL을 우선.
+const BASE = process.env.VITE_API_BASE_URL ?? "http://localhost:30080";
 
 /** 첫 attraction 3개의 ID 캡처 — plan item 추가용 */
 async function getFirstAttractionIds(page: Page, n = 3): Promise<number[]> {
