@@ -1,7 +1,9 @@
 package com.ssafy.tourdoum.plan;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.verify;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -89,5 +91,51 @@ class PlanServiceTest {
     // when / then
     Assertions.assertThrows(
         IllegalArgumentException.class, () -> planService.create(memberId, request));
+  }
+
+  @Test
+  @DisplayName("deleteItem — 본인 계획의 아이템이면 삭제됨")
+  void deleteItem_ownerCanDelete() {
+    // given
+    Long planId = 1L;
+    Long itemId = 10L;
+    Long memberId = 5L;
+    Plan plan = buildPlan(memberId);
+    PlanItem item =
+        PlanItem.builder()
+            .plan(plan)
+            .dayIndex(0)
+            .orderIndex(0)
+            .targetType(PlanItemTargetType.ATTRACTION)
+            .targetId(42L)
+            .memo(null)
+            .build();
+
+    given(planRepository.findById(planId)).willReturn(Optional.of(plan));
+    given(planItemRepository.findByIdAndPlanId(itemId, planId)).willReturn(Optional.of(item));
+
+    // when
+    planService.deleteItem(planId, itemId, memberId);
+
+    // then
+    verify(planItemRepository).delete(item);
+  }
+
+  @Test
+  @DisplayName("deleteItem — 존재하지 않는 아이템이면 PlanNotFoundException 발생")
+  void deleteItem_itemNotFound_throwsException() {
+    // given
+    Long planId = 1L;
+    Long itemId = 99L;
+    Long memberId = 5L;
+    Plan plan = buildPlan(memberId);
+
+    given(planRepository.findById(planId)).willReturn(Optional.of(plan));
+    given(planItemRepository.findByIdAndPlanId(itemId, planId)).willReturn(Optional.empty());
+
+    // when / then
+    assertThatThrownBy(() -> planService.deleteItem(planId, itemId, memberId))
+        .isInstanceOf(PlanNotFoundException.class)
+        .hasMessageContaining(String.valueOf(itemId));
   }
 }

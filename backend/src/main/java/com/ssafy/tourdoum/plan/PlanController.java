@@ -130,6 +130,25 @@ public class PlanController {
     return ResponseEntity.ok(planService.reorderItems(id, memberId, request));
   }
 
+  /** 일정 아이템 단건 삭제. */
+  @Operation(summary = "일정 아이템 삭제", description = "계획에서 아이템 하나를 삭제한다. 본인 계획의 아이템만 삭제 가능.")
+  @ApiResponses({
+    @ApiResponse(responseCode = "204", description = "삭제 완료"),
+    @ApiResponse(responseCode = "401", description = "인증 필요"),
+    @ApiResponse(responseCode = "403", description = "접근 권한 없음"),
+    @ApiResponse(responseCode = "404", description = "계획 또는 아이템 미존재")
+  })
+  @SecurityRequirement(name = "SESSION")
+  @DeleteMapping("/{id}/items/{itemId}")
+  public ResponseEntity<Void> deleteItem(
+      @Parameter(description = "계획 PK") @PathVariable Long id,
+      @Parameter(description = "아이템 PK") @PathVariable Long itemId,
+      @AuthenticationPrincipal UserDetails userDetails) {
+    Long memberId = resolveMemberId(userDetails);
+    planService.deleteItem(id, itemId, memberId);
+    return ResponseEntity.noContent().build();
+  }
+
   /** 여행 계획 삭제. */
   @Operation(summary = "여행 계획 삭제", description = "계획 ID로 계획과 전체 아이템을 삭제한다. 본인 계획만 삭제 가능.")
   @ApiResponses({
