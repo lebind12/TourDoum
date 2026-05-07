@@ -48,9 +48,10 @@ SSAFY 특화 프로젝트로 **TourDoum**(전국 여행지 + 주변 숙박 추�
 
 ## 멀티에이전트 분담 (초기)
 
-- **Architect** = 메인 세션 (Opus 4.7). 분해/머지 판정.
-- **Implementer-A (BE)** = Sonnet 4.6. `backend/` worktree.
-- **Implementer-B (FE)** = Sonnet 4.6. `frontend/` worktree.
+- **Architect** = 메인 세션 (Opus 4.7 기본, Codex fallback 가능). 분해/머지 판정.
+- **Implementer-A (BE)** = Sonnet 4.6 기본, Codex fallback 가능. `backend/` worktree.
+- **Implementer-B (FE)** = Sonnet 4.6 기본, Codex fallback 가능. `frontend/` worktree.
+- **Infra / CI** = Sonnet 4.6 기본, Codex fallback 가능. Docker/Jenkins/dev script worktree.
 - **Implementer-C (Codex CLI)** = 공공 API ETL 스크립트(여행지 시드 적재) + 숙박 시드 생성/수집.
 - **QA / Reviewer** = PR 시점 호출.
 

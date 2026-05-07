@@ -13,6 +13,9 @@
 # … work …
 ../../../.harness/scripts/agent-finalize.sh
 ../../../.harness/scripts/harness-check.sh
+
+# Codex fallback from project root
+../.harness/scripts/codex-agent.sh 20-spec-tourdoum fe feat-example /tmp/20-spec-tourdoum-task.md
 ```
 
-See workspace-level [CLAUDE.md](../CLAUDE.md) and [HARNESS_DESIGN.md](../HARNESS_DESIGN.md).
+See workspace-level [AGENTS.md](../AGENTS.md), [CLAUDE.md](../CLAUDE.md), and [HARNESS_DESIGN.md](../HARNESS_DESIGN.md).
