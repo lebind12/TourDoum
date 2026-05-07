@@ -19,4 +19,9 @@ paths = [
   '''(?i).*\.env\.example$''',
   '''(?i).*/fixtures/.*''',
   '''(?i).*/testdata/.*''',
+  '''(?i)docs/screenshots/.*\.json$''',
+  '''(?i).*idempotency-trace\.json$''',
+]
+regexes = [
+  '''idempotencyKey":\s*"[a-f0-9-]{36}"''',
 ]
