@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { Review, ReviewTargetType } from "@/stores/reviews";
 import { useReviewsStore } from "@/stores/reviews";
-import { computed } from "vue";
+import { computed, onMounted } from "vue";
 import StarRating from "./StarRating.vue";
 
 const props = defineProps<{
@@ -16,6 +16,10 @@ const items = computed(() =>
 const avg = computed(() =>
 	store.averageRating(props.targetType, props.targetId),
 );
+
+onMounted(() => {
+	store.fetchByTarget(props.targetType, props.targetId);
+});
 
 function formatDate(iso: string): string {
 	return new Date(iso).toLocaleDateString("ko-KR", {
