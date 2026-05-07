@@ -25,10 +25,11 @@ repos:
       - id: ruff-format
 
   - repo: https://github.com/biomejs/pre-commit
-    rev: v0.4.0
+    rev: v0.5.0
     hooks:
       - id: biome-check
-        additional_dependencies: ["@biomejs/biome@1.8.3"]
+        # frontend/package.json의 ^1.9.0과 정합 (이전 1.8.3 → 무한 fix 루프 발생)
+        additional_dependencies: ["@biomejs/biome@1.9.4"]
 
   - repo: local
     hooks:
