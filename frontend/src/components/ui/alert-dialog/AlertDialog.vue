@@ -125,9 +125,10 @@ function onOverlayClick(e: MouseEvent) {
 
 <template>
   <Teleport to="body">
+    <!-- Round 8 (M): R7 모션 토큰 일원화 — duration-150 hardcode 제거. -->
     <Transition
-      enter-active-class="transition-opacity duration-150"
-      leave-active-class="transition-opacity duration-150"
+      enter-active-class="transition-opacity duration-[var(--motion-base)] ease-[var(--ease-standard)]"
+      leave-active-class="transition-opacity duration-[var(--motion-base)] ease-[var(--ease-standard)]"
       enter-from-class="opacity-0"
       leave-to-class="opacity-0"
     >
@@ -173,7 +174,7 @@ function onOverlayClick(e: MouseEvent) {
               ref="cancelBtnRef"
               type="button"
               class="inline-flex items-center justify-center rounded-md border border-border bg-background px-4 py-2 text-sm font-medium
-                     text-foreground shadow-sm transition-colors hover:bg-muted
+                     text-foreground shadow-sm transition-[color,background-color,border-color] duration-[var(--motion-fast)] ease-[var(--ease-standard)] hover:bg-muted
                      focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               :disabled="loading"
               @click="handleCancel"
@@ -184,7 +185,7 @@ function onOverlayClick(e: MouseEvent) {
             <!-- 확인 -->
             <button
               type="button"
-              class="inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-medium shadow-sm transition-colors
+              class="inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-medium shadow-sm transition-[color,background-color,border-color] duration-[var(--motion-fast)] ease-[var(--ease-standard)]
                      focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
               :class="
                 variant === 'destructive'
