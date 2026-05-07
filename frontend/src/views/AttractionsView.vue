@@ -1,17 +1,41 @@
 <script setup lang="ts">
 import FavoriteButton from "@/components/FavoriteButton.vue";
+import KakaoMap, { type MapMarker } from "@/components/map/KakaoMap.vue";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useAttractionsStore } from "@/stores/attractions";
-import { MapPin } from "lucide-vue-next";
-import { onMounted, ref } from "vue";
-import { RouterLink } from "vue-router";
+import { computed, onMounted, ref } from "vue";
+import { RouterLink, useRouter } from "vue-router";
 
+const router = useRouter();
 const store = useAttractionsStore();
 const searchInput = ref(store.searchQuery);
 const selectedCategory = ref(store.selectedCategory);
 const selectedSido = ref(store.selectedSido);
+const hoveredId = ref<number | null>(null);
+
+/** 지도 중심: 필터된 여행지 평균 위치 or 전국 중심 */
+const mapCenter = computed(() => {
+	const items = store.filtered;
+	if (items.length === 0) return { lat: 36.5, lng: 127.8 };
+	const lat = items.reduce((s, a) => s + a.latitude, 0) / items.length;
+	const lng = items.reduce((s, a) => s + a.longitude, 0) / items.length;
+	return { lat, lng };
+});
+
+const mapMarkers = computed<MapMarker[]>(() =>
+	store.filtered.map((a) => ({
+		id: a.id,
+		lat: a.latitude,
+		lng: a.longitude,
+		title: a.name,
+	})),
+);
+
+function onSelectMarker(id: number) {
+	void router.push({ name: "attraction-detail", params: { id } });
+}
 
 onMounted(() => {
 	store.fetchAttractions();
@@ -60,14 +84,16 @@ onMounted(() => {
 
     <!-- 지도 + 리스트 레이아웃 -->
     <div class="flex flex-col lg:flex-row gap-6">
-      <!-- 지도 자리표시자 -->
+      <!-- 카카오맵 -->
       <Card class="lg:w-1/2 overflow-hidden">
-        <div class="h-64 lg:h-full min-h-64 bg-muted flex items-center justify-center">
-          <div class="text-center text-muted-foreground">
-            <MapPin class="w-12 h-12 mx-auto mb-2 opacity-40" />
-            <p class="text-sm font-medium">지도 영역</p>
-            <p class="text-xs mt-1">카카오맵 / 구글맵 연결 예정</p>
-          </div>
+        <div class="h-64 lg:h-[640px]">
+          <KakaoMap
+            :center="mapCenter"
+            :level="7"
+            :markers="mapMarkers"
+            :highlighted-marker-id="hoveredId"
+            @select-marker="onSelectMarker"
+          />
         </div>
       </Card>
 
@@ -100,6 +126,8 @@ onMounted(() => {
             :key="attraction.id"
             :to="{ name: 'attraction-detail', params: { id: attraction.id } }"
             class="block"
+            @mouseenter="hoveredId = attraction.id"
+            @mouseleave="hoveredId = null"
           >
             <Card class="overflow-hidden hover:shadow-md transition-shadow cursor-pointer">
               <img
