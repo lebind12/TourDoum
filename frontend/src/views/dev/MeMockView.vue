@@ -17,21 +17,24 @@ import { useAuthStore } from "@/stores/auth";
  *   목적엔 충분.
  */
 import MeView from "@/views/MeView.vue";
-import { onBeforeUnmount, onMounted } from "vue";
+import { onBeforeUnmount } from "vue";
 
 const auth = useAuthStore();
 
-// 진입 시점에 가짜 user를 store에 박는다. localStorage/세션 토큰은 건드리지 않는다 — ADR-0011 메모리 정책 준수.
+// Round 9 fix — race condition 차단:
+// 이전(R7)에는 onMounted에서 patch했으나, child(MeView)의 onMounted가 부모보다 먼저
+// 실행되며 reservationsStore.fetchMyReservations() → 401 → axios interceptor가
+// clearSession + push('/login')을 트리거 → /dev/me-mock이 곧장 /login으로 redirect되었다.
+// patch를 setup top-level(현 라인)로 옮기면 child의 onMounted 시점에 이미 currentUser가
+// 채워져 있어 라우터 가드와 interceptor가 진입을 허용한다.
 const previousUser = auth.currentUser;
-onMounted(() => {
-	auth.currentUser = {
-		id: 0,
-		email: "mock@tourdoum.dev",
-		nickname: "다크모드 점검",
-		role: "ROLE_MEMBER",
-		createdAt: new Date().toISOString(),
-	};
-});
+auth.currentUser = {
+	id: 0,
+	email: "mock@tourdoum.dev",
+	nickname: "다크모드 점검",
+	role: "ROLE_MEMBER",
+	createdAt: new Date().toISOString(),
+};
 
 // dev 라우트를 떠나면 원복(다른 dev 라우트로 이동했을 때 부작용 0).
 onBeforeUnmount(() => {
