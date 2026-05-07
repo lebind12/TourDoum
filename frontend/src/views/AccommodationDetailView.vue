@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AddToPlanModal from "@/components/plan/AddToPlanModal.vue";
 import ReviewForm from "@/components/review/ReviewForm.vue";
 import ReviewList from "@/components/review/ReviewList.vue";
 import { Avatar } from "@/components/ui/avatar";
@@ -11,7 +12,7 @@ import { useAccommodationsStore } from "@/stores/accommodations";
 import { useAuthStore } from "@/stores/auth";
 import { useReservationsStore } from "@/stores/reservations";
 import { useReviewsStore } from "@/stores/reviews";
-import { ChevronLeft, MessageCircle } from "lucide-vue-next";
+import { CalendarPlus, ChevronLeft, MessageCircle } from "lucide-vue-next";
 import { computed, onMounted, ref } from "vue";
 import { RouterLink, useRoute, useRouter } from "vue-router";
 
@@ -41,6 +42,7 @@ const userReview = computed(() =>
 );
 
 const showReviewForm = ref(false);
+const showAddToPlan = ref(false);
 
 function handleReserve() {
 	if (!acc.value) return;
@@ -240,6 +242,16 @@ function handleReserve() {
             <Button class="w-full mt-4" type="button" @click="handleReserve">
               예약하기
             </Button>
+            <Button
+              v-if="authStore.currentUser"
+              variant="outline"
+              class="w-full mt-2 gap-2"
+              type="button"
+              @click="showAddToPlan = true"
+            >
+              <CalendarPlus class="w-4 h-4" />
+              계획에 추가
+            </Button>
             <p class="text-center text-muted-foreground text-xs mt-2">
               다음 단계에서 날짜와 인원을 확정합니다.
             </p>
@@ -270,4 +282,15 @@ function handleReserve() {
       </div>
     </div>
   </template>
+
+  <!-- 계획에 추가 모달 -->
+  <Teleport to="body">
+    <AddToPlanModal
+      v-if="showAddToPlan && acc"
+      target-type="accommodation"
+      :target-id="acc.id"
+      :target-name="acc.name"
+      @close="showAddToPlan = false"
+    />
+  </Teleport>
 </template>
