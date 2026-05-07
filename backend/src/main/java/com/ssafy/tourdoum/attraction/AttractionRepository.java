@@ -14,6 +14,19 @@ public interface AttractionRepository extends JpaRepository<Attraction, Long> {
 
   Page<Attraction> findByCategory(AttractionCategory category, Pageable pageable);
 
+  @Query(
+      nativeQuery = true,
+      value =
+          """
+          SELECT * FROM attractions
+          WHERE name LIKE CONCAT('%', :keyword, '%')
+             OR address LIKE CONCAT('%', :keyword, '%')
+          ORDER BY id
+          LIMIT :limit
+          """)
+  List<Attraction> findKeywordCandidates(
+      @Param("keyword") String keyword, @Param("limit") int limit);
+
   /**
    * 주어진 좌표로부터 반경 내 여행지를 거리 순으로 반환.
    *
