@@ -50,6 +50,14 @@ function closeDrawer() {
 
 <template>
   <div class="min-h-screen bg-background flex flex-col">
+    <!-- Skip-to-content: 키보드/스크린리더 사용자 접근성 -->
+    <a
+      href="#main-content"
+      class="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[9999] focus:rounded-md focus:bg-background focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-foreground focus:shadow-md focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background"
+    >
+      본문으로 건너뛰기
+    </a>
+
     <!-- Header -->
     <header class="sticky top-0 z-50 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div class="container flex h-14 items-center">
@@ -59,17 +67,17 @@ function closeDrawer() {
         </RouterLink>
 
         <!-- Domain nav (≥768px) — 항상 노출 -->
-        <nav class="hidden md:flex items-center gap-1 ml-6">
-          <RouterLink to="/attractions">
+        <nav aria-label="주요 메뉴" class="hidden md:flex items-center gap-1 ml-6">
+          <RouterLink to="/attractions" :aria-current="route.path.startsWith('/attractions') ? 'page' : undefined">
             <Button variant="ghost" size="sm" :class="navClass('/attractions')">여행지</Button>
           </RouterLink>
-          <RouterLink to="/accommodations">
+          <RouterLink to="/accommodations" :aria-current="route.path.startsWith('/accommodations') ? 'page' : undefined">
             <Button variant="ghost" size="sm" :class="navClass('/accommodations')">숙박</Button>
           </RouterLink>
-          <RouterLink to="/chat">
+          <RouterLink to="/chat" :aria-current="route.path.startsWith('/chat') ? 'page' : undefined">
             <Button variant="ghost" size="sm" :class="navClass('/chat')">채팅</Button>
           </RouterLink>
-          <RouterLink v-if="authStore.currentUser" to="/favorites">
+          <RouterLink v-if="authStore.currentUser" to="/favorites" :aria-current="route.path.startsWith('/favorites') ? 'page' : undefined">
             <Button variant="ghost" size="sm" :class="navClass('/favorites')">즐겨찾기</Button>
           </RouterLink>
         </nav>
@@ -147,7 +155,7 @@ function closeDrawer() {
         </Button>
       </SheetHeader>
 
-      <nav class="flex flex-col gap-1 p-4">
+      <nav aria-label="모바일 주요 메뉴" class="flex flex-col gap-1 p-4">
         <!-- Domain section -->
         <p class="px-3 py-2 text-xs font-semibold text-muted-foreground uppercase">
           탐색
@@ -155,16 +163,16 @@ function closeDrawer() {
         <RouterLink to="/search" @click="closeDrawer">
           <Button variant="ghost" class="w-full justify-start" size="sm">🔍 검색</Button>
         </RouterLink>
-        <RouterLink to="/attractions" @click="closeDrawer">
+        <RouterLink to="/attractions" :aria-current="route.path.startsWith('/attractions') ? 'page' : undefined" @click="closeDrawer">
           <Button variant="ghost" class="w-full justify-start" size="sm" :class="navClass('/attractions')">여행지</Button>
         </RouterLink>
-        <RouterLink to="/accommodations" @click="closeDrawer">
+        <RouterLink to="/accommodations" :aria-current="route.path.startsWith('/accommodations') ? 'page' : undefined" @click="closeDrawer">
           <Button variant="ghost" class="w-full justify-start" size="sm" :class="navClass('/accommodations')">숙박</Button>
         </RouterLink>
-        <RouterLink to="/chat" @click="closeDrawer">
+        <RouterLink to="/chat" :aria-current="route.path.startsWith('/chat') ? 'page' : undefined" @click="closeDrawer">
           <Button variant="ghost" class="w-full justify-start" size="sm" :class="navClass('/chat')">채팅</Button>
         </RouterLink>
-        <RouterLink v-if="authStore.currentUser" to="/favorites" @click="closeDrawer">
+        <RouterLink v-if="authStore.currentUser" to="/favorites" :aria-current="route.path.startsWith('/favorites') ? 'page' : undefined" @click="closeDrawer">
           <Button variant="ghost" class="w-full justify-start" size="sm" :class="navClass('/favorites')">즐겨찾기</Button>
         </RouterLink>
 
@@ -203,7 +211,7 @@ function closeDrawer() {
     </Sheet>
 
     <!-- Main content -->
-    <main class="flex-1 container py-6">
+    <main id="main-content" tabindex="-1" class="flex-1 container py-6 focus:outline-none">
       <slot />
     </main>
 
