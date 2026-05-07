@@ -198,11 +198,25 @@ router.beforeEach(async (to) => {
 		if (to.meta.reservationStep === "complete") {
 			const reservationId = String(to.params.reservationId ?? "");
 			const reservations = useReservationsStore();
-			const reservation = reservations.confirmed.find(
-				(r) => r.id === reservationId && r.accommodationId === accommodationId,
-			);
 
-			if (!reservation) {
+			const matches = (r: { id: string; accommodationId: number }) =>
+				r.id === reservationId && r.accommodationId === accommodationId;
+
+			// 1) 직전 confirm() 결과 — happy path
+			let ok =
+				reservations.lastConfirmed !== null &&
+				matches(reservations.lastConfirmed);
+
+			// 2) 이미 메모리에 적재된 내 예약 목록
+			if (!ok) ok = reservations.myReservations.some(matches);
+
+			// 3) 새로고침/직접 진입으로 store가 비어 있으면 1회 fetch 후 재검증
+			if (!ok && reservations.myReservations.length === 0) {
+				await reservations.fetchMyReservations();
+				ok = reservations.myReservations.some(matches);
+			}
+
+			if (!ok) {
 				return { name: "reservation-dates", params: { accommodationId } };
 			}
 		}

@@ -79,9 +79,7 @@ test.describe("예약 — 3단계 흐름 + 멱등성 + 회귀", () => {
 		// 성인/아동 기본값 1/0 사용
 
 		// aria-label="결제 수단 선택으로 이동" — 텍스트 "다음 단계 — 결제 수단"보다 우선
-		await page
-			.getByRole("button", { name: "결제 수단 선택으로 이동" })
-			.click();
+		await page.getByRole("button", { name: "결제 수단 선택으로 이동" }).click();
 
 		// Step 2: 결제 수단
 		await expect(page).toHaveURL(
@@ -95,10 +93,9 @@ test.describe("예약 — 3단계 흐름 + 멱등성 + 회귀", () => {
 		});
 		await expect(confirmBtn).toBeEnabled();
 
-		// network 응답 wait + 클릭. POST /api/reservations 200/201 OK 확인.
-		// (참고: 현 develop은 라우터 beforeEach가 reservations.confirmed.find()로
-		//  존재하지 않는 ref 접근하여 TypeError → /complete URL 전환 실패. handoff
-		//  §결정 포인트 'FE 별건 #X' 참조. 본 spec은 BE 예약 확정 자체만 검증.)
+		// network 응답 wait + 클릭. POST /api/reservations 200/201 OK 확인 후
+		// /reservations/new/:id/complete/:reservationId URL 도달까지 검증
+		// (fe #49 라우터 가드 fix 회귀).
 		const respPromise = page.waitForResponse(
 			(r) =>
 				r.url().includes("/api/reservations") &&
@@ -112,6 +109,11 @@ test.describe("예약 — 3단계 흐름 + 멱등성 + 회귀", () => {
 		expect(resp.ok()).toBeTruthy();
 		const body = await resp.json();
 		expect(body.id).toBeTruthy();
+
+		// fe #49 회귀: 가드 통과 후 complete URL 진입.
+		await expect(page).toHaveURL(
+			new RegExp(`/reservations/new/${accommodationId}/complete/${body.id}`),
+		);
 	});
 
 	test("Scenario C: Idempotency-Key 멱등성 — 같은 키 2회 → 같은 reservationId", async ({
@@ -206,15 +208,15 @@ test.describe("예약 — 3단계 흐름 + 멱등성 + 회귀", () => {
 		);
 		await expect(section).toBeVisible({ timeout: 5000 });
 		// "예약 없음" 메시지가 사라져야 함 (현재 신규 계정 + 1건 생성 직후)
-		await expect(
-			section.getByText("아직 예약한 숙소가 없습니다."),
-		).toHaveCount(0);
+		await expect(section.getByText("아직 예약한 숙소가 없습니다.")).toHaveCount(
+			0,
+		);
 
 		// 새로고침 후에도 잔존
 		await page.reload();
 		await expect(section).toBeVisible({ timeout: 5000 });
-		await expect(
-			section.getByText("아직 예약한 숙소가 없습니다."),
-		).toHaveCount(0);
+		await expect(section.getByText("아직 예약한 숙소가 없습니다.")).toHaveCount(
+			0,
+		);
 	});
 });
