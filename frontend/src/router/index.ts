@@ -1,160 +1,189 @@
-import { useAuthStore } from '@/stores/auth'
-import { useReservationsStore, validateReservationDates } from '@/stores/reservations'
-import HomeView from '@/views/HomeView.vue'
-import { type RouteLocationNormalized, createRouter, createWebHistory } from 'vue-router'
+import { useAuthStore } from "@/stores/auth";
+import {
+	useReservationsStore,
+	validateReservationDates,
+} from "@/stores/reservations";
+import HomeView from "@/views/HomeView.vue";
+import {
+	type RouteLocationNormalized,
+	createRouter,
+	createWebHistory,
+} from "vue-router";
 
-type ReservationStep = 'dates' | 'payment' | 'complete'
+type ReservationStep = "dates" | "payment" | "complete";
 
 /** 인증이 필요한 라우트에 설정하는 메타 필드 */
-declare module 'vue-router' {
-  interface RouteMeta {
-    requiresAuth?: boolean
-    reservationStep?: ReservationStep
-  }
+declare module "vue-router" {
+	interface RouteMeta {
+		requiresAuth?: boolean;
+		reservationStep?: ReservationStep;
+	}
 }
 
 function getAccommodationId(to: RouteLocationNormalized): number | null {
-  const raw = to.params.accommodationId
-  const id = Number(Array.isArray(raw) ? raw[0] : raw)
-  return Number.isInteger(id) && id > 0 ? id : null
+	const raw = to.params.accommodationId;
+	const id = Number(Array.isArray(raw) ? raw[0] : raw);
+	return Number.isInteger(id) && id > 0 ? id : null;
 }
 
 function hasCompletedDraft(accommodationId: number): boolean {
-  const reservations = useReservationsStore()
-  const draft = reservations.current
+	const reservations = useReservationsStore();
+	const draft = reservations.current;
 
-  return (
-    draft?.accommodationId === accommodationId &&
-    typeof draft.checkIn === 'string' &&
-    typeof draft.checkOut === 'string' &&
-    validateReservationDates(draft.checkIn, draft.checkOut) === null &&
-    typeof draft.adults === 'number' &&
-    draft.adults >= 1 &&
-    typeof draft.children === 'number' &&
-    draft.children >= 0
-  )
+	return (
+		draft?.accommodationId === accommodationId &&
+		typeof draft.checkIn === "string" &&
+		typeof draft.checkOut === "string" &&
+		validateReservationDates(draft.checkIn, draft.checkOut) === null &&
+		typeof draft.adults === "number" &&
+		draft.adults >= 1 &&
+		typeof draft.children === "number" &&
+		draft.children >= 0
+	);
 }
 
 const router = createRouter({
-  history: createWebHistory(import.meta.env.BASE_URL),
-  routes: [
-    {
-      path: '/',
-      name: 'home',
-      component: HomeView,
-    },
-    {
-      path: '/login',
-      name: 'login',
-      component: () => import('@/views/LoginView.vue'),
-    },
-    {
-      path: '/signup',
-      name: 'signup',
-      component: () => import('@/views/SignupView.vue'),
-    },
-    {
-      path: '/me',
-      name: 'me',
-      component: () => import('@/views/MeView.vue'),
-      meta: { requiresAuth: true },
-    },
-    // ── Mockup 화면 (Task #4) ───────────────────────────────────────────
-    {
-      path: '/attractions',
-      name: 'attractions',
-      component: () => import('@/views/AttractionsView.vue'),
-    },
-    {
-      path: '/attractions/:id',
-      name: 'attraction-detail',
-      component: () => import('@/views/AttractionDetailView.vue'),
-    },
-    {
-      path: '/favorites',
-      name: 'favorites',
-      component: () => import('@/views/FavoritesView.vue'),
-      meta: { requiresAuth: true },
-    },
-    {
-      path: '/accommodations',
-      name: 'accommodations',
-      component: () => import('@/views/AccommodationsView.vue'),
-    },
-    {
-      path: '/accommodations/:id',
-      name: 'accommodation-detail',
-      component: () => import('@/views/AccommodationDetailView.vue'),
-    },
-    {
-      path: '/reservations/new/:accommodationId/dates',
-      name: 'reservation-dates',
-      component: () => import('@/views/ReservationDatesView.vue'),
-      meta: { requiresAuth: true, reservationStep: 'dates' },
-    },
-    {
-      path: '/reservations/new/:accommodationId/payment',
-      name: 'reservation-payment',
-      component: () => import('@/views/ReservationPaymentView.vue'),
-      meta: { requiresAuth: true, reservationStep: 'payment' },
-    },
-    {
-      path: '/reservations/new/:accommodationId/complete/:reservationId',
-      name: 'reservation-complete',
-      component: () => import('@/views/ReservationCompleteView.vue'),
-      meta: { requiresAuth: true, reservationStep: 'complete' },
-    },
-    {
-      path: '/chat',
-      name: 'chat',
-      component: () => import('@/views/ChatView.vue'),
-    },
-    {
-      path: '/chat/:channelId',
-      name: 'chat-channel',
-      component: () => import('@/views/ChatChannelView.vue'),
-    },
-    {
-      path: '/dm/:userId',
-      name: 'dm',
-      component: () => import('@/views/DMView.vue'),
-      meta: { requiresAuth: true },
-    },
-  ],
-})
+	history: createWebHistory(import.meta.env.BASE_URL),
+	routes: [
+		{
+			path: "/",
+			name: "home",
+			component: HomeView,
+		},
+		{
+			path: "/login",
+			name: "login",
+			component: () => import("@/views/LoginView.vue"),
+		},
+		{
+			path: "/signup",
+			name: "signup",
+			component: () => import("@/views/SignupView.vue"),
+		},
+		{
+			path: "/me",
+			name: "me",
+			component: () => import("@/views/MeView.vue"),
+			meta: { requiresAuth: true },
+		},
+		// ── 여행 계획 (batch 2-A) ─────────────────────────────────────────
+		{
+			path: "/plans",
+			name: "plans",
+			component: () => import("@/views/PlansView.vue"),
+			meta: { requiresAuth: true },
+		},
+		{
+			path: "/plans/new",
+			name: "plan-new",
+			component: () => import("@/views/PlanNewView.vue"),
+			meta: { requiresAuth: true },
+		},
+		{
+			path: "/plans/:id",
+			name: "plan-detail",
+			component: () => import("@/views/PlanDetailView.vue"),
+			meta: { requiresAuth: true },
+		},
+		// ── Mockup 화면 (Task #4) ───────────────────────────────────────────
+		{
+			path: "/attractions",
+			name: "attractions",
+			component: () => import("@/views/AttractionsView.vue"),
+		},
+		{
+			path: "/attractions/:id",
+			name: "attraction-detail",
+			component: () => import("@/views/AttractionDetailView.vue"),
+		},
+		{
+			path: "/favorites",
+			name: "favorites",
+			component: () => import("@/views/FavoritesView.vue"),
+			meta: { requiresAuth: true },
+		},
+		{
+			path: "/accommodations",
+			name: "accommodations",
+			component: () => import("@/views/AccommodationsView.vue"),
+		},
+		{
+			path: "/accommodations/:id",
+			name: "accommodation-detail",
+			component: () => import("@/views/AccommodationDetailView.vue"),
+		},
+		{
+			path: "/reservations/new/:accommodationId/dates",
+			name: "reservation-dates",
+			component: () => import("@/views/ReservationDatesView.vue"),
+			meta: { requiresAuth: true, reservationStep: "dates" },
+		},
+		{
+			path: "/reservations/new/:accommodationId/payment",
+			name: "reservation-payment",
+			component: () => import("@/views/ReservationPaymentView.vue"),
+			meta: { requiresAuth: true, reservationStep: "payment" },
+		},
+		{
+			path: "/reservations/new/:accommodationId/complete/:reservationId",
+			name: "reservation-complete",
+			component: () => import("@/views/ReservationCompleteView.vue"),
+			meta: { requiresAuth: true, reservationStep: "complete" },
+		},
+		{
+			path: "/chat",
+			name: "chat",
+			component: () => import("@/views/ChatView.vue"),
+		},
+		{
+			path: "/chat/:channelId",
+			name: "chat-channel",
+			component: () => import("@/views/ChatChannelView.vue"),
+		},
+		{
+			path: "/dm/:userId",
+			name: "dm",
+			component: () => import("@/views/DMView.vue"),
+			meta: { requiresAuth: true },
+		},
+	],
+});
 
 router.beforeEach(async (to) => {
-  const auth = useAuthStore()
+	const auth = useAuthStore();
 
-  // 아직 사용자 정보를 불러오지 않은 경우 /api/me 를 시도
-  if (auth.currentUser === null && !auth.loading) {
-    await auth.fetchMe()
-  }
+	// 아직 사용자 정보를 불러오지 않은 경우 /api/me 를 시도
+	if (auth.currentUser === null && !auth.loading) {
+		await auth.fetchMe();
+	}
 
-  if (to.meta.requiresAuth && auth.currentUser === null) {
-    return { name: 'login' }
-  }
+	if (to.meta.requiresAuth && auth.currentUser === null) {
+		return { name: "login" };
+	}
 
-  if (to.meta.reservationStep) {
-    const accommodationId = getAccommodationId(to)
-    if (accommodationId === null) return { name: 'accommodations' }
+	if (to.meta.reservationStep) {
+		const accommodationId = getAccommodationId(to);
+		if (accommodationId === null) return { name: "accommodations" };
 
-    if (to.meta.reservationStep === 'payment' && !hasCompletedDraft(accommodationId)) {
-      return { name: 'reservation-dates', params: { accommodationId } }
-    }
+		if (
+			to.meta.reservationStep === "payment" &&
+			!hasCompletedDraft(accommodationId)
+		) {
+			return { name: "reservation-dates", params: { accommodationId } };
+		}
 
-    if (to.meta.reservationStep === 'complete') {
-      const reservationId = String(to.params.reservationId ?? '')
-      const reservations = useReservationsStore()
-      const reservation = reservations.confirmed.find(
-        (r) => r.id === reservationId && r.accommodationId === accommodationId,
-      )
+		if (to.meta.reservationStep === "complete") {
+			const reservationId = String(to.params.reservationId ?? "");
+			const reservations = useReservationsStore();
+			const reservation = reservations.confirmed.find(
+				(r) => r.id === reservationId && r.accommodationId === accommodationId,
+			);
 
-      if (!reservation) {
-        return { name: 'reservation-dates', params: { accommodationId } }
-      }
-    }
-  }
-})
+			if (!reservation) {
+				return { name: "reservation-dates", params: { accommodationId } };
+			}
+		}
+	}
+});
 
-export default router
+export default router;

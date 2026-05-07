@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import FavoriteButton from "@/components/FavoriteButton.vue";
 import KakaoMap, { type MapMarker } from "@/components/map/KakaoMap.vue";
+import ReviewForm from "@/components/review/ReviewForm.vue";
+import ReviewList from "@/components/review/ReviewList.vue";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -147,6 +149,14 @@ const detailMarkers = computed<MapMarker[]>(() => {
               </div>
             </RouterLink>
           </div>
+        </CardContent>
+      </Card>
+
+      <!-- 후기 섹션 -->
+      <Card>
+        <CardContent class="pt-6 space-y-4">
+          <ReviewList target-type="attraction" :target-id="attraction.id" />
+          <ReviewForm target-type="attraction" :target-id="attraction.id" />
         </CardContent>
       </Card>
     </div>
