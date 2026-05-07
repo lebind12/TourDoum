@@ -12,10 +12,9 @@ const store = useNotificationsStore();
 const open = ref(false);
 
 const typeIcon: Record<string, string> = {
-	welcome: "🎉",
-	dm: "💬",
-	reservation: "🏨",
-	review: "⭐",
+	review_reply: "⭐",
+	reservation_confirmed: "🏨",
+	reservation_canceled: "❌",
 	system: "🔔",
 };
 

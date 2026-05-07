@@ -1,124 +1,81 @@
+import { get, post } from "@/api/client";
 import { defineStore } from "pinia";
-import { computed, ref, watch } from "vue";
+import { computed, ref } from "vue";
 
-export const NOTIFICATIONS_STORAGE_KEY = "tourdoum-notifications-v1"; // gitleaks:allow
-
+// ── FE 타입 ───────────────────────────────────────────────────────────────────
+/** BE NotificationType enum (소문자 FE 표현) */
 export type NotificationType =
-	| "welcome"
-	| "dm"
-	| "reservation"
-	| "review"
+	| "review_reply"
+	| "reservation_confirmed"
+	| "reservation_canceled"
 	| "system";
 
 export interface Notification {
-	id: string;
+	id: string; // BE Long → string
 	type: NotificationType;
 	title: string;
-	body: string;
-	link?: string;
+	body: string; // BE body (same field name)
+	link?: string; // BE linkUrl
+	isRead: boolean; // !unread
 	createdAt: string;
-	isRead: boolean;
 }
 
-const SEED_NOTIFICATIONS: Notification[] = [
-	{
-		id: "notif-001",
-		type: "welcome",
-		title: "TourDoum에 오신 것을 환영합니다!",
-		body: "회원가입을 완료하셨습니다. 다양한 여행지를 탐색해보세요.",
-		link: "/attractions",
-		createdAt: "2026-05-07T08:00:00Z",
-		isRead: false,
-	},
-	{
-		id: "notif-002",
-		type: "dm",
-		title: "새 DM이 도착했습니다",
-		body: "호스트 김철수님이 메시지를 보냈습니다.",
-		link: "/chat",
-		createdAt: "2026-05-07T09:30:00Z",
-		isRead: false,
-	},
-	{
-		id: "notif-003",
-		type: "dm",
-		title: "숙박 호스트가 메시지를 보냈습니다",
-		body: "제주 오션뷰 펜션 호스트: '체크인 관련 안내드립니다.'",
-		link: "/chat",
-		createdAt: "2026-05-06T14:00:00Z",
-		isRead: false,
-	},
-	{
-		id: "notif-004",
-		type: "reservation",
-		title: "예약이 확정되었습니다",
-		body: "부산 해운대 게스트하우스 예약(7월 15일~17일)이 확정되었습니다.",
-		link: "/me",
-		createdAt: "2026-05-06T10:00:00Z",
-		isRead: true,
-	},
-	{
-		id: "notif-005",
-		type: "review",
-		title: "후기 작성을 추천합니다",
-		body: "경복궁 방문은 어떠셨나요? 후기를 남겨보세요.",
-		link: "/attractions/1",
-		createdAt: "2026-05-05T18:00:00Z",
-		isRead: true,
-	},
-	{
-		id: "notif-006",
-		type: "dm",
-		title: "새 DM이 도착했습니다",
-		body: "여행 메이트 이지연님이 여행 계획을 공유하고 싶어합니다.",
-		link: "/chat",
-		createdAt: "2026-05-05T11:00:00Z",
-		isRead: true,
-	},
-	{
-		id: "notif-007",
-		type: "system",
-		title: "서비스 점검 안내",
-		body: "5월 8일 새벽 2시~4시 서버 점검이 예정되어 있습니다.",
-		createdAt: "2026-05-04T09:00:00Z",
-		isRead: true,
-	},
-	{
-		id: "notif-008",
-		type: "reservation",
-		title: "체크인 D-1 알림",
-		body: "내일 제주 오션뷰 펜션 체크인입니다. 즐거운 여행 되세요!",
-		link: "/me",
-		createdAt: "2026-05-03T08:00:00Z",
-		isRead: true,
-	},
-];
-
-function loadFromStorage(): Notification[] {
-	try {
-		const raw = localStorage.getItem(NOTIFICATIONS_STORAGE_KEY);
-		if (!raw) return [...SEED_NOTIFICATIONS];
-		return JSON.parse(raw) as Notification[];
-	} catch {
-		return [...SEED_NOTIFICATIONS];
-	}
+// ── BE API 응답 타입 ─────────────────────────────────────────────────────────
+export interface NotificationApiResponse {
+	id: number;
+	memberId: number;
+	type: string; // 'REVIEW_REPLY' | 'RESERVATION_CONFIRMED' | 'RESERVATION_CANCELED' | 'SYSTEM'
+	title: string;
+	body: string;
+	linkUrl: string | null;
+	unread: boolean;
+	createdAt: string;
+	readAt: string | null;
 }
 
+export interface PageApiResponse<T> {
+	content: T[];
+	page: number;
+	size: number;
+	totalElements: number;
+	totalPages: number;
+	last: boolean;
+}
+
+export interface UnreadCountApiResponse {
+	count: number;
+}
+
+// ── 매핑 함수 ─────────────────────────────────────────────────────────────────
+function mapApiToNotification(r: NotificationApiResponse): Notification {
+	return {
+		id: r.id.toString(),
+		type: r.type.toLowerCase() as NotificationType,
+		title: r.title,
+		body: r.body,
+		link: r.linkUrl ?? undefined,
+		isRead: !r.unread,
+		createdAt: r.createdAt,
+	};
+}
+
+// ── 폴링 간격 (ms) ────────────────────────────────────────────────────────────
+const POLL_INTERVAL_MS = 15_000;
+
+// ── Store ────────────────────────────────────────────────────────────────────
 export const useNotificationsStore = defineStore("notifications", () => {
-	const notifications = ref<Notification[]>(loadFromStorage());
+	const notifications = ref<Notification[]>([]);
+	const unreadCount = ref(0);
+	const loading = ref(false);
+	const error = ref<string | null>(null);
 
-	watch(
-		notifications,
-		(val) => {
-			localStorage.setItem(NOTIFICATIONS_STORAGE_KEY, JSON.stringify(val));
-		},
-		{ deep: true },
-	);
+	/** 폴링 interval ID */
+	let _pollTimer: ReturnType<typeof setInterval> | null = null;
+	/** visibilitychange 핸들러 참조 (cleanup용) */
+	let _visibilityHandler: (() => void) | null = null;
 
-	const unreadCount = computed(
-		() => notifications.value.filter((n) => !n.isRead).length,
-	);
-
+	// ── computed ───────────────────────────────────────────────────────────────
+	/** 최신 5건 (드로어용) */
 	const recent = computed(() =>
 		[...notifications.value]
 			.sort(
@@ -127,19 +84,6 @@ export const useNotificationsStore = defineStore("notifications", () => {
 			)
 			.slice(0, 5),
 	);
-
-	function markAsRead(id: string) {
-		notifications.value = notifications.value.map((n) =>
-			n.id === id ? { ...n, isRead: true } : n,
-		);
-	}
-
-	function markAllAsRead() {
-		notifications.value = notifications.value.map((n) => ({
-			...n,
-			isRead: true,
-		}));
-	}
 
 	/** 날짜 그룹 (오늘/어제/이전) */
 	function groupByDate(): {
@@ -173,12 +117,142 @@ export const useNotificationsStore = defineStore("notifications", () => {
 		};
 	}
 
+	// ── API 액션 ───────────────────────────────────────────────────────────────
+	/**
+	 * GET /api/notifications — 알림 목록 (페이징)
+	 * 기본 page=0, size=20
+	 */
+	async function fetchNotifications(page = 0, size = 20): Promise<void> {
+		loading.value = true;
+		error.value = null;
+
+		const result = await get<PageApiResponse<NotificationApiResponse>>(
+			`/api/notifications?page=${page}&size=${size}`,
+		);
+		loading.value = false;
+
+		if (result.error || !result.data) {
+			error.value = result.error ?? "알림을 불러오지 못했습니다.";
+			return;
+		}
+
+		notifications.value = result.data.content.map(mapApiToNotification);
+		// unreadCount도 함께 갱신
+		unreadCount.value = notifications.value.filter((n) => !n.isRead).length;
+	}
+
+	/**
+	 * GET /api/notifications/unread-count — 미읽음 수 폴링용
+	 */
+	async function fetchUnreadCount(): Promise<void> {
+		const result = await get<UnreadCountApiResponse>(
+			"/api/notifications/unread-count",
+		);
+		if (result.data) {
+			unreadCount.value = result.data.count;
+		}
+	}
+
+	/**
+	 * POST /api/notifications/{id}/read — 단건 읽음 처리
+	 */
+	async function markAsRead(id: string): Promise<void> {
+		// 낙관적 로컬 업데이트
+		notifications.value = notifications.value.map((n) =>
+			n.id === id ? { ...n, isRead: true } : n,
+		);
+		unreadCount.value = Math.max(0, unreadCount.value - 1);
+
+		const result = await post<NotificationApiResponse>(
+			`/api/notifications/${id}/read`,
+			{},
+		);
+		if (result.error) {
+			// 롤백
+			notifications.value = notifications.value.map((n) =>
+				n.id === id ? { ...n, isRead: false } : n,
+			);
+			unreadCount.value = unreadCount.value + 1;
+			error.value = result.error;
+		}
+	}
+
+	/**
+	 * POST /api/notifications/read-all — 전체 읽음 처리
+	 */
+	async function markAllAsRead(): Promise<void> {
+		// 낙관적 로컬 업데이트
+		const prev = notifications.value.map((n) => ({ ...n }));
+		const prevCount = unreadCount.value;
+		notifications.value = notifications.value.map((n) => ({
+			...n,
+			isRead: true,
+		}));
+		unreadCount.value = 0;
+
+		const result = await post<UnreadCountApiResponse>(
+			"/api/notifications/read-all",
+			{},
+		);
+		if (result.error) {
+			// 롤백
+			notifications.value = prev;
+			unreadCount.value = prevCount;
+			error.value = result.error;
+		}
+	}
+
+	// ── 폴링 ──────────────────────────────────────────────────────────────────
+	/**
+	 * unread-count 폴링 시작.
+	 * 15초 interval + visibilitychange 시 즉시 fetch.
+	 * 중복 호출 방지 (이미 실행 중이면 noop).
+	 */
+	function startPolling(): void {
+		if (_pollTimer !== null) return;
+
+		// 즉시 1회 fetch
+		fetchUnreadCount();
+
+		_pollTimer = setInterval(() => {
+			fetchUnreadCount();
+		}, POLL_INTERVAL_MS);
+
+		// visibilitychange: 탭 포커스 복귀 시 즉시 fetch
+		_visibilityHandler = () => {
+			if (document.visibilityState === "visible") {
+				fetchUnreadCount();
+			}
+		};
+		document.addEventListener("visibilitychange", _visibilityHandler);
+	}
+
+	/**
+	 * 폴링 중단 (로그아웃, 언마운트 시 호출).
+	 */
+	function stopPolling(): void {
+		if (_pollTimer !== null) {
+			clearInterval(_pollTimer);
+			_pollTimer = null;
+		}
+		if (_visibilityHandler !== null) {
+			document.removeEventListener("visibilitychange", _visibilityHandler);
+			_visibilityHandler = null;
+		}
+	}
+
 	return {
 		notifications,
 		unreadCount,
+		loading,
+		error,
 		recent,
+		groupByDate,
+		fetchNotifications,
+		fetchUnreadCount,
 		markAsRead,
 		markAllAsRead,
-		groupByDate,
+		startPolling,
+		stopPolling,
 	};
 });
