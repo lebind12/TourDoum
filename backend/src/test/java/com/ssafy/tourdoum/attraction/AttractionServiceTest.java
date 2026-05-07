@@ -3,6 +3,7 @@ package com.ssafy.tourdoum.attraction;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.mock;
 
 import java.math.BigDecimal;
@@ -14,6 +15,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
 
 /** AttractionService 단위 테스트 (Mockito). */
 @ExtendWith(MockitoExtension.class)
@@ -24,11 +26,16 @@ class AttractionServiceTest {
   @InjectMocks private AttractionService attractionService;
 
   private Attraction buildAttraction(Long id) {
+    return buildAttraction("경복궁", "서울", AttractionCategory.HISTORY, "서울특별시 종로구 사직로 161");
+  }
+
+  private Attraction buildAttraction(
+      String name, String region, AttractionCategory category, String address) {
     return Attraction.builder()
-        .name("경복궁")
-        .region("서울")
-        .category(AttractionCategory.HISTORY)
-        .address("서울특별시 종로구 사직로 161")
+        .name(name)
+        .region(region)
+        .category(category)
+        .address(address)
         .latitude(new BigDecimal("37.579617"))
         .longitude(new BigDecimal("126.977041"))
         .description("조선 왕조 최대의 법궁")
@@ -92,5 +99,48 @@ class AttractionServiceTest {
     assertThat(response.name()).isEqualTo("경복궁");
     assertThat(response.category()).isEqualTo(AttractionCategory.HISTORY);
     assertThat(response.distanceMeters()).isEqualTo(350.5);
+  }
+
+  @Test
+  @DisplayName("searchByKeyword — LIKE 후보를 KMP로 정확 검증해 이름 매칭만 반환")
+  void searchByKeyword_filters_candidates_with_kmp() {
+    // given
+    Attraction matched =
+        buildAttraction("경복궁", "서울", AttractionCategory.HISTORY, "서울특별시 종로구 사직로 161");
+    Attraction notMatched =
+        buildAttraction("창덕궁", "서울", AttractionCategory.HISTORY, "서울특별시 종로구 율곡로 99");
+    given(attractionRepository.findKeywordCandidates("경복", 20_000))
+        .willReturn(List.of(matched, notMatched));
+
+    // when
+    Page<AttractionResponse> result = attractionService.searchByKeyword("경복", 0, 20);
+
+    // then
+    assertThat(result.getTotalElements()).isEqualTo(1);
+    assertThat(result.getContent()).extracting(AttractionResponse::name).containsExactly("경복궁");
+    then(attractionRepository).should().findKeywordCandidates("경복", 20_000);
+  }
+
+  @Test
+  @DisplayName("list keyword — 주소 부분 매칭 후 region/category 부가 필터를 적용")
+  void list_withKeyword_filters_address_match_by_region_and_category() {
+    // given
+    Attraction matched =
+        buildAttraction("경복궁", "서울", AttractionCategory.HISTORY, "서울특별시 종로구 사직로 161");
+    Attraction otherRegion =
+        buildAttraction("부산 사직야구장", "부산", AttractionCategory.ACTIVITY, "부산광역시 동래구 사직로");
+    Attraction otherCategory =
+        buildAttraction("사직공원", "서울", AttractionCategory.NATURE, "서울특별시 종로구 사직로");
+    given(attractionRepository.findKeywordCandidates("사직로", 20_000))
+        .willReturn(List.of(matched, otherRegion, otherCategory));
+
+    // when
+    Page<AttractionResponse> result =
+        attractionService.list("서울", AttractionCategory.HISTORY, "사직로", 0, 20);
+
+    // then
+    assertThat(result.getTotalElements()).isEqualTo(1);
+    assertThat(result.getContent()).extracting(AttractionResponse::name).containsExactly("경복궁");
+    then(attractionRepository).should().findKeywordCandidates("사직로", 20_000);
   }
 }
