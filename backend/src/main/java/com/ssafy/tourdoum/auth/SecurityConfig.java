@@ -23,21 +23,26 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 /**
- * Spring Security 설정 — JWT (ADR-0011 BE-1, #61).
+ * Spring Security 설정 — JWT (ADR-0011).
  *
- * <p>이전 ADR-0003 (form login + Spring Session) 폐기. STATELESS, {@link JwtAuthenticationFilter}로
- * Authorization: Bearer header를 SecurityContext에 매핑.
- *
- * <p>cookie 기반(httpOnly + Secure + SameSite=Strict) + CSRF는 BE-3 (ADR-0011) 범위.
+ * <ul>
+ *   <li>BE-1 (#61): Bearer header 인증 + STATELESS.
+ *   <li>BE-2 (#63): logout 인증 게이트.
+ *   <li>BE-3 (본 변경): refresh transport를 httpOnly cookie로 박고, double-submit CSRF token 강제.
+ *       login/signup은 사전인증 단계라 CSRF 면제. {@link CsrfCookieFilter}로 매 응답 XSRF-TOKEN cookie
+ *       materialize.
+ * </ul>
  */
 @Configuration
 @EnableWebSecurity
-@EnableConfigurationProperties(JwtProperties.class)
+@EnableConfigurationProperties({JwtProperties.class, AuthCookieProperties.class})
 public class SecurityConfig {
 
   private final MemberDetailsService memberDetailsService;
@@ -70,7 +75,7 @@ public class SecurityConfig {
     cfg.setAllowedOrigins(allowedOrigins);
     cfg.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
     cfg.setAllowedHeaders(List.of("*"));
-    // BE-3에서 cookie 흐름 추가 시 Set-Cookie 노출 필요. 현 BE-1은 Bearer header 응답만.
+    // BE-3: refresh cookie + XSRF-TOKEN cookie는 브라우저 기본 처리. JS가 읽을 헤더만 expose.
     cfg.setExposedHeaders(List.of("Authorization"));
     cfg.setAllowCredentials(true);
     cfg.setMaxAge(3600L);
@@ -100,23 +105,34 @@ public class SecurityConfig {
 
   @Bean
   public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    // CSRF — double-submit cookie pattern. JS가 XSRF-TOKEN cookie를 읽고 X-XSRF-TOKEN 헤더로 보낸다.
+    // XOR 마스킹은 끄고(plain handler) 단순 동등 비교 — SPA double-submit 호환.
+    CookieCsrfTokenRepository csrfRepo = CookieCsrfTokenRepository.withHttpOnlyFalse();
+    csrfRepo.setCookiePath("/"); // 모든 경로에서 전송 (refresh/logout 외 mutation도 동일).
+    CsrfTokenRequestAttributeHandler csrfHandler = new CsrfTokenRequestAttributeHandler();
+    csrfHandler.setCsrfRequestAttributeName(null); // deferred 비활성: 매 요청에 token 즉시 resolve.
+
     http
         // CORS
         .cors(Customizer.withDefaults())
 
-        // CSRF: BE-1은 헤더 기반(Bearer), CSRF 무관. cookie 흐름이 추가되는 BE-3에서 정식 박제.
-        .csrf(AbstractHttpConfigurer::disable)
+        // CSRF: cookie 기반 double-submit. 사전인증 단계(login/signup)는 면제.
+        .csrf(
+            csrf ->
+                csrf.csrfTokenRepository(csrfRepo)
+                    .csrfTokenRequestHandler(csrfHandler)
+                    .ignoringRequestMatchers("/api/auth/login", "/api/members/signup"))
 
         // STATELESS — ADR-0011 핵심. Spring Security가 HttpSession을 만들거나 사용하지 않음.
         .sessionManagement(
             session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 
-        // 폼 로그인 / HTTP basic / logout 핸들러 명시 비활성 (이전 form 로그인 흔적 제거).
+        // 폼 로그인 / HTTP basic / logout 핸들러 명시 비활성.
         .formLogin(AbstractHttpConfigurer::disable)
         .httpBasic(AbstractHttpConfigurer::disable)
         .logout(AbstractHttpConfigurer::disable)
 
-        // 인가 규칙 — #63 BE-2: logout은 인증 필요로 분기 (현재 access의 jti를 회수해야 함).
+        // 인가 규칙 — BE-2: logout은 인증 필요. BE-3: CSRF는 csrf() 단계에서 별도 게이트.
         .authorizeHttpRequests(
             auth ->
                 auth.requestMatchers(HttpMethod.POST, "/api/auth/logout")
@@ -141,6 +157,10 @@ public class SecurityConfig {
 
         // JWT 필터: UsernamePasswordAuthenticationFilter 위치 앞에 등록.
         .addFilterBefore(jwtAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class)
+
+        // CSRF cookie materialize: CsrfFilter 뒤에 박혀 매 응답에서 XSRF-TOKEN을 채워 보낸다.
+        .addFilterAfter(
+            new CsrfCookieFilter(), org.springframework.security.web.csrf.CsrfFilter.class)
 
         // 401/403 JSON 응답
         .exceptionHandling(

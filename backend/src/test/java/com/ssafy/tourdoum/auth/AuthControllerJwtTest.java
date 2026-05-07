@@ -1,6 +1,7 @@
 package com.ssafy.tourdoum.auth;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -115,6 +116,7 @@ class AuthControllerJwtTest {
         mockMvc
             .perform(
                 post("/api/auth/refresh")
+                    .with(csrf())
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(
                         """
@@ -144,6 +146,7 @@ class AuthControllerJwtTest {
         mockMvc
             .perform(
                 post("/api/auth/refresh")
+                    .with(csrf())
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(
                         """
@@ -158,6 +161,7 @@ class AuthControllerJwtTest {
     mockMvc
         .perform(
             post("/api/auth/refresh")
+                .with(csrf())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(
                     """
@@ -170,6 +174,7 @@ class AuthControllerJwtTest {
     mockMvc
         .perform(
             post("/api/auth/refresh")
+                .with(csrf())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(
                     """
@@ -182,6 +187,7 @@ class AuthControllerJwtTest {
     mockMvc
         .perform(
             post("/api/auth/refresh")
+                .with(csrf())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(
                     """
@@ -200,6 +206,7 @@ class AuthControllerJwtTest {
     mockMvc
         .perform(
             post("/api/auth/logout")
+                .with(csrf())
                 .header("Authorization", "Bearer " + tokens.accessToken())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(
@@ -218,6 +225,7 @@ class AuthControllerJwtTest {
     mockMvc
         .perform(
             post("/api/auth/refresh")
+                .with(csrf())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(
                     """
@@ -230,7 +238,7 @@ class AuthControllerJwtTest {
   @Test
   @DisplayName("logout — Bearer 없으면 401 (인증 필요)")
   void logout_without_bearer_returns_401() throws Exception {
-    mockMvc.perform(post("/api/auth/logout")).andExpect(status().isUnauthorized());
+    mockMvc.perform(post("/api/auth/logout").with(csrf())).andExpect(status().isUnauthorized());
   }
 
   @Test
