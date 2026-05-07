@@ -158,6 +158,14 @@
             <groupId>org.flywaydb</groupId>
             <artifactId>flyway-mysql</artifactId>
         </dependency>
+
+        <!-- Swagger / OpenAPI (ADR-0008): springdoc-openapi 2.x — Spring Boot 3.x 대응.
+             /swagger-ui.html, /v3/api-docs 자동 노출. -->
+        <dependency>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+            <version>2.6.0</version>
+        </dependency>
     </dependencies>
 
     <build>

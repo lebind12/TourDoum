@@ -154,6 +154,71 @@ docker compose -f ../infra/docker/docker-compose.yml up -d mysql redis
 | 통합 테스트 (Testcontainers MySQL) | MySQL 8.4 | 비활성 (현행) | `update` |
 | 실제 운영/개발 서버 | MySQL 8 | **활성** | `validate` |
 
+## Swagger / OpenAPI 사용법
+
+springdoc-openapi 2.6.0이 내장되어 있다. 서버 실행 후 아래 URL로 접근한다.
+
+### URL
+
+| 용도 | URL |
+|---|---|
+| Swagger UI (브라우저 인터랙티브) | http://localhost:8080/swagger-ui.html |
+| OpenAPI 3.0 JSON spec | http://localhost:8080/v3/api-docs |
+
+### 빠른 검증
+
+```bash
+# 서버 실행 후
+curl http://localhost:8080/v3/api-docs | jq '.info'
+# → {"title":"TourDoum API","version":"0.1.0",...}
+
+curl -o /dev/null -s -w "%{http_code}" http://localhost:8080/swagger-ui.html
+# → 200
+```
+
+### 로그인 후 보호 엔드포인트 테스트
+
+Swagger UI는 브라우저에서 직접 실행 시 SESSION 쿠키가 자동 전송된다:
+
+1. `POST /api/auth/login` 실행 → 브라우저에 SESSION 쿠키 자동 저장
+2. `GET /api/me` 같은 보호 엔드포인트 실행 → 쿠키 자동 포함
+
+> **주의**: `curl` 등 별도 클라이언트에서 테스트 시 `-b "SESSION=<값>"` 옵션 필요.
+
+### 운영 환경 비활성화
+
+prod profile에서 Swagger를 닫으려면 `application-prod.yml`에 추가:
+
+```yaml
+springdoc:
+  swagger-ui:
+    enabled: false
+  api-docs:
+    enabled: false
+```
+
+### 새 컨트롤러에 어노테이션 추가 가이드
+
+```java
+@Tag(name = "Domain", description = "도메인 설명")
+@RestController
+public class DomainController {
+
+  @Operation(summary = "엔드포인트 요약", description = "상세 설명")
+  @ApiResponses({
+    @ApiResponse(responseCode = "200", description = "성공"),
+    @ApiResponse(responseCode = "404", description = "리소스 없음")
+  })
+  @SecurityRequirement(name = "SESSION")  // 인증 필요 엔드포인트에만 추가
+  @GetMapping("/api/domain/{id}")
+  public DomainResponse getById(@PathVariable Long id) { ... }
+}
+```
+
+후속 도메인(즐겨찾기/숙박/채팅) 컨트롤러에 동일 패턴 적용. 자세한 결정 사항은 `docs/adr/0008-swagger-openapi.md` 참고.
+
+---
+
 ## 코드 품질
 
 ```bash
