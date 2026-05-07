@@ -3,6 +3,8 @@ package com.ssafy.tourdoum.reservation;
 import com.ssafy.tourdoum.accommodation.Accommodation;
 import com.ssafy.tourdoum.accommodation.AccommodationNotFoundException;
 import com.ssafy.tourdoum.accommodation.AccommodationRepository;
+import com.ssafy.tourdoum.notification.NotificationService;
+import com.ssafy.tourdoum.notification.NotificationType;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
@@ -19,12 +21,15 @@ public class ReservationService {
 
   private final ReservationRepository reservationRepository;
   private final AccommodationRepository accommodationRepository;
+  private final NotificationService notificationService;
 
   public ReservationService(
       ReservationRepository reservationRepository,
-      AccommodationRepository accommodationRepository) {
+      AccommodationRepository accommodationRepository,
+      NotificationService notificationService) {
     this.reservationRepository = reservationRepository;
     this.accommodationRepository = accommodationRepository;
+    this.notificationService = notificationService;
   }
 
   /**
@@ -96,7 +101,15 @@ public class ReservationService {
             .idempotencyKey(idempotencyKey)
             .build();
 
-    return ReservationResponse.from(reservationRepository.save(reservation));
+    ReservationResponse response =
+        ReservationResponse.from(reservationRepository.save(reservation));
+    notificationService.publish(
+        memberId,
+        NotificationType.RESERVATION_CONFIRMED,
+        "예약이 확정되었습니다",
+        accommodation.getName() + " 예약이 성공적으로 확정되었습니다.",
+        "/reservations/me");
+    return response;
   }
 
   /**

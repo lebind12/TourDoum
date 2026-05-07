@@ -8,6 +8,7 @@ import static org.mockito.BDDMockito.then;
 import com.ssafy.tourdoum.accommodation.Accommodation;
 import com.ssafy.tourdoum.accommodation.AccommodationRepository;
 import com.ssafy.tourdoum.accommodation.AccommodationType;
+import com.ssafy.tourdoum.notification.NotificationService;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Optional;
@@ -24,6 +25,7 @@ class ReservationServiceTest {
 
   @Mock private ReservationRepository reservationRepository;
   @Mock private AccommodationRepository accommodationRepository;
+  @Mock private NotificationService notificationService;
 
   @InjectMocks private ReservationService reservationService;
 

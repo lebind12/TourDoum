@@ -1,6 +1,8 @@
 package com.ssafy.tourdoum.review;
 
 import com.ssafy.tourdoum.attraction.PageResponse;
+import com.ssafy.tourdoum.notification.NotificationService;
+import com.ssafy.tourdoum.notification.NotificationType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -13,9 +15,11 @@ import org.springframework.transaction.annotation.Transactional;
 public class ReviewService {
 
   private final ReviewRepository reviewRepository;
+  private final NotificationService notificationService;
 
-  public ReviewService(ReviewRepository reviewRepository) {
+  public ReviewService(ReviewRepository reviewRepository, NotificationService notificationService) {
     this.reviewRepository = reviewRepository;
+    this.notificationService = notificationService;
   }
 
   /**
@@ -35,7 +39,15 @@ public class ReviewService {
             .title(request.title())
             .content(request.content())
             .build();
-    return ReviewResponse.from(reviewRepository.save(review));
+    ReviewResponse response = ReviewResponse.from(reviewRepository.save(review));
+    // 후기 작성자에게 알림 (자신에게 발행 — 학습 모드: 실제론 대상 오너에게 발행)
+    notificationService.publish(
+        memberId,
+        NotificationType.REVIEW_REPLY,
+        "후기가 등록되었습니다",
+        request.targetType().name() + " 후기가 성공적으로 등록되었습니다.",
+        null);
+    return response;
   }
 
   /**
