@@ -104,7 +104,7 @@ onMounted(() => {
           :to="{ name: 'accommodation-detail', params: { id: acc.id } }"
           class="block"
         >
-          <Card class="overflow-hidden hover:shadow-md transition-shadow cursor-pointer h-full">
+          <Card class="overflow-hidden motion-safe:transition-[transform,box-shadow] motion-safe:duration-200 motion-safe:ease-out motion-safe:hover:-translate-y-0.5 hover:shadow-md cursor-pointer h-full">
             <img
               :src="acc.imageUrl"
               :alt="acc.name"

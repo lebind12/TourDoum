@@ -128,7 +128,7 @@ onMounted(() => {
             @mouseenter="hoveredId = attraction.id"
             @mouseleave="hoveredId = null"
           >
-            <Card class="overflow-hidden hover:shadow-md transition-shadow cursor-pointer">
+            <Card class="overflow-hidden motion-safe:transition-[transform,box-shadow] motion-safe:duration-200 motion-safe:ease-out motion-safe:hover:-translate-y-0.5 hover:shadow-md cursor-pointer">
               <img
                 :src="attraction.imageUrl"
                 :alt="attraction.name"
