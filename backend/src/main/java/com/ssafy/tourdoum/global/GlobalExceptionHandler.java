@@ -1,5 +1,6 @@
 package com.ssafy.tourdoum.global;
 
+import com.ssafy.tourdoum.accommodation.AccommodationNotFoundException;
 import com.ssafy.tourdoum.attraction.AttractionNotFoundException;
 import com.ssafy.tourdoum.member.DuplicateEmailException;
 import com.ssafy.tourdoum.member.DuplicateNicknameException;
@@ -52,6 +53,13 @@ public class GlobalExceptionHandler {
   @ExceptionHandler(AttractionNotFoundException.class)
   @ResponseStatus(HttpStatus.NOT_FOUND)
   public ErrorResponse handleAttractionNotFound(AttractionNotFoundException ex) {
+    return new ErrorResponse("id", ex.getMessage());
+  }
+
+  /** 숙박 미존재 → 404 Not Found. */
+  @ExceptionHandler(AccommodationNotFoundException.class)
+  @ResponseStatus(HttpStatus.NOT_FOUND)
+  public ErrorResponse handleAccommodationNotFound(AccommodationNotFoundException ex) {
     return new ErrorResponse("id", ex.getMessage());
   }
 }
