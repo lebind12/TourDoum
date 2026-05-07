@@ -89,13 +89,17 @@ public class AccommodationController {
    *
    * @param id 숙박 PK
    */
-  @Operation(summary = "숙박 단건 조회", description = "PK로 숙박 상세 정보를 조회한다. 인증 불필요.")
+  @Operation(
+      summary = "숙박 단건 상세 조회",
+      description =
+          "PK로 숙박 상세 정보를 조회한다. 인증 불필요."
+              + " 상세 응답은 list 응답과 분리된 AccommodationDetailResponse(amenities/maxGuests/checkIn 등 + reviewCount)이다.")
   @ApiResponses({
     @ApiResponse(responseCode = "200", description = "숙박 상세 정보"),
     @ApiResponse(responseCode = "404", description = "해당 ID의 숙박을 찾을 수 없음")
   })
   @GetMapping("/{id}")
-  public ResponseEntity<AccommodationResponse> getById(
+  public ResponseEntity<AccommodationDetailResponse> getById(
       @Parameter(description = "숙박 PK") @PathVariable Long id) {
     return ResponseEntity.ok(accommodationService.getById(id));
   }
