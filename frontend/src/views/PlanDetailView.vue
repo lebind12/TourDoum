@@ -2,10 +2,12 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs } from "@/components/ui/tabs";
 import { useAccommodationsStore } from "@/stores/accommodations";
 import { useAttractionsStore } from "@/stores/attractions";
 import type { Plan, PlanDay, PlanItem } from "@/stores/plans";
 import { usePlansStore } from "@/stores/plans";
+import { GripVertical, Hotel, MapPin, X } from "lucide-vue-next";
 import { computed, ref } from "vue";
 import { RouterLink, useRoute, useRouter } from "vue-router";
 
@@ -23,6 +25,22 @@ const activeDay = ref(0);
 const currentDay = computed<PlanDay | undefined>(
 	() => plan.value?.days[activeDay.value],
 );
+
+// Tabs 컴포넌트용 탭 목록 computed
+const dayTabs = computed(() =>
+	(plan.value?.days ?? []).map((day, idx) => ({
+		key: String(idx),
+		label: formatDayLabel(day, idx),
+		badge: day.items.length > 0 ? day.items.length : undefined,
+	})),
+);
+
+const activeDayKey = computed({
+	get: () => String(activeDay.value),
+	set: (v: string) => {
+		activeDay.value = Number(v);
+	},
+});
 
 function itemLabel(item: PlanItem): string {
 	if (item.type === "attraction") {
@@ -103,82 +121,77 @@ function deletePlan() {
       </Button>
     </div>
 
-    <!-- 일자 탭 -->
-    <div
-      class="flex gap-2 overflow-x-auto pb-1 scrollbar-none"
-      role="tablist"
+    <!-- 일자 탭 (Tabs 컴포넌트) -->
+    <Tabs
+      :tabs="dayTabs"
+      v-model:active="activeDayKey"
       aria-label="여행 일자 선택"
     >
-      <button
-        v-for="(day, idx) in plan.days"
-        :key="day.date"
-        type="button"
-        role="tab"
-        :aria-selected="activeDay === idx"
-        :class="[
-          'shrink-0 rounded-full px-4 py-1.5 text-sm font-medium transition-colors',
-          activeDay === idx
-            ? 'bg-primary text-primary-foreground'
-            : 'bg-muted text-muted-foreground hover:bg-muted/80'
-        ]"
-        @click="activeDay = idx"
-      >
-        {{ formatDayLabel(day, idx) }}
-      </button>
-    </div>
-
-    <!-- 일자 내용 -->
-    <div v-if="currentDay" role="tabpanel" :aria-label="`Day ${activeDay + 1} 일정`">
-      <!-- 아이템 없음 -->
-      <div
-        v-if="currentDay.items.length === 0"
-        class="rounded-xl border border-dashed py-10 text-center text-sm text-muted-foreground"
-        role="status"
-      >
-        이 날 일정이 없습니다.
-      </div>
-
-      <!-- 일정 목록 -->
-      <ol v-else class="relative space-y-3 pl-8 border-l-2 border-border ml-4">
-        <li
-          v-for="item in currentDay.items"
-          :key="item.id"
-          class="relative"
+      <!-- 각 탭 패널: key = "0", "1", ... -->
+      <template v-for="(day, idx) in plan.days" :key="String(idx)" #[String(idx)]>
+        <!-- 아이템 없음 -->
+        <div
+          v-if="day.items.length === 0"
+          class="rounded-xl border border-dashed py-10 text-center text-sm text-muted-foreground"
+          role="status"
         >
-          <!-- 타임라인 점 -->
-          <span
-            class="absolute -left-[2.15rem] top-1 flex h-5 w-5 items-center justify-center rounded-full ring-2 ring-background"
-            :class="item.type === 'attraction' ? 'bg-primary text-primary-foreground' : 'bg-amber-400 text-white'"
-            aria-hidden="true"
-          >
-            {{ item.type === 'attraction' ? '📍' : '🏨' }}
-          </span>
+          <span class="text-2xl block mb-2" aria-hidden="true">🗓️</span>
+          이 날 일정이 없습니다.
+        </div>
 
-          <Card>
-            <CardContent class="p-3">
-              <div class="flex items-start justify-between gap-2">
-                <div class="min-w-0">
-                  <div class="flex items-center gap-2 mb-0.5">
-                    <span v-if="item.time" class="text-xs text-muted-foreground shrink-0">{{ item.time }}</span>
-                    <Badge variant="outline" class="text-xs shrink-0">{{ itemCategory(item) }}</Badge>
+        <!-- 일정 타임라인 -->
+        <ol v-else class="relative space-y-3 pl-8 border-l-2 border-border ml-4">
+          <li
+            v-for="item in day.items"
+            :key="item.id"
+            class="relative group"
+          >
+            <!-- 타임라인 점 -->
+            <span
+              class="absolute -left-[2.15rem] top-2 flex h-5 w-5 items-center justify-center rounded-full ring-2 ring-background"
+              :class="item.type === 'attraction' ? 'bg-primary' : 'bg-amber-400'"
+              aria-hidden="true"
+            >
+              <MapPin v-if="item.type === 'attraction'" :size="11" class="text-primary-foreground" />
+              <Hotel v-else :size="11" class="text-white" />
+            </span>
+
+            <Card class="transition-shadow group-hover:shadow-sm">
+              <CardContent class="p-3">
+                <div class="flex items-start gap-2">
+                  <!-- 드래그 핸들 시각 힌트 (실제 DnD 로직은 FE TODO) -->
+                  <span
+                    class="mt-0.5 shrink-0 cursor-grab text-muted-foreground/40 group-hover:text-muted-foreground/70 transition-colors"
+                    aria-hidden="true"
+                    title="순서 변경 (준비 중)"
+                  >
+                    <GripVertical :size="16" />
+                  </span>
+
+                  <div class="min-w-0 flex-1">
+                    <div class="flex items-center gap-2 mb-0.5">
+                      <span v-if="item.time" class="text-xs text-muted-foreground shrink-0">{{ item.time }}</span>
+                      <Badge variant="outline" class="text-xs shrink-0">{{ itemCategory(item) }}</Badge>
+                    </div>
+                    <p class="font-medium text-sm truncate">{{ itemLabel(item) }}</p>
+                    <p v-if="item.memo" class="text-xs text-muted-foreground mt-0.5">{{ item.memo }}</p>
                   </div>
-                  <p class="font-medium text-sm truncate">{{ itemLabel(item) }}</p>
-                  <p v-if="item.memo" class="text-xs text-muted-foreground mt-0.5">{{ item.memo }}</p>
+
+                  <button
+                    type="button"
+                    class="text-muted-foreground/50 hover:text-destructive shrink-0 rounded p-0.5 transition-colors opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+                    :aria-label="`${itemLabel(item)} 일정에서 제거`"
+                    @click="removeItem(idx, item.id)"
+                  >
+                    <X :size="14" />
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  class="text-muted-foreground hover:text-destructive shrink-0 rounded p-0.5 transition-colors"
-                  :aria-label="`${itemLabel(item)} 일정에서 제거`"
-                  @click="removeItem(activeDay, item.id)"
-                >
-                  ✕
-                </button>
-              </div>
-            </CardContent>
-          </Card>
-        </li>
-      </ol>
-    </div>
+              </CardContent>
+            </Card>
+          </li>
+        </ol>
+      </template>
+    </Tabs>
 
     <!-- 여행지 추가 안내 (mockup) -->
     <Card class="border-dashed">

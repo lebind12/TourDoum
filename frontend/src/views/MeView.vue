@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import ReservationListCard from "@/components/reservation/ReservationListCard.vue";
+import { AlertDialog } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import {
 	Card,
@@ -227,18 +228,67 @@ async function withdraw() {
           <form v-else class="space-y-3" @submit.prevent="changePassword">
             <div class="space-y-1.5">
               <Label for="pw-current">현재 비밀번호</Label>
-              <Input id="pw-current" v-model="pwCurrent" type="password" autocomplete="current-password" />
+              <Input
+                id="pw-current"
+                v-model="pwCurrent"
+                type="password"
+                autocomplete="current-password"
+                :aria-invalid="pwError === '현재 비밀번호를 입력해 주세요.' ? 'true' : undefined"
+                :aria-describedby="pwError === '현재 비밀번호를 입력해 주세요.' ? 'pw-error' : undefined"
+                :class="pwError === '현재 비밀번호를 입력해 주세요.' ? 'border-destructive focus-visible:ring-destructive/50' : ''"
+              />
+              <p
+                v-if="pwError === '현재 비밀번호를 입력해 주세요.'"
+                id="pw-error"
+                role="alert"
+                class="text-xs text-destructive"
+              >{{ pwError }}</p>
             </div>
             <div class="space-y-1.5">
               <Label for="pw-new">새 비밀번호</Label>
-              <Input id="pw-new" v-model="pwNew" type="password" autocomplete="new-password" />
+              <Input
+                id="pw-new"
+                v-model="pwNew"
+                type="password"
+                autocomplete="new-password"
+                :aria-invalid="pwError === '새 비밀번호는 6자 이상이어야 합니다.' ? 'true' : undefined"
+                :class="pwError === '새 비밀번호는 6자 이상이어야 합니다.' ? 'border-destructive focus-visible:ring-destructive/50' : ''"
+              />
+              <p
+                v-if="pwError === '새 비밀번호는 6자 이상이어야 합니다.'"
+                role="alert"
+                class="text-xs text-destructive"
+              >{{ pwError }}</p>
+              <!-- 강도 힌트 -->
+              <p v-if="pwNew.length > 0 && pwNew.length < 6" class="text-xs text-amber-600 dark:text-amber-400">
+                6자 이상 입력해 주세요 ({{ pwNew.length }}/6)
+              </p>
             </div>
             <div class="space-y-1.5">
               <Label for="pw-confirm">새 비밀번호 확인</Label>
-              <Input id="pw-confirm" v-model="pwConfirm" type="password" autocomplete="new-password" />
+              <Input
+                id="pw-confirm"
+                v-model="pwConfirm"
+                type="password"
+                autocomplete="new-password"
+                :aria-invalid="pwError === '새 비밀번호가 일치하지 않습니다.' ? 'true' : undefined"
+                :class="pwError === '새 비밀번호가 일치하지 않습니다.' ? 'border-destructive focus-visible:ring-destructive/50' : (pwConfirm && pwConfirm === pwNew ? 'border-green-500' : '')"
+              />
+              <p
+                v-if="pwError === '새 비밀번호가 일치하지 않습니다.'"
+                role="alert"
+                class="text-xs text-destructive"
+              >{{ pwError }}</p>
+              <p v-else-if="pwConfirm && pwConfirm === pwNew" class="text-xs text-green-600 dark:text-green-400">
+                비밀번호가 일치합니다 ✓
+              </p>
             </div>
-            <p v-if="pwError" role="alert" class="text-sm text-destructive">{{ pwError }}</p>
             <Button type="submit" class="w-full" :disabled="pwSubmitting">
+              <span
+                v-if="pwSubmitting"
+                class="mr-1.5 inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent"
+                aria-hidden="true"
+              />
               {{ pwSubmitting ? '변경 중...' : '비밀번호 변경' }}
             </Button>
           </form>
@@ -364,48 +414,37 @@ async function withdraw() {
       </section>
 
       <!-- ── 회원 탈퇴 ──────────────────────────────────────────────────── -->
-      <section aria-labelledby="withdraw-heading" class="pt-2">
+      <section aria-labelledby="withdraw-heading" class="pt-2 pb-4">
         <h2 id="withdraw-heading" class="sr-only">계정 삭제</h2>
-        <div v-if="!showWithdrawConfirm">
-          <Button
-            variant="ghost"
-            size="sm"
-            class="text-destructive hover:text-destructive hover:bg-destructive/10 w-full"
-            @click="showWithdrawConfirm = true"
-          >
-            회원 탈퇴
-          </Button>
-        </div>
-
-        <!-- 탈퇴 확인 -->
-        <Card v-else class="border-destructive/50">
-          <CardContent class="p-4 space-y-3">
-            <p class="text-sm font-medium text-destructive">정말 탈퇴하시겠습니까?</p>
-            <p class="text-xs text-muted-foreground">
-              탈퇴 시 모든 데이터가 삭제되며 복구할 수 없습니다. (mockup — BE 미구현)
-            </p>
-            <div class="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                class="flex-1"
-                @click="showWithdrawConfirm = false"
-              >
-                취소
-              </Button>
-              <Button
-                variant="destructive"
-                size="sm"
-                class="flex-1"
-                :disabled="withdrawing"
-                @click="withdraw"
-              >
-                {{ withdrawing ? '처리 중...' : '탈퇴 확인' }}
-              </Button>
+        <div class="rounded-lg border border-destructive/20 bg-destructive/5 p-4">
+          <div class="flex items-center justify-between gap-4">
+            <div>
+              <p class="text-sm font-medium text-destructive">계정 삭제</p>
+              <p class="text-xs text-muted-foreground mt-0.5">탈퇴 후 모든 데이터가 영구 삭제됩니다.</p>
             </div>
-          </CardContent>
-        </Card>
+            <Button
+              variant="destructive"
+              size="sm"
+              class="shrink-0"
+              @click="showWithdrawConfirm = true"
+            >
+              회원 탈퇴
+            </Button>
+          </div>
+        </div>
       </section>
+
+      <!-- 탈퇴 확인 AlertDialog -->
+      <AlertDialog
+        v-model:open="showWithdrawConfirm"
+        title="정말 탈퇴하시겠습니까?"
+        description="탈퇴 시 예약 내역, 여행 계획, 즐겨찾기 등 모든 데이터가 영구 삭제되며 복구할 수 없습니다."
+        confirm-label="탈퇴 확인"
+        cancel-label="취소"
+        variant="destructive"
+        :loading="withdrawing"
+        @confirm="withdraw"
+      />
     </template>
 
     <!-- 에러 -->
