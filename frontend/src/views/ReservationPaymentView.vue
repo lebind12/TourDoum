@@ -5,7 +5,6 @@ import ReservationStepper from "@/components/reservation/ReservationStepper.vue"
 import { Button } from "@/components/ui/button";
 import { useAccommodationsStore } from "@/stores/accommodations";
 import {
-	CLEANING_FEE,
 	type PaymentMethod,
 	calculateNights,
 	useReservationsStore,
@@ -18,68 +17,62 @@ import {
 import { computed, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
-type SelectorPaymentMethod = "card" | "transfer" | "simple";
-
 const route = useRoute();
 const router = useRouter();
 const accommodationsStore = useAccommodationsStore();
 const reservationsStore = useReservationsStore();
 const accommodationId = Number(route.params.accommodationId);
 
-function toSelectorPaymentMethod(
-	method: PaymentMethod | undefined,
-): SelectorPaymentMethod {
-	if (method === "bank") return "transfer";
-	if (method === "easy") return "simple";
-	return "card";
-}
-
-function toStorePaymentMethod(method: SelectorPaymentMethod): PaymentMethod {
-	if (method === "transfer") return "bank";
-	if (method === "simple") return "easy";
-	return "card";
-}
-
-const selectedPayment = ref<SelectorPaymentMethod>(
-	toSelectorPaymentMethod(reservationsStore.current?.paymentMethod),
+const selectedPayment = ref<PaymentMethod>(
+	(reservationsStore.current?.paymentMethod as PaymentMethod | undefined) ??
+		"card",
 );
 const accommodation = computed(() =>
 	accommodationsStore.getById(accommodationId),
 );
-const nightlyRate = computed(() => accommodation.value?.pricePerNight ?? 0);
+const nightlyRate = computed(
+	() =>
+		reservationsStore.quote?.pricePerNight ??
+		accommodation.value?.pricePerNight ??
+		0,
+);
 const nights = computed(() => {
 	const draft = reservationsStore.current;
-	if (
-		typeof draft?.checkIn !== "string" ||
-		typeof draft.checkOut !== "string"
-	) {
+	if (typeof draft?.checkIn !== "string" || typeof draft.checkOut !== "string")
 		return 0;
-	}
-
 	return calculateNights(draft.checkIn, draft.checkOut);
 });
-const cleaningFee = CLEANING_FEE;
+const cleaningFee = computed(
+	() => reservationsStore.quote?.cleaningFee ?? 20000,
+);
 const errorMessage = ref("");
+const submitting = ref(false);
 
 function goBack() {
 	router.push({ name: "reservation-dates", params: { accommodationId } });
 }
 
-function confirmReservation() {
+async function confirmReservation() {
 	errorMessage.value = "";
+	submitting.value = true;
 
 	try {
-		reservationsStore.setPaymentMethod(
-			toStorePaymentMethod(selectedPayment.value),
-		);
-		const reservation = reservationsStore.confirm();
+		reservationsStore.setPaymentMethod(selectedPayment.value);
+		const reservation = await reservationsStore.confirm();
+		if (!reservation) {
+			errorMessage.value =
+				reservationsStore.error ?? "예약을 완료할 수 없습니다.";
+			return;
+		}
 		router.push({
 			name: "reservation-complete",
 			params: { accommodationId, reservationId: reservation.id },
 		});
-	} catch (error) {
+	} catch (err) {
 		errorMessage.value =
-			error instanceof Error ? error.message : "예약을 완료할 수 없습니다.";
+			err instanceof Error ? err.message : "예약을 완료할 수 없습니다.";
+	} finally {
+		submitting.value = false;
 	}
 }
 </script>
@@ -121,6 +114,7 @@ function confirmReservation() {
         variant="outline"
         class="flex-1"
         aria-label="이전 단계로 이동"
+        :disabled="submitting"
         @click="goBack"
       >
         이전
@@ -128,9 +122,10 @@ function confirmReservation() {
       <Button
         class="flex-1"
         aria-label="예약 확인 및 결제"
+        :disabled="submitting"
         @click="confirmReservation"
       >
-        예약 확인
+        {{ submitting ? '예약 중...' : '예약 확인' }}
       </Button>
     </div>
   </div>
