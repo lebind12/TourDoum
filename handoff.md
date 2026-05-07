@@ -1,137 +1,115 @@
-# handoff — be/plans-domain
+# handoff — be/notifications-domain
 
 ## 완료 내용
 
-- `POST /api/plans` — 여행 계획 생성 (201)
-- `GET /api/plans/me` — 내 여행 계획 목록 (아이템 없는 요약, 최신순)
-- `GET /api/plans/{id}` — 여행 계획 상세 (아이템 포함, 403 권한 체크)
-- `POST /api/plans/{id}/items` — 아이템 추가 (201)
-- `PATCH /api/plans/{id}/items/reorder` — drag reorder (dayIndex + orderIndex 일괄 갱신)
-- `DELETE /api/plans/{id}` — 계획 삭제 (cascade → 아이템 포함, 204)
-- Flyway V11: plans + plan_items (FK ON DELETE CASCADE)
-- GlobalExceptionHandler: PlanNotFound(404), PlanForbidden(403) 추가
-- Mockito 단위테스트 2종 (reorder 정렬, 날짜 유효성 검증)
+- `GET /api/notifications` — 알림 목록 (최신순 페이징, page/size 파라미터)
+- `GET /api/notifications/unread-count` — 미읽음 알림 수 (폴링용)
+- `POST /api/notifications/{id}/read` — 단건 읽음 처리 (403 권한 체크)
+- `POST /api/notifications/read-all` — 전체 읽음 처리
+- `publish()` 내부 트리거:
+  - `ReviewService.create()` → `REVIEW_REPLY` 알림 발행
+  - `ReservationService.confirm()` → `RESERVATION_CONFIRMED` 알림 발행
+- Flyway V12: notifications 테이블 + 복합 인덱스 `(member_id, read_at)`
+- GlobalExceptionHandler: NotificationNotFound(404), NotificationForbidden(403) 추가
+- Mockito 단위테스트 2종 (권한 체크 403, 정상 읽음 처리)
 
 ---
 
-## FE 연결 가이드 (Task #25 — FE-wire-5)
+## FE 연결 가이드 (Task #27 — FE-wire-6)
 
-### 1. FE store `plans.ts` 필드 매핑
+### 1. FE store `notifications.ts` 필드 매핑
 
 | FE store 필드 | BE 응답 필드 | 변환 |
 |---|---|---|
 | `id` (string) | `id` (Long) | `res.id.toString()` |
+| `type` (소문자) | `type` (대문자) | `.toLowerCase()` |
 | `title` | `title` | 동일 |
-| `startDate` / `endDate` | `startDate` / `endDate` | 'YYYY-MM-DD' 동일 |
-| `items[].type` (소문자) | `targetType` (대문자) | `.toLowerCase()` |
-| `items[].itemId` | `targetId` | 동일 |
-| `items[].dayIndex` | `dayIndex` | 동일 |
-| `items[].order` | `orderIndex` | 필드명 다름: `orderIndex` |
-| `items[].note` | `memo` | 필드명 다름: `memo` |
+| `message` | `body` | 필드명 다름: `body` |
+| `link` | `linkUrl` | 필드명 다름: `linkUrl` |
+| `read` (boolean) | `unread` (boolean) | `!unread` |
+| `createdAt` | `createdAt` | ISO 동일 |
 
-### 2. 계획 생성
+### 2. 폴링 패턴 (FE 권장)
 
 ```typescript
-// POST /api/plans
-const plan = await fetch('/api/plans', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    title: state.title,
-    startDate: state.startDate,  // 'YYYY-MM-DD'
-    endDate: state.endDate,
-  }),
-}).then(r => r.json())
+// 5-30초 주기로 unread-count 폴링
+let pollTimer: ReturnType<typeof setInterval> | null = null
+
+function startPolling() {
+  pollTimer = setInterval(async () => {
+    const { count } = await $fetch('/api/notifications/unread-count')
+    store.unreadCount = count
+  }, 15_000)  // 15초
+}
+function stopPolling() {
+  if (pollTimer) clearInterval(pollTimer)
+}
 ```
 
-### 3. 아이템 추가
+### 3. 알림 목록 조회
 
 ```typescript
-// POST /api/plans/{id}/items
-await fetch(`/api/plans/${planId}/items`, {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    dayIndex: item.dayIndex,
-    orderIndex: item.order,        // FE 'order' → BE 'orderIndex'
-    targetType: item.type.toUpperCase(),  // 'attraction' → 'ATTRACTION'
-    targetId: item.itemId,
-    memo: item.note ?? null,       // FE 'note' → BE 'memo'
-  }),
-})
-```
+// GET /api/notifications?page=0&size=20
+const result = await fetch('/api/notifications?page=0&size=20').then(r => r.json())
+// result: { content: [...], page, size, totalElements, totalPages, last }
 
-### 4. Drag Reorder
-
-```typescript
-// PATCH /api/plans/{id}/items/reorder
-// FE drag 완료 후 전체 아이템 순서 배열을 전송
-await fetch(`/api/plans/${planId}/items/reorder`, {
-  method: 'PATCH',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    items: plan.items.map(item => ({
-      id: Number(item.id),       // string → number
-      dayIndex: item.dayIndex,
-      orderIndex: item.order,    // FE 'order' → BE 'orderIndex'
-    })),
-  }),
-})
-```
-
-### 5. 상세 조회 (아이템 포함)
-
-```typescript
-// GET /api/plans/{id}
-const detail = await fetch(`/api/plans/${planId}`).then(r => r.json())
-// items 배열: [{ id, planId, dayIndex, orderIndex, targetType, targetId, memo }]
-
-// FE store 변환
-const storeItems = detail.items.map(i => ({
-  id: i.id.toString(),
-  dayIndex: i.dayIndex,
-  order: i.orderIndex,          // BE 'orderIndex' → FE 'order'
-  type: i.targetType.toLowerCase(),  // 'ATTRACTION' → 'attraction'
-  itemId: i.targetId,
-  note: i.memo,
+// FE 변환
+const storeItems = result.content.map(n => ({
+  id: n.id.toString(),
+  type: n.type.toLowerCase(),   // 'REVIEW_REPLY' → 'review_reply'
+  title: n.title,
+  message: n.body,              // BE 'body' → FE 'message'
+  link: n.linkUrl,              // BE 'linkUrl' → FE 'link'
+  read: !n.unread,              // BE 'unread' 반전 → FE 'read'
+  createdAt: n.createdAt,
 }))
 ```
 
-### 6. Pinia store 교체 패턴
+### 4. 읽음 처리
 
 ```typescript
-// src/stores/plans.ts
+// 단건
+await fetch(`/api/notifications/${id}/read`, { method: 'POST' })
+
+// 전체
+await fetch('/api/notifications/read-all', { method: 'POST' })
+```
+
+### 5. Pinia store 교체 패턴
+
+```typescript
+// src/stores/notifications.ts
 actions: {
-  async createPlan(payload) {
-    const res = await $fetch('/api/plans', { method: 'POST', body: payload })
-    this.plans.unshift(this.toStorePlan(res))
+  async fetchList(page = 0) {
+    const res = await $fetch(`/api/notifications?page=${page}&size=20`)
+    this.notifications = res.content.map(this.toStoreItem)
+    this.hasMore = !res.last
   },
-  async fetchMyPlans() {
-    const list = await $fetch('/api/plans/me')
-    this.plans = list.map(this.toStorePlan)
+  async fetchUnreadCount() {
+    const { count } = await $fetch('/api/notifications/unread-count')
+    this.unreadCount = count
   },
-  async fetchDetail(id: string) {
-    const res = await $fetch(`/api/plans/${id}`)
-    this.current = this.toStorePlanWithItems(res)
+  async markRead(id: string) {
+    await $fetch(`/api/notifications/${id}/read`, { method: 'POST' })
+    const n = this.notifications.find(n => n.id === id)
+    if (n) n.read = true
+    this.unreadCount = Math.max(0, this.unreadCount - 1)
   },
-  async addItem(planId: string, item) {
-    await $fetch(`/api/plans/${planId}/items`, {
-      method: 'POST',
-      body: { ...item, targetType: item.type.toUpperCase(), targetId: item.itemId,
-              memo: item.note, orderIndex: item.order },
-    })
-    await this.fetchDetail(planId)  // 재조회
+  async markAllRead() {
+    await $fetch('/api/notifications/read-all', { method: 'POST' })
+    this.notifications.forEach(n => (n.read = true))
+    this.unreadCount = 0
   },
-  async reorder(planId: string, items) {
-    await $fetch(`/api/plans/${planId}/items/reorder`, {
-      method: 'PATCH',
-      body: { items: items.map(i => ({
-        id: Number(i.id), dayIndex: i.dayIndex, orderIndex: i.order })) },
-    })
-  },
-  async deletePlan(id: string) {
-    await $fetch(`/api/plans/${id}`, { method: 'DELETE' })
-    this.plans = this.plans.filter(p => p.id !== id)
+  toStoreItem(n: NotificationResponse) {
+    return {
+      id: n.id.toString(),
+      type: n.type.toLowerCase(),
+      title: n.title,
+      message: n.body,
+      link: n.linkUrl,
+      read: !n.unread,
+      createdAt: n.createdAt,
+    }
   },
 }
 ```
@@ -140,7 +118,7 @@ actions: {
 
 ## 미해결 질문 / Reviewer 검토 포인트
 
-1. **상세 조회 권한**: `GET /api/plans/{id}` — 현재 본인 계획만 조회 가능. 공유 계획 기능 필요 시 정책 변경 필요.
-2. **아이템 삭제 엔드포인트 없음**: 스펙에 없어서 미구현. FE가 필요할 경우 `DELETE /api/plans/{planId}/items/{itemId}` 추가 요청.
-3. **날짜 범위 검증**: `startDate == endDate` (당일치기)는 현재 거부됨 — 허용 여부 확인 필요.
-4. **목록 vs 상세 분리**: `myList`는 아이템 없는 요약, `detail`은 아이템 포함. N+1 없음 (`@OneToMany`는 EAGER 아님 — `detail` 호출 시 lazy loading).
+1. **publish 트리거 학습 모드**: 현재 후기 작성자가 자신에게 알림을 받는다. 실제론 대상 숙박/관광지 오너에게 발행해야 하나 오너 개념이 없어 학습 모드로 처리.
+2. **페이징 응답 구조**: `PageResponse`가 `attraction` 패키지에 있음 — 향후 `common` 패키지로 이동 권장 (follow-up).
+3. **알림 삭제 엔드포인트 없음**: 스펙 없어서 미구현. 필요 시 추가 요청.
+4. **폴링 주기**: FE와 협의 필요. 현재 권장값 15초.

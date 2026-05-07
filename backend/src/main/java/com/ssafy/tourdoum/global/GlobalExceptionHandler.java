@@ -4,6 +4,8 @@ import com.ssafy.tourdoum.accommodation.AccommodationNotFoundException;
 import com.ssafy.tourdoum.attraction.AttractionNotFoundException;
 import com.ssafy.tourdoum.member.DuplicateEmailException;
 import com.ssafy.tourdoum.member.DuplicateNicknameException;
+import com.ssafy.tourdoum.notification.NotificationForbiddenException;
+import com.ssafy.tourdoum.notification.NotificationNotFoundException;
 import com.ssafy.tourdoum.plan.PlanForbiddenException;
 import com.ssafy.tourdoum.plan.PlanNotFoundException;
 import com.ssafy.tourdoum.reservation.ReservationForbiddenException;
@@ -108,6 +110,20 @@ public class GlobalExceptionHandler {
   @ExceptionHandler(PlanForbiddenException.class)
   @ResponseStatus(HttpStatus.FORBIDDEN)
   public ErrorResponse handlePlanForbidden(PlanForbiddenException ex) {
+    return new ErrorResponse("id", ex.getMessage());
+  }
+
+  /** 알림 미존재 → 404 Not Found. */
+  @ExceptionHandler(NotificationNotFoundException.class)
+  @ResponseStatus(HttpStatus.NOT_FOUND)
+  public ErrorResponse handleNotificationNotFound(NotificationNotFoundException ex) {
+    return new ErrorResponse("id", ex.getMessage());
+  }
+
+  /** 알림 읽음 처리 권한 없음 → 403 Forbidden. */
+  @ExceptionHandler(NotificationForbiddenException.class)
+  @ResponseStatus(HttpStatus.FORBIDDEN)
+  public ErrorResponse handleNotificationForbidden(NotificationForbiddenException ex) {
     return new ErrorResponse("id", ex.getMessage());
   }
 

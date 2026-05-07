@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 
+import com.ssafy.tourdoum.notification.NotificationService;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -18,6 +19,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class ReviewServiceTest {
 
   @Mock private ReviewRepository reviewRepository;
+  @Mock private NotificationService notificationService;
 
   @InjectMocks private ReviewService reviewService;
 
