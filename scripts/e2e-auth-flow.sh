@@ -65,9 +65,22 @@ if ! curl -fsS "http://localhost:8080/api/health" >/dev/null 2>&1; then
 fi
 
 echo "==> running Playwright auth flow"
+# PLAYWRIGHT_ARGS — 추가 CLI 플래그 주입.
+# 예시:
+#   PLAYWRIGHT_ARGS=--ui scripts/e2e-auth-flow.sh        # 인터랙티브 UI 모드
+#   PLAYWRIGHT_ARGS=--headed scripts/e2e-auth-flow.sh    # 브라우저 창 보이기
+#   PLAYWRIGHT_ARGS="--debug" scripts/e2e-auth-flow.sh   # 디버깅 inspector
+#
+# CAPTURE_DIR — 스크린샷/트레이스 저장 위치 (session-log 스킬이 사용).
+# 기본은 docs/screenshots/<timestamp>. CI/배치에서 별도 위치 지정 가능.
+CAPTURE_DIR="${CAPTURE_DIR:-docs/screenshots/$(date +%Y%m%dT%H%M%S)}"
+mkdir -p "$CAPTURE_DIR"
+echo "==> captures → $CAPTURE_DIR"
+
 (
   cd frontend
   VITE_API_BASE_URL="${VITE_API_BASE_URL:-http://localhost:8080}" \
     E2E_BACKEND=1 \
-    npm run test:e2e -- e2e/auth-flow.spec.ts
+    PLAYWRIGHT_OUTPUT_DIR="../$CAPTURE_DIR" \
+    npm run test:e2e -- e2e/auth-flow.spec.ts ${PLAYWRIGHT_ARGS:-}
 )

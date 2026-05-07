@@ -9,6 +9,8 @@
 		"preview": "vite preview",
 		"test": "vitest",
 		"test:e2e": "playwright test",
+		"test:e2e:ui": "E2E_BACKEND=1 playwright test --ui e2e/auth-flow.spec.ts",
+		"test:e2e:headed": "E2E_BACKEND=1 playwright test --headed e2e/auth-flow.spec.ts",
 		"test:e2e:auth": "E2E_BACKEND=1 playwright test e2e/auth-flow.spec.ts",
 		"lint": "biome check .",
 		"format": "biome format --write ."
