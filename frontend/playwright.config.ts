@@ -1,4 +1,4 @@
-import { defineConfig, devices } from "@playwright/test";
+import { defineConfig, devices } from '@playwright/test'
 
 /**
  * e2e 테스트 설정.
@@ -9,30 +9,31 @@ import { defineConfig, devices } from "@playwright/test";
  *
  * CI(Jenkins)에서는 PLAYWRIGHT_BASE_URL 환경 변수로 URL 오버라이드 가능.
  */
-const E2E_PORT = 5174;
-const E2E_URL = `http://localhost:${E2E_PORT}`;
+const E2E_HOST = '127.0.0.1'
+const E2E_PORT = 5174
+const E2E_URL = `http://${E2E_HOST}:${E2E_PORT}`
 
 export default defineConfig({
-	testDir: "./e2e",
-	fullyParallel: true,
-	forbidOnly: !!process.env.CI,
-	retries: process.env.CI ? 2 : 0,
-	workers: process.env.CI ? 1 : undefined,
-	reporter: "html",
-	use: {
-		baseURL: process.env.PLAYWRIGHT_BASE_URL ?? E2E_URL,
-		trace: "on-first-retry",
-	},
-	projects: [
-		{
-			name: "chromium",
-			use: { ...devices["Desktop Chrome"] },
-		},
-	],
-	webServer: {
-		command: `npm run dev -- --port ${E2E_PORT} --strictPort`,
-		url: E2E_URL,
-		reuseExistingServer: !process.env.CI,
-		timeout: 120 * 1000,
-	},
-});
+  testDir: './e2e',
+  fullyParallel: true,
+  forbidOnly: !!process.env.CI,
+  retries: process.env.CI ? 2 : 0,
+  workers: process.env.CI ? 1 : undefined,
+  reporter: 'html',
+  use: {
+    baseURL: process.env.PLAYWRIGHT_BASE_URL ?? E2E_URL,
+    trace: 'on-first-retry',
+  },
+  projects: [
+    {
+      name: 'chromium',
+      use: { ...devices['Desktop Chrome'] },
+    },
+  ],
+  webServer: {
+    command: `npm run dev -- --host ${E2E_HOST} --port ${E2E_PORT} --strictPort`,
+    url: E2E_URL,
+    reuseExistingServer: !process.env.CI,
+    timeout: 120 * 1000,
+  },
+})
