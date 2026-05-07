@@ -16,6 +16,11 @@
 .env
 .env.*
 !.env.example
+# AWS 자격 증명 (ADR-0013 사전 인프라 / infra/aws)
+.env.aws
+.aws-credentials
+infra/aws/.env.aws
+!infra/aws/.env.aws.example
 *.pem
 *.key
 *_rsa

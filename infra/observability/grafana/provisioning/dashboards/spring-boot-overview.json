@@ -1,0 +1,116 @@
+{
+	"annotations": { "list": [] },
+	"editable": true,
+	"graphTooltip": 0,
+	"schemaVersion": 39,
+	"title": "Tourdoum — Spring Boot Overview",
+	"tags": ["tourdoum", "spring-boot", "jvm"],
+	"timezone": "browser",
+	"time": { "from": "now-30m", "to": "now" },
+	"refresh": "15s",
+	"templating": {
+		"list": [
+			{
+				"name": "instance",
+				"type": "query",
+				"datasource": { "type": "prometheus", "uid": "prometheus" },
+				"query": "label_values(jvm_memory_used_bytes{application=\"tourdoum\"}, instance)",
+				"refresh": 2,
+				"includeAll": true,
+				"multi": true
+			}
+		]
+	},
+	"panels": [
+		{
+			"id": 1,
+			"title": "HTTP request rate (rps)",
+			"type": "timeseries",
+			"datasource": { "type": "prometheus", "uid": "prometheus" },
+			"targets": [
+				{
+					"expr": "sum by (uri, method) (rate(http_server_requests_seconds_count{application=\"tourdoum\", instance=~\"$instance\"}[1m]))",
+					"legendFormat": "{{method}} {{uri}}"
+				}
+			],
+			"gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 }
+		},
+		{
+			"id": 2,
+			"title": "HTTP latency p95 (s)",
+			"type": "timeseries",
+			"datasource": { "type": "prometheus", "uid": "prometheus" },
+			"targets": [
+				{
+					"expr": "histogram_quantile(0.95, sum by (le, uri) (rate(http_server_requests_seconds_bucket{application=\"tourdoum\", instance=~\"$instance\"}[5m])))",
+					"legendFormat": "p95 {{uri}}"
+				}
+			],
+			"gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 }
+		},
+		{
+			"id": 3,
+			"title": "JVM heap used",
+			"type": "timeseries",
+			"datasource": { "type": "prometheus", "uid": "prometheus" },
+			"targets": [
+				{
+					"expr": "sum by (instance, area) (jvm_memory_used_bytes{application=\"tourdoum\", instance=~\"$instance\"})",
+					"legendFormat": "{{instance}} {{area}}"
+				}
+			],
+			"gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 }
+		},
+		{
+			"id": 4,
+			"title": "HikariCP active connections",
+			"type": "timeseries",
+			"datasource": { "type": "prometheus", "uid": "prometheus" },
+			"targets": [
+				{
+					"expr": "sum by (pool) (hikaricp_connections_active{application=\"tourdoum\", instance=~\"$instance\"})",
+					"legendFormat": "{{pool}} active"
+				},
+				{
+					"expr": "sum by (pool) (hikaricp_connections_idle{application=\"tourdoum\", instance=~\"$instance\"})",
+					"legendFormat": "{{pool}} idle"
+				},
+				{
+					"expr": "sum by (pool) (hikaricp_connections_pending{application=\"tourdoum\", instance=~\"$instance\"})",
+					"legendFormat": "{{pool}} pending"
+				}
+			],
+			"gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 }
+		},
+		{
+			"id": 5,
+			"title": "Tomcat threads (busy)",
+			"type": "timeseries",
+			"datasource": { "type": "prometheus", "uid": "prometheus" },
+			"targets": [
+				{
+					"expr": "tomcat_threads_busy_threads{application=\"tourdoum\", instance=~\"$instance\"}",
+					"legendFormat": "{{instance}} busy"
+				},
+				{
+					"expr": "tomcat_threads_current_threads{application=\"tourdoum\", instance=~\"$instance\"}",
+					"legendFormat": "{{instance}} current"
+				}
+			],
+			"gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 }
+		},
+		{
+			"id": 6,
+			"title": "JVM GC pause (rate)",
+			"type": "timeseries",
+			"datasource": { "type": "prometheus", "uid": "prometheus" },
+			"targets": [
+				{
+					"expr": "sum by (action, cause) (rate(jvm_gc_pause_seconds_sum{application=\"tourdoum\", instance=~\"$instance\"}[1m]))",
+					"legendFormat": "{{action}} / {{cause}}"
+				}
+			],
+			"gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 }
+		}
+	]
+}

@@ -1,0 +1,29 @@
+# infra/observability/prometheus/prometheus.yml
+# Spring Boot Actuator scrape — agent worktree 포트(30080) 기준.
+# 사용자 로컬 8080 으로도 띄울 수 있도록 second target 박제(주석 해제).
+global:
+  scrape_interval: 15s
+  scrape_timeout: 10s
+  evaluation_interval: 30s
+  external_labels:
+    cluster: tourdoum-local
+    env: dev
+
+scrape_configs:
+  - job_name: tourdoum-be
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets:
+          - host.docker.internal:30080
+        labels:
+          application: tourdoum
+          instance: agent-worktree
+      # 사용자 로컬 dev (8080) 동시 관측 시 주석 해제:
+      # - targets: ["host.docker.internal:8080"]
+      #   labels:
+      #     application: tourdoum
+      #     instance: user-local
+
+  - job_name: prometheus-self
+    static_configs:
+      - targets: ["localhost:9090"]

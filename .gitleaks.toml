@@ -17,6 +17,10 @@ tags = ["key", "anthropic"]
 description = "false positives"
 paths = [
   '''(?i).*\.env\.example$''',
+  # ADR-0013 사전 인프라 (TaskList #10) — infra/aws 자격 증명 템플릿/문서.
+  # AWS placeholder(AKIAIOSFODNN7EXAMPLE 등)는 AWS 공식 docs example 값.
+  '''(?i)^infra/aws/\.env\.aws\.example$''',
+  '''(?i)^infra/aws/README\.md$''',
   '''(?i).*/fixtures/.*''',
   '''(?i).*/testdata/.*''',
   '''(?i)docs/screenshots/.*\.json$''',
