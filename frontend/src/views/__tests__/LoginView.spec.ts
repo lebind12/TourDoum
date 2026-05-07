@@ -7,13 +7,15 @@ import { createRouter, createWebHistory } from "vue-router";
 import LoginView from "../LoginView.vue";
 
 // MSW 서버 설정 — /api/auth/login 엔드포인트를 모킹
-// BE #61 응답 계약: {accessToken, expiresInSeconds, tokenType, user} (ADR-0011 FE-1)
+// BE-2(be #63) 응답 계약: {accessToken, expiresInSeconds, tokenType, refreshToken, refreshExpiresInSeconds, user}
 const server = setupServer(
 	http.post("http://localhost:8080/api/auth/login", () => {
 		return HttpResponse.json({
 			accessToken: "test.jwt.token",
 			expiresInSeconds: 900,
 			tokenType: "Bearer",
+			refreshToken: "test.refresh.token",
+			refreshExpiresInSeconds: 1209600,
 			user: {
 				id: 1,
 				email: "test@example.com",
