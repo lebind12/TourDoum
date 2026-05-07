@@ -11,7 +11,7 @@
  * 사용 예:
  *   <PaymentMethodSelector v-model="paymentMethod" />
  */
-type PaymentMethod = "card" | "transfer" | "simple";
+import type { PaymentMethod } from "@/stores/reservations";
 
 interface Props {
 	modelValue: PaymentMethod;
@@ -34,16 +34,16 @@ const methods: {
 		icon: "💳",
 	},
 	{
-		id: "transfer",
-		label: "계좌이체",
-		description: "실시간 계좌이체 (은행 앱)",
-		icon: "🏦",
+		id: "kakaopay",
+		label: "카카오페이",
+		description: "카카오페이 간편결제",
+		icon: "💛",
 	},
 	{
-		id: "simple",
-		label: "간편결제",
-		description: "카카오페이 · 네이버페이 · 토스",
-		icon: "⚡",
+		id: "toss",
+		label: "토스",
+		description: "토스 간편결제",
+		icon: "💙",
 	},
 ];
 

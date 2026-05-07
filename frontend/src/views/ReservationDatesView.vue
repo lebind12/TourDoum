@@ -27,6 +27,7 @@ const adults = ref(1);
 const children = ref(0);
 const dateError = ref("");
 const guestError = ref("");
+const quoteLoading = ref(false);
 
 const today = new Date().toISOString().slice(0, 10);
 
@@ -53,7 +54,7 @@ function validate(): boolean {
 	return !dateError.value && !guestError.value;
 }
 
-function goToPayment() {
+async function goToPayment() {
 	if (!validate()) return;
 
 	try {
@@ -65,8 +66,19 @@ function goToPayment() {
 			adults: adults.value,
 			children: children.value,
 		});
+
+		// 견적 조회 — cleaningFee, totalPrice를 BE에서 받아 결제 화면에 표시
+		quoteLoading.value = true;
+		const q = await reservationsStore.fetchQuote();
+		quoteLoading.value = false;
+		if (!q) {
+			dateError.value = reservationsStore.error ?? "견적 조회에 실패했습니다.";
+			return;
+		}
+
 		router.push({ name: "reservation-payment", params: { accommodationId } });
 	} catch (error) {
+		quoteLoading.value = false;
 		dateError.value =
 			error instanceof Error
 				? error.message
@@ -193,7 +205,7 @@ function goToPayment() {
     <div class="fixed bottom-0 left-0 right-0 border-t bg-background/95 backdrop-blur px-4 py-3 sm:static sm:border-0 sm:bg-transparent sm:p-0">
       <Button
         class="w-full"
-        :disabled="!checkIn || !checkOut"
+        :disabled="!checkIn || !checkOut || quoteLoading"
         aria-label="결제 수단 선택으로 이동"
         @click="goToPayment"
       >
