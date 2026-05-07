@@ -4,21 +4,65 @@ import ReceiptCard from "@/components/reservation/ReceiptCard.vue";
  * ReservationCompleteView — Step 3: 예약 완료
  *
  * 라우트: /reservations/new/:accommodationId/complete
- * TODO(fe): reservations store에서 완료된 예약 정보 읽기
  */
 import ReservationStepper from "@/components/reservation/ReservationStepper.vue";
 import { Button } from "@/components/ui/button";
+import { useAccommodationsStore } from "@/stores/accommodations";
+import {
+	type PaymentMethod,
+	calculateReservationTotal,
+	useReservationsStore,
+} from "@/stores/reservations";
+import { computed } from "vue";
+import { useRoute, useRouter } from "vue-router";
 
-// TODO(fe): reservations store에서 완료 예약 정보 읽기 — placeholder
-const reservation = {
-	reservationId: "TD-20260507-001",
-	accommodationName: "제주 바다 게스트하우스",
-	checkIn: "2026-05-10",
-	checkOut: "2026-05-12",
-	guests: 2,
-	totalPrice: 320000,
-	paymentMethod: "신용/체크카드",
+const route = useRoute();
+const router = useRouter();
+const reservationsStore = useReservationsStore();
+const accommodationsStore = useAccommodationsStore();
+const reservationId = String(route.params.reservationId ?? "");
+
+const paymentLabels: Record<PaymentMethod, string> = {
+	card: "신용/체크카드",
+	bank: "계좌이체",
+	easy: "간편결제",
 };
+
+const receipt = computed(() => {
+	const reservation = reservationsStore.confirmed.find(
+		(r) => r.id === reservationId,
+	);
+	if (!reservation) return null;
+
+	const accommodation = accommodationsStore.getById(
+		reservation.accommodationId,
+	);
+
+	return {
+		reservationId: reservation.id,
+		accommodationName:
+			accommodation?.name ?? `숙소 #${reservation.accommodationId}`,
+		checkIn: reservation.checkIn,
+		checkOut: reservation.checkOut,
+		guests: reservation.adults + reservation.children,
+		totalPrice: accommodation
+			? calculateReservationTotal(
+					accommodation.pricePerNight,
+					reservation.checkIn,
+					reservation.checkOut,
+				)
+			: 0,
+		paymentMethod: paymentLabels[reservation.paymentMethod],
+	};
+});
+
+function goToMe() {
+	router.push("/me");
+}
+
+function goHome() {
+	router.push("/");
+}
 </script>
 
 <template>
@@ -34,17 +78,21 @@ const reservation = {
 
     <!-- 영수증 카드 -->
     <ReceiptCard
-      :reservation-id="reservation.reservationId"
-      :accommodation-name="reservation.accommodationName"
-      :check-in="reservation.checkIn"
-      :check-out="reservation.checkOut"
-      :guests="reservation.guests"
-      :total-price="reservation.totalPrice"
-      :payment-method="reservation.paymentMethod"
+      v-if="receipt"
+      :reservation-id="receipt.reservationId"
+      :accommodation-name="receipt.accommodationName"
+      :check-in="receipt.checkIn"
+      :check-out="receipt.checkOut"
+      :guests="receipt.guests"
+      :total-price="receipt.totalPrice"
+      :payment-method="receipt.paymentMethod"
     />
+    <p v-else class="text-sm text-destructive text-center" role="alert">
+      예약 정보를 찾을 수 없습니다.
+    </p>
 
     <!-- 안내 텍스트 -->
-    <p class="text-xs text-muted-foreground text-center leading-relaxed">
+    <p v-if="receipt" class="text-xs text-muted-foreground text-center leading-relaxed">
       예약 확인 메일이 가입하신 이메일로 발송됩니다.
       <br />예약 취소 및 변경은 마이페이지 &gt; 내 예약에서 가능합니다.
     </p>
@@ -55,14 +103,14 @@ const reservation = {
         variant="outline"
         class="flex-1"
         aria-label="내 예약 목록 보기"
-        @click="/* TODO(fe): router.push('/me') */ void 0"
+        @click="goToMe"
       >
         내 예약 보기
       </Button>
       <Button
         class="flex-1"
         aria-label="홈으로 이동"
-        @click="/* TODO(fe): router.push('/') */ void 0"
+        @click="goHome"
       >
         홈으로
       </Button>

@@ -4,22 +4,75 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+	useReservationsStore,
+	validateReservationDates,
+} from "@/stores/reservations";
 /**
  * ReservationDatesView — Step 1: 날짜·인원 선택
  *
  * 라우트: /reservations/new/:accommodationId/dates
- * TODO(fe): reservations store 연결, router.push(step2), 유효성 검사
  */
-import { ref } from "vue";
+import { onMounted, ref } from "vue";
+import { useRoute, useRouter } from "vue-router";
 
-// TODO(fe): reservations store 연결
+const route = useRoute();
+const router = useRouter();
+const reservationsStore = useReservationsStore();
+const accommodationId = Number(route.params.accommodationId);
+
 const checkIn = ref("");
 const checkOut = ref("");
 const adults = ref(1);
 const children = ref(0);
+const dateError = ref("");
+const guestError = ref("");
 
-// TODO(fe): 옵션 항목(조식 등) 정의
-const options = ref<string[]>([]);
+const today = new Date().toISOString().slice(0, 10);
+
+onMounted(() => {
+	if (reservationsStore.current?.accommodationId !== accommodationId) {
+		reservationsStore.start(accommodationId);
+	}
+
+	const draft = reservationsStore.current;
+	checkIn.value = typeof draft?.checkIn === "string" ? draft.checkIn : "";
+	checkOut.value = typeof draft?.checkOut === "string" ? draft.checkOut : "";
+	adults.value = typeof draft?.adults === "number" ? draft.adults : 1;
+	children.value = typeof draft?.children === "number" ? draft.children : 0;
+});
+
+function validate(): boolean {
+	dateError.value =
+		validateReservationDates(checkIn.value, checkOut.value) ?? "";
+	guestError.value =
+		Number.isInteger(adults.value) && adults.value >= 1 && children.value >= 0
+			? ""
+			: "인원은 성인 1명 이상으로 선택해 주세요.";
+
+	return !dateError.value && !guestError.value;
+}
+
+function goToPayment() {
+	if (!validate()) return;
+
+	try {
+		reservationsStore.setDates({
+			checkIn: checkIn.value,
+			checkOut: checkOut.value,
+		});
+		reservationsStore.setGuests({
+			adults: adults.value,
+			children: children.value,
+		});
+		router.push({ name: "reservation-payment", params: { accommodationId } });
+	} catch (error) {
+		dateError.value =
+			error instanceof Error
+				? error.message
+				: "예약 정보를 저장할 수 없습니다.";
+	}
+}
 </script>
 
 <template>
@@ -45,7 +98,8 @@ const options = ref<string[]>([]);
               id="check-in"
               v-model="checkIn"
               type="date"
-              :min="new Date().toISOString().slice(0, 10)"
+              :min="today"
+              :aria-invalid="Boolean(dateError)"
               aria-required="true"
               aria-label="체크인 날짜"
             />
@@ -56,12 +110,16 @@ const options = ref<string[]>([]);
               id="check-out"
               v-model="checkOut"
               type="date"
-              :min="checkIn || new Date().toISOString().slice(0, 10)"
+              :min="checkIn || today"
+              :aria-invalid="Boolean(dateError)"
               aria-required="true"
               aria-label="체크아웃 날짜"
             />
           </div>
         </div>
+        <p v-if="dateError" class="text-xs text-destructive" role="alert">
+          {{ dateError }}
+        </p>
       </CardContent>
     </Card>
 
@@ -124,6 +182,10 @@ const options = ref<string[]>([]);
             >+</button>
           </div>
         </div>
+
+        <p v-if="guestError" class="text-xs text-destructive" role="alert">
+          {{ guestError }}
+        </p>
       </CardContent>
     </Card>
 
@@ -133,7 +195,7 @@ const options = ref<string[]>([]);
         class="w-full"
         :disabled="!checkIn || !checkOut"
         aria-label="결제 수단 선택으로 이동"
-        @click="/* TODO(fe): router.push(step2) */ void 0"
+        @click="goToPayment"
       >
         다음 단계 — 결제 수단
       </Button>

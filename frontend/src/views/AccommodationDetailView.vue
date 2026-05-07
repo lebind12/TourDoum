@@ -6,14 +6,27 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAccommodationsStore } from "@/stores/accommodations";
+import { useReservationsStore } from "@/stores/reservations";
 import { ChevronLeft, MessageCircle } from "lucide-vue-next";
 import { computed } from "vue";
-import { RouterLink, useRoute } from "vue-router";
+import { RouterLink, useRoute, useRouter } from "vue-router";
 
 const route = useRoute();
+const router = useRouter();
 const store = useAccommodationsStore();
+const reservationsStore = useReservationsStore();
 const id = Number(route.params.id);
 const acc = computed(() => store.getById(id));
+
+function handleReserve() {
+	if (!acc.value) return;
+
+	reservationsStore.start(acc.value.id);
+	router.push({
+		name: "reservation-dates",
+		params: { accommodationId: acc.value.id },
+	});
+}
 </script>
 
 <template>
@@ -139,10 +152,12 @@ const acc = computed(() => store.getById(id));
                 <Input type="date" />
               </div>
             </div>
-            <Button class="w-full mt-4" type="button">
-              예약 문의 (mockup)
+            <Button class="w-full mt-4" type="button" @click="handleReserve">
+              예약하기
             </Button>
-            <p class="text-center text-muted-foreground text-xs mt-2">BE 예약 API 연결 예정</p>
+            <p class="text-center text-muted-foreground text-xs mt-2">
+              다음 단계에서 날짜와 인원을 확정합니다.
+            </p>
           </CardContent>
         </Card>
 
