@@ -2,11 +2,15 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { usePlansStore } from "@/stores/plans";
-import { computed } from "vue";
+import { computed, onMounted } from "vue";
 import { RouterLink } from "vue-router";
 
 const store = usePlansStore();
 const plans = computed(() => store.sortedPlans);
+
+onMounted(() => {
+	store.fetchMyPlans();
+});
 
 function formatDateRange(start: string, end: string): string {
 	const s = new Date(start).toLocaleDateString("ko-KR", {
