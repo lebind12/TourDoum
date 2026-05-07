@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import ReservationListCard from "@/components/reservation/ReservationListCard.vue";
 import {
 	Card,
 	CardContent,
@@ -9,6 +10,11 @@ import {
 import { useAuthStore } from "@/stores/auth";
 
 const authStore = useAuthStore();
+
+// TODO(fe): reservations store 연결 — useReservationsStore().myReservations
+const myReservations = [
+	/* placeholder — fe가 store에서 채움 */
+];
 </script>
 
 <template>
@@ -68,5 +74,51 @@ const authStore = useAuthStore();
     >
       사용자 정보를 불러올 수 없습니다.
     </div>
+
+    <!-- ── 내 예약 섹션 ───────────────────────────────────────────── -->
+    <section aria-labelledby="my-reservations-heading">
+      <div class="flex items-center justify-between mb-3">
+        <h2 id="my-reservations-heading" class="text-lg font-semibold tracking-tight">내 예약</h2>
+        <!-- TODO(fe): 예약 목록 이동 링크 -->
+      </div>
+
+      <!-- 예약 있음 -->
+      <div v-if="myReservations.length > 0" class="space-y-3">
+        <ReservationListCard
+          v-for="r in myReservations"
+          :key="r.reservationId"
+          :reservation-id="r.reservationId"
+          :accommodation-name="r.accommodationName"
+          :check-in="r.checkIn"
+          :check-out="r.checkOut"
+          :status="r.status"
+          :total-price="r.totalPrice"
+          @cancel="/* TODO(fe): reservations store .cancel(id) */ void 0"
+        />
+      </div>
+
+      <!-- 빈 상태 -->
+      <div
+        v-else
+        class="flex flex-col items-center gap-3 rounded-lg border border-dashed py-10 px-4 text-center"
+        role="status"
+        aria-label="예약 없음"
+      >
+        <span class="text-4xl" aria-hidden="true">🗺️</span>
+        <div class="space-y-1">
+          <p class="text-sm font-medium">아직 예약한 숙소가 없습니다.</p>
+          <p class="text-xs text-muted-foreground">여행을 시작해 보세요!</p>
+        </div>
+        <button
+          type="button"
+          class="mt-1 inline-flex items-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground
+                 hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-colors"
+          aria-label="숙소 목록으로 이동하여 여행 시작하기"
+          @click="/* TODO(fe): router.push('/accommodations') */ void 0"
+        >
+          여행 시작하기
+        </button>
+      </div>
+    </section>
   </div>
 </template>
