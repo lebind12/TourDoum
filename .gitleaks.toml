@@ -21,6 +21,10 @@ paths = [
   '''(?i).*/testdata/.*''',
   '''(?i)docs/screenshots/.*\.json$''',
   '''(?i).*idempotency-trace\.json$''',
+  # JWT dev keypair (#61, ADR-0011 BE-1) — classpath dev RSA keypair.
+  # 운영 키 절대 금지: BE-2에서 환경변수 외부화 시 본 파일들 제거.
+  '''(?i)backend/src/main/resources/keys/jwt-dev-private\.pem$''',
+  '''(?i)backend/src/main/resources/keys/jwt-dev-public\.pem$''',
 ]
 regexes = [
   '''idempotencyKey":\s*"[a-f0-9-]{36}"''',

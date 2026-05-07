@@ -11,6 +11,8 @@ repos:
         args: ["--maxkb=8192"]
       - id: check-merge-conflict
       - id: detect-private-key
+        # JWT dev keypair 예외 (#61, ADR-0011 BE-1). 운영 키 절대 금지 — BE-2에서 외부화 시 본 항목 제거.
+        exclude: '^backend/src/main/resources/keys/jwt-dev-(private|public)\.pem$'
 
   - repo: https://github.com/gitleaks/gitleaks
     rev: v8.18.4

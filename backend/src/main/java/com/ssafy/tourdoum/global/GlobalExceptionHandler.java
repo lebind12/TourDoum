@@ -16,6 +16,7 @@ import com.ssafy.tourdoum.review.ReviewForbiddenException;
 import com.ssafy.tourdoum.review.ReviewNotFoundException;
 import java.util.List;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -148,5 +149,12 @@ public class GlobalExceptionHandler {
   @ResponseStatus(HttpStatus.BAD_REQUEST)
   public ErrorResponse handleIllegalArgument(IllegalArgumentException ex) {
     return new ErrorResponse("request", ex.getMessage());
+  }
+
+  /** 로그인 실패 → 401 Unauthorized (ADR-0011 BE-1). */
+  @ExceptionHandler(BadCredentialsException.class)
+  @ResponseStatus(HttpStatus.UNAUTHORIZED)
+  public ErrorResponse handleBadCredentials(BadCredentialsException ex) {
+    return new ErrorResponse("credentials", ex.getMessage());
   }
 }

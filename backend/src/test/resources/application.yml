@@ -23,5 +23,12 @@ spring:
       host: localhost
       port: 6379
 
-  session:
-    store-type: none  # 슬라이스/스모크 테스트에서 Redis 불필요
+# Spring Session 폐기 (ADR-0011, #61) — 본 yml에서도 spring.session.* 제거.
+# JWT 설정은 main application.yml의 기본값을 그대로 상속(classpath의 jwt-dev-*.pem 사용).
+tourdoum:
+  jwt:
+    issuer: tourdoum
+    access-ttl: 15m
+    active-kid: dev-1
+    private-key-location: classpath:keys/jwt-dev-private.pem
+    public-key-location: classpath:keys/jwt-dev-public.pem

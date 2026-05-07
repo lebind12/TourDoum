@@ -7,7 +7,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import jakarta.servlet.http.Cookie;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
@@ -73,9 +74,10 @@ class AuthIntegrationTest {
   }
 
   @Autowired private MockMvc mockMvc;
+  @Autowired private ObjectMapper objectMapper;
 
   @Test
-  @DisplayName("회원가입 → 로그인(SESSION 쿠키) → /api/me(200) → 로그아웃 → /api/me(401)")
+  @DisplayName("회원가입 → 로그인(JWT) → /api/me(200, Bearer) → 로그아웃(204 stub) — ADR-0011 BE-1")
   void auth_full_flow() throws Exception {
     // 1. 회원가입
     mockMvc
@@ -90,7 +92,7 @@ class AuthIntegrationTest {
         .andExpect(jsonPath("$.email").value("it@example.com"))
         .andExpect(jsonPath("$.nickname").value("ituser"));
 
-    // 2. 로그인 — SESSION 쿠키 수신 + 응답 계약: MeResponse({id,email,nickname,role})
+    // 2. 로그인 — JWT 응답 (ADR-0011 BE-1)
     MvcResult loginResult =
         mockMvc
             .perform(
@@ -101,33 +103,36 @@ class AuthIntegrationTest {
                         {"email":"it@example.com","password":"password123"}
                         """))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.id").isNumber())
-            .andExpect(jsonPath("$.email").value("it@example.com"))
-            .andExpect(jsonPath("$.nickname").value("ituser"))
-            .andExpect(jsonPath("$.role").value("ROLE_USER"))
+            .andExpect(jsonPath("$.accessToken").isNotEmpty())
+            .andExpect(jsonPath("$.tokenType").value("Bearer"))
+            .andExpect(jsonPath("$.expiresInSeconds").value(900))
+            .andExpect(jsonPath("$.user.email").value("it@example.com"))
+            .andExpect(jsonPath("$.user.nickname").value("ituser"))
+            .andExpect(jsonPath("$.user.role").value("ROLE_USER"))
             .andReturn();
 
-    // 세션 쿠키 추출 — Spring Session Redis가 활성화된 환경에서는 HttpSession이
-    // SessionRepositoryRequestWrapper 안에 래핑되어 request.getSession(false) 로 접근 불가.
-    // 대신 응답의 Set-Cookie: SESSION=... 헤더로 세션 식별자를 검증한다.
-    Cookie sessionCookie = loginResult.getResponse().getCookie("SESSION");
-    assertThat(sessionCookie).as("로그인 응답에 SESSION 쿠키가 있어야 한다").isNotNull();
-    assertThat(sessionCookie.getValue()).as("SESSION 쿠키 값이 비어 있으면 안 된다").isNotEmpty();
+    JsonNode body = objectMapper.readTree(loginResult.getResponse().getContentAsString());
+    String token = body.get("accessToken").asText();
+    assertThat(token).as("JWT accessToken 비어있으면 안 됨").isNotBlank();
 
-    // 3. GET /api/me — SESSION 쿠키 동봉, 200 + 본인 정보
+    // 3. GET /api/me — Authorization: Bearer 헤더, 200 + 본인 정보
     mockMvc
-        .perform(get("/api/me").cookie(sessionCookie))
+        .perform(get("/api/me").header("Authorization", "Bearer " + token))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.email").value("it@example.com"))
         .andExpect(jsonPath("$.nickname").value("ituser"))
         .andExpect(jsonPath("$.role").value("ROLE_USER"));
 
-    // 4. 로그아웃 → 204
-    mockMvc
-        .perform(post("/api/auth/logout").cookie(sessionCookie))
-        .andExpect(status().isNoContent());
+    // 4. 로그아웃 → 204 stub. BE-1는 서버 상태 없음 — denylist는 BE-2.
+    mockMvc.perform(post("/api/auth/logout")).andExpect(status().isNoContent());
 
-    // 5. 로그아웃 후 /api/me → 401 (세션 무효화 확인)
-    mockMvc.perform(get("/api/me").cookie(sessionCookie)).andExpect(status().isUnauthorized());
+    // 5. logout 후에도 access token은 만료(15분)까지 여전히 유효 — BE-1 의도된 한계.
+    //    BE-2에서 denylist 도입 후 401 검증으로 전환 예정.
+    mockMvc
+        .perform(get("/api/me").header("Authorization", "Bearer " + token))
+        .andExpect(status().isOk());
+
+    // 6. Authorization 헤더 없으면 401
+    mockMvc.perform(get("/api/me")).andExpect(status().isUnauthorized());
   }
 }
