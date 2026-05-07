@@ -9,7 +9,10 @@ import { defineConfig, devices } from '@playwright/test'
  *
  * CI(Jenkins)에서는 PLAYWRIGHT_BASE_URL 환경 변수로 URL 오버라이드 가능.
  */
-const E2E_HOST = '127.0.0.1'
+// BE SecurityConfig.allowedOrigins는 http://localhost:5173,5174만 허용한다.
+// 127.0.0.1로 띄우면 브라우저 origin이 http://127.0.0.1:5174가 되어 CORS 차단된다.
+// → 반드시 localhost로 통일 (TASK_18 진단 결과).
+const E2E_HOST = 'localhost'
 const E2E_PORT = 5174
 const E2E_URL = `http://${E2E_HOST}:${E2E_PORT}`
 
