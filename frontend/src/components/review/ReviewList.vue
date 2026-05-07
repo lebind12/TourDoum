@@ -92,5 +92,10 @@ function formatDate(iso: string): string {
         </p>
       </li>
     </ul>
+
+    <!-- 후기 작성 CTA (리뷰가 있을 때도 노출) -->
+    <div v-if="items.length > 0" class="flex justify-end pt-2">
+      <slot name="cta" />
+    </div>
   </section>
 </template>

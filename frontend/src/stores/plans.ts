@@ -306,6 +306,34 @@ export const usePlansStore = defineStore("plans", () => {
 		plans.value = plans.value.filter((p) => p.id !== planId);
 	}
 
+	/**
+	 * 특정 날짜의 아이템 순서를 변경한다.
+	 * @param planId - 여행 계획 ID
+	 * @param dayIndex - plans.days 배열 인덱스
+	 * @param fromIdx - 이동할 아이템의 현재 인덱스
+	 * @param toIdx - 이동할 목표 인덱스
+	 */
+	function reorderItems(
+		planId: string,
+		dayIndex: number,
+		fromIdx: number,
+		toIdx: number,
+	): void {
+		const plan = plans.value.find((p) => p.id === planId);
+		if (!plan || !plan.days[dayIndex]) return;
+		const items = plan.days[dayIndex].items;
+		if (
+			fromIdx < 0 ||
+			fromIdx >= items.length ||
+			toIdx < 0 ||
+			toIdx >= items.length ||
+			fromIdx === toIdx
+		)
+			return;
+		const [moved] = items.splice(fromIdx, 1);
+		items.splice(toIdx, 0, moved);
+	}
+
 	return {
 		plans,
 		loading,
@@ -314,6 +342,7 @@ export const usePlansStore = defineStore("plans", () => {
 		createPlan,
 		addItem,
 		removeItem,
+		reorderItems,
 		deletePlan,
 	};
 });

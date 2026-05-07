@@ -80,6 +80,43 @@ function deletePlan() {
 	plansStore.deletePlan(planId);
 	router.push({ name: "plans" });
 }
+
+// ── Drag & Drop (HTML5 API) ──────────────────────────────────────────────────
+interface DragState {
+	dayIdx: number;
+	itemIdx: number;
+}
+const dragState = ref<DragState | null>(null);
+
+function onDragStart(event: DragEvent, dayIdx: number, itemIdx: number) {
+	dragState.value = { dayIdx, itemIdx };
+	if (event.dataTransfer) {
+		event.dataTransfer.effectAllowed = "move";
+	}
+}
+
+function onDragOver(event: DragEvent) {
+	event.preventDefault();
+	if (event.dataTransfer) {
+		event.dataTransfer.dropEffect = "move";
+	}
+}
+
+function onDrop(event: DragEvent, dayIdx: number, itemIdx: number) {
+	event.preventDefault();
+	if (!dragState.value) return;
+	// 같은 날짜 내에서만 reorder 지원
+	if (dragState.value.dayIdx !== dayIdx) {
+		dragState.value = null;
+		return;
+	}
+	plansStore.reorderItems(planId, dayIdx, dragState.value.itemIdx, itemIdx);
+	dragState.value = null;
+}
+
+function onDragEnd() {
+	dragState.value = null;
+}
 </script>
 
 <template>
@@ -142,9 +179,15 @@ function deletePlan() {
         <!-- 일정 타임라인 -->
         <ol v-else class="relative space-y-3 pl-8 border-l-2 border-border ml-4">
           <li
-            v-for="item in day.items"
+            v-for="(item, itemIdx) in day.items"
             :key="item.id"
             class="relative group"
+            draggable="true"
+            :aria-grabbed="dragState?.dayIdx === idx && dragState?.itemIdx === itemIdx"
+            @dragstart="onDragStart($event, idx, itemIdx)"
+            @dragover="onDragOver($event)"
+            @drop="onDrop($event, idx, itemIdx)"
+            @dragend="onDragEnd"
           >
             <!-- 타임라인 점 -->
             <span
@@ -159,11 +202,11 @@ function deletePlan() {
             <Card class="transition-shadow group-hover:shadow-sm">
               <CardContent class="p-3">
                 <div class="flex items-start gap-2">
-                  <!-- 드래그 핸들 시각 힌트 (실제 DnD 로직은 FE TODO) -->
+                  <!-- 드래그 핸들 -->
                   <span
                     class="mt-0.5 shrink-0 cursor-grab text-muted-foreground/40 group-hover:text-muted-foreground/70 transition-colors"
                     aria-hidden="true"
-                    title="순서 변경 (준비 중)"
+                    title="드래그하여 순서 변경"
                   >
                     <GripVertical :size="16" />
                   </span>

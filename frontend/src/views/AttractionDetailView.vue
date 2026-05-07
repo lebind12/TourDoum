@@ -7,15 +7,31 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAttractionsStore } from "@/stores/attractions";
+import { useAuthStore } from "@/stores/auth";
+import { useReviewsStore } from "@/stores/reviews";
 import { ChevronLeft } from "lucide-vue-next";
-import { computed } from "vue";
-import { RouterLink, useRoute } from "vue-router";
+import { computed, ref } from "vue";
+import { RouterLink, useRoute, useRouter } from "vue-router";
 
 const route = useRoute();
+const router = useRouter();
 const store = useAttractionsStore();
+const authStore = useAuthStore();
+const reviewsStore = useReviewsStore();
 
 const id = Number(route.params.id);
 const attraction = computed(() => store.getById(id));
+
+// 현재 사용자가 이미 작성한 후기 (닉네임 기준)
+const userReview = computed(() =>
+	authStore.currentUser
+		? reviewsStore
+				.getByTarget("attraction", id)
+				.find((r) => r.authorNickname === authStore.currentUser?.nickname)
+		: undefined,
+);
+
+const showReviewForm = ref(false);
 
 const nearbySameRegion = computed(() => {
 	if (!attraction.value) return [];
@@ -155,8 +171,43 @@ const detailMarkers = computed<MapMarker[]>(() => {
       <!-- 후기 섹션 -->
       <Card>
         <CardContent class="pt-6 space-y-4">
-          <ReviewList target-type="attraction" :target-id="attraction.id" />
-          <ReviewForm target-type="attraction" :target-id="attraction.id" />
+          <ReviewList target-type="attraction" :target-id="attraction.id">
+            <template #cta>
+              <!-- 비로그인 -->
+              <Button
+                v-if="!authStore.currentUser"
+                variant="outline"
+                size="sm"
+                @click="router.push('/login')"
+              >
+                로그인하고 후기 작성하기
+              </Button>
+              <!-- 이미 후기 있음 -->
+              <Button
+                v-else-if="userReview"
+                variant="ghost"
+                size="sm"
+                @click="showReviewForm = !showReviewForm"
+              >
+                내 후기 보기/수정
+              </Button>
+              <!-- 후기 작성 가능 -->
+              <Button
+                v-else
+                size="sm"
+                @click="showReviewForm = !showReviewForm"
+              >
+                후기 작성
+              </Button>
+            </template>
+          </ReviewList>
+
+          <!-- 후기 폼 (토글) -->
+          <ReviewForm
+            v-if="showReviewForm"
+            target-type="attraction"
+            :target-id="attraction.id"
+          />
         </CardContent>
       </Card>
     </div>
