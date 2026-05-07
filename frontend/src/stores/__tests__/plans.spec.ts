@@ -239,26 +239,43 @@ describe("usePlansStore — addItem", () => {
 	});
 });
 
-describe("usePlansStore — removeItem (클라이언트 사이드)", () => {
+describe("usePlansStore — removeItem (API 연결)", () => {
 	beforeEach(() => {
 		setActivePinia(createPinia());
 		vi.clearAllMocks();
 	});
 	afterEach(() => vi.clearAllMocks());
 
-	it("아이템을 로컬에서 제거한다 (BE 호출 없음)", async () => {
+	it("성공 시 BE DELETE 호출 + 로컬 아이템 제거", async () => {
 		mockGet.mockResolvedValueOnce({ data: planDetailFixture, error: null });
+		mockDel.mockResolvedValueOnce({ data: null, error: null });
+
 		const store = usePlansStore();
 		await store.fetchPlanById("1");
-
 		expect(store.getById("1")?.days[0].items).toHaveLength(2);
 
-		store.removeItem("1", 0, "10");
+		const result = await store.removeItem("1", 0, "10");
 
+		expect(mockDel).toHaveBeenCalledWith("/api/plans/1/items/10");
+		expect(result).toBe(true);
 		expect(store.getById("1")?.days[0].items).toHaveLength(1);
 		expect(store.getById("1")?.days[0].items[0].id).toBe("11");
-		// BE 호출 없음
-		expect(mockDel).not.toHaveBeenCalled();
+	});
+
+	it("실패 시 false 반환 + 아이템 복원", async () => {
+		mockGet.mockResolvedValueOnce({ data: planDetailFixture, error: null });
+		mockDel.mockResolvedValueOnce({ data: null, error: "권한 없음" });
+
+		const store = usePlansStore();
+		await store.fetchPlanById("1");
+		expect(store.getById("1")?.days[0].items).toHaveLength(2);
+
+		const result = await store.removeItem("1", 0, "10");
+
+		expect(result).toBe(false);
+		expect(store.error).toBe("권한 없음");
+		// 낙관적 업데이트 롤백
+		expect(store.getById("1")?.days[0].items).toHaveLength(2);
 	});
 });
 

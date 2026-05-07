@@ -233,17 +233,33 @@ export const usePlansStore = defineStore("plans", () => {
 		return newItem;
 	}
 
-	// ── 아이템 제거 (클라이언트 사이드) ──────────────────────────────────────
+	// ── 아이템 제거 ───────────────────────────────────────────────────────────
 	/**
-	 * BE 미구현 — FE 로컬 제거만 수행.
-	 * TODO: Task #31 후속으로 BE DELETE 엔드포인트 구현 시 API 연결.
+	 * DELETE /api/plans/{planId}/items/{itemId} — 아이템 단건 삭제.
+	 * 낙관적 업데이트: 성공 전 로컬에서 제거, 실패 시 재fetch.
 	 */
-	function removeItem(planId: string, dayIndex: number, itemId: string): void {
+	async function removeItem(
+		planId: string,
+		dayIndex: number,
+		itemId: string,
+	): Promise<boolean> {
 		const plan = plans.value.find((p) => p.id === planId);
-		if (!plan || !plan.days[dayIndex]) return;
+		if (!plan || !plan.days[dayIndex]) return false;
+
+		// 낙관적 로컬 제거
+		const backup = [...plan.days[dayIndex].items];
 		plan.days[dayIndex].items = plan.days[dayIndex].items.filter(
 			(i) => i.id !== itemId,
 		);
+
+		const result = await del(`/api/plans/${planId}/items/${itemId}`);
+		if (result.error) {
+			// 실패 시 복원
+			plan.days[dayIndex].items = backup;
+			error.value = result.error;
+			return false;
+		}
+		return true;
 	}
 
 	// ── 아이템 재정렬 ─────────────────────────────────────────────────────────
@@ -294,7 +310,9 @@ export const usePlansStore = defineStore("plans", () => {
 
 		const result = await patch<PlanItemApiResponse[]>(
 			`/api/plans/${planId}/items/reorder`,
-			{ items: allEntries },
+			{
+				items: allEntries,
+			},
 		);
 
 		if (result.error) {
