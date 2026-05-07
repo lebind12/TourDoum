@@ -2,6 +2,8 @@
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useAccommodationsStore } from "@/stores/accommodations";
 import { onMounted, ref } from "vue";
 import { RouterLink } from "vue-router";
@@ -35,22 +37,20 @@ onMounted(() => {
             class="flex-1"
             @input="store.setSearch(searchInput)"
           />
-          <select
+          <Select
             v-model="selectedType"
-            class="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             @change="store.setType(selectedType)"
           >
             <option value="">전체 숙소 유형</option>
             <option v-for="t in store.types" :key="t" :value="t">{{ t }}</option>
-          </select>
-          <select
+          </Select>
+          <Select
             v-model="selectedSido"
-            class="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             @change="store.setSido(selectedSido)"
           >
             <option value="">전체 지역</option>
             <option v-for="sido in store.sidos" :key="sido" :value="sido">{{ sido }}</option>
-          </select>
+          </Select>
         </div>
         <p class="text-muted-foreground text-xs mt-2">검색 결과: {{ store.filtered.length }}건</p>
       </CardContent>
@@ -59,11 +59,11 @@ onMounted(() => {
     <!-- 로딩 -->
     <template v-if="store.loading">
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        <Card v-for="n in 6" :key="n" class="animate-pulse overflow-hidden">
-          <div class="h-48 bg-muted rounded-t-xl" />
-          <CardContent class="p-4">
-            <div class="h-4 bg-muted rounded w-3/4 mb-2" />
-            <div class="h-3 bg-muted rounded w-1/2" />
+        <Card v-for="n in 6" :key="n" class="overflow-hidden">
+          <Skeleton class="h-48 w-full rounded-t-xl rounded-b-none" />
+          <CardContent class="p-4 space-y-2">
+            <Skeleton class="h-4 w-3/4" />
+            <Skeleton class="h-3 w-1/2" />
           </CardContent>
         </Card>
       </div>
@@ -104,7 +104,7 @@ onMounted(() => {
           :to="{ name: 'accommodation-detail', params: { id: acc.id } }"
           class="block"
         >
-          <Card class="overflow-hidden hover:shadow-md transition-shadow cursor-pointer h-full">
+          <Card class="overflow-hidden motion-safe:transition-[transform,box-shadow] motion-safe:duration-200 motion-safe:ease-out motion-safe:hover:-translate-y-0.5 hover:shadow-md cursor-pointer h-full">
             <img
               :src="acc.imageUrl"
               :alt="acc.name"

@@ -1,6 +1,6 @@
 package com.ssafy.tourdoum.review;
 
-import com.ssafy.tourdoum.attraction.PageResponse;
+import com.ssafy.tourdoum.common.PageResponse;
 import com.ssafy.tourdoum.member.Member;
 import com.ssafy.tourdoum.member.MemberRepository;
 import io.swagger.v3.oas.annotations.Operation;

@@ -1,4 +1,4 @@
-package com.ssafy.tourdoum.attraction;
+package com.ssafy.tourdoum.common;
 
 import java.util.List;
 import org.springframework.data.domain.Page;

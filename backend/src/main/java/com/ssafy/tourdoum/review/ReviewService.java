@@ -1,14 +1,11 @@
 package com.ssafy.tourdoum.review;
 
-import com.ssafy.tourdoum.attraction.PageResponse;
-import com.ssafy.tourdoum.member.Member;
-import com.ssafy.tourdoum.member.MemberRepository;
+import com.ssafy.tourdoum.common.PageResponse;
 import com.ssafy.tourdoum.notification.NotificationService;
 import com.ssafy.tourdoum.notification.NotificationType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,15 +15,10 @@ import org.springframework.transaction.annotation.Transactional;
 public class ReviewService {
 
   private final ReviewRepository reviewRepository;
-  private final MemberRepository memberRepository;
   private final NotificationService notificationService;
 
-  public ReviewService(
-      ReviewRepository reviewRepository,
-      MemberRepository memberRepository,
-      NotificationService notificationService) {
+  public ReviewService(ReviewRepository reviewRepository, NotificationService notificationService) {
     this.reviewRepository = reviewRepository;
-    this.memberRepository = memberRepository;
     this.notificationService = notificationService;
   }
 
@@ -38,7 +30,6 @@ public class ReviewService {
    */
   @Transactional
   public ReviewResponse create(Long memberId, ReviewCreateRequest request) {
-    String nickname = resolveNickname(memberId);
     Review review =
         Review.builder()
             .memberId(memberId)
@@ -48,7 +39,7 @@ public class ReviewService {
             .title(request.title())
             .content(request.content())
             .build();
-    ReviewResponse response = ReviewResponse.from(reviewRepository.save(review), nickname);
+    ReviewResponse response = ReviewResponse.from(reviewRepository.save(review));
     // 후기 작성자에게 알림 (자신에게 발행 — 학습 모드: 실제론 대상 오너에게 발행)
     notificationService.publish(
         memberId,
@@ -60,7 +51,7 @@ public class ReviewService {
   }
 
   /**
-   * 특정 대상의 후기 목록 조회 (Member JOIN — N+1 없음).
+   * 특정 대상의 후기 목록 조회.
    *
    * @param targetType ATTRACTION 또는 ACCOMMODATION
    * @param targetId 대상 PK
@@ -72,13 +63,8 @@ public class ReviewService {
     Pageable pageable = PageRequest.of(page, size);
     Page<ReviewResponse> result =
         reviewRepository
-            .findByTargetWithAuthor(targetType, targetId, pageable)
-            .map(
-                row -> {
-                  Review review = (Review) row[0];
-                  Member member = (Member) row[1];
-                  return ReviewResponse.from(review, member.getNickname());
-                });
+            .findByTargetTypeAndTargetIdOrderByCreatedAtDesc(targetType, targetId, pageable)
+            .map(ReviewResponse::from);
     return PageResponse.from(result);
   }
 
@@ -113,12 +99,5 @@ public class ReviewService {
       throw new ReviewForbiddenException(reviewId);
     }
     reviewRepository.delete(review);
-  }
-
-  private String resolveNickname(Long memberId) {
-    return memberRepository
-        .findById(memberId)
-        .map(Member::getNickname)
-        .orElseThrow(() -> new UsernameNotFoundException("회원 없음: id=" + memberId));
   }
 }

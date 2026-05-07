@@ -4,6 +4,7 @@ import KakaoMap, { type MapMarker } from "@/components/map/KakaoMap.vue";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import { useAttractionsStore } from "@/stores/attractions";
 import { computed, onMounted, ref } from "vue";
 import { RouterLink, useRouter } from "vue-router";
@@ -18,7 +19,7 @@ const hoveredId = ref<number | null>(null);
 /** 지도 중심: 필터된 여행지 평균 위치 or 전국 중심 */
 const mapCenter = computed(() => {
 	const items = store.filtered;
-	if (items.length === 0) return { lat: 36.5, lng: 127.8 };
+	if (items.length === 0) return { lat: 37.5665, lng: 126.978 }; // 서울시청
 	const lat = items.reduce((s, a) => s + a.latitude, 0) / items.length;
 	const lng = items.reduce((s, a) => s + a.longitude, 0) / items.length;
 	return { lat, lng };
@@ -61,22 +62,20 @@ onMounted(() => {
             class="flex-1"
             @input="store.setSearch(searchInput)"
           />
-          <select
+          <Select
             v-model="selectedCategory"
-            class="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             @change="store.setCategory(selectedCategory)"
           >
             <option value="">전체 카테고리</option>
             <option v-for="cat in store.categories" :key="cat" :value="cat">{{ cat }}</option>
-          </select>
-          <select
+          </Select>
+          <Select
             v-model="selectedSido"
-            class="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             @change="store.setSido(selectedSido)"
           >
             <option value="">전체 지역</option>
             <option v-for="sido in store.sidos" :key="sido" :value="sido">{{ sido }}</option>
-          </select>
+          </Select>
         </div>
         <p class="text-muted-foreground text-xs mt-2">검색 결과: {{ store.filtered.length }}건</p>
       </CardContent>
@@ -129,7 +128,7 @@ onMounted(() => {
             @mouseenter="hoveredId = attraction.id"
             @mouseleave="hoveredId = null"
           >
-            <Card class="overflow-hidden hover:shadow-md transition-shadow cursor-pointer">
+            <Card class="overflow-hidden motion-safe:transition-[transform,box-shadow] motion-safe:duration-200 motion-safe:ease-out motion-safe:hover:-translate-y-0.5 hover:shadow-md cursor-pointer">
               <img
                 :src="attraction.imageUrl"
                 :alt="attraction.name"

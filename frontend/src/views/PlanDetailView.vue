@@ -79,8 +79,8 @@ function nightCount(p: Plan): number {
 	return p.days.length - 1;
 }
 
-function removeItem(dayIndex: number, itemId: string) {
-	plansStore.removeItem(planId, dayIndex, itemId);
+async function removeItem(dayIndex: number, itemId: string) {
+	await plansStore.removeItem(planId, dayIndex, itemId);
 }
 
 async function deletePlan() {

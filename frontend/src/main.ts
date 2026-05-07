@@ -1,18 +1,14 @@
-import { createPinia } from 'pinia'
-import { createApp } from 'vue'
+import { createPinia } from "pinia";
+import { createApp } from "vue";
 
-import App from './App.vue'
-import './index.css'
-import router from './router'
-import { useReservationsStore } from './stores/reservations'
+import App from "./App.vue";
+import "./index.css";
+import router from "./router";
 
-const app = createApp(App)
-const pinia = createPinia()
+const app = createApp(App);
+const pinia = createPinia();
 
-app.use(pinia)
+app.use(pinia);
+app.use(router);
 
-useReservationsStore().hydrate()
-
-app.use(router)
-
-app.mount('#app')
+app.mount("#app");

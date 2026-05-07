@@ -7,6 +7,7 @@ import { ref } from "vue";
 export interface ReviewApiResponse {
 	id: number;
 	memberId: number;
+	authorNickname: string | null;
 	targetType: string; // "ATTRACTION" | "ACCOMMODATION" (대문자)
 	targetId: number;
 	rating: number;
@@ -38,7 +39,7 @@ export interface Review {
 	id: string;
 	targetType: ReviewTargetType;
 	targetId: number;
-	/** BE 미제공 — 작성 시 auth 닉네임, 조회 시 "회원 {memberId}" 임시 표시 */
+	/** BE ReviewResponse.authorNickname (닉네임 미설정 회원은 '알 수 없음') */
 	authorNickname: string;
 	memberId?: number;
 	rating: number; // 1~5
@@ -53,7 +54,7 @@ function mapApiToReview(r: ReviewApiResponse): Review {
 		id: r.id.toString(),
 		targetType: r.targetType.toLowerCase() as ReviewTargetType,
 		targetId: r.targetId,
-		authorNickname: `회원 ${r.memberId}`, // BE 미제공 — 임시
+		authorNickname: r.authorNickname ?? "알 수 없음",
 		memberId: r.memberId,
 		rating: r.rating,
 		comment: r.content, // BE content → FE comment
@@ -162,13 +163,11 @@ export const useReviewsStore = defineStore("reviews", () => {
 	/**
 	 * 리뷰 작성 — POST /api/reviews (인증 필수)
 	 * 성공 시 캐시에 추가. 실패 시 null 반환.
-	 *
-	 * @param authorNickname - 현재 로그인 사용자 닉네임 (화면 표시용)
+	 * BE ReviewResponse.authorNickname이 포함되므로 별도 닉네임 전달 불필요.
 	 */
 	async function addReview(
 		targetType: ReviewTargetType,
 		targetId: number,
-		authorNickname: string,
 		rating: number,
 		comment: string,
 	): Promise<Review | null> {
@@ -189,8 +188,6 @@ export const useReviewsStore = defineStore("reviews", () => {
 		}
 
 		const mapped = mapApiToReview(result.data);
-		// 닉네임은 BE 미제공이므로 인자로 받은 값 사용
-		mapped.authorNickname = authorNickname;
 		reviews.value = [mapped, ...reviews.value];
 		return mapped;
 	}

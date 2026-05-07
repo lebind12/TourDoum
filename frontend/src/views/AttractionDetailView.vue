@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import FavoriteButton from "@/components/FavoriteButton.vue";
 import KakaoMap, { type MapMarker } from "@/components/map/KakaoMap.vue";
+import AddToPlanModal from "@/components/plan/AddToPlanModal.vue";
 import ReviewForm from "@/components/review/ReviewForm.vue";
 import ReviewList from "@/components/review/ReviewList.vue";
 import { Badge } from "@/components/ui/badge";
@@ -9,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAttractionsStore } from "@/stores/attractions";
 import { useAuthStore } from "@/stores/auth";
 import { useReviewsStore } from "@/stores/reviews";
-import { ChevronLeft } from "lucide-vue-next";
+import { CalendarPlus, ChevronLeft } from "lucide-vue-next";
 import { computed, ref } from "vue";
 import { RouterLink, useRoute, useRouter } from "vue-router";
 
@@ -32,6 +33,7 @@ const userReview = computed(() =>
 );
 
 const showReviewForm = ref(false);
+const showAddToPlan = ref(false);
 
 const nearbySameRegion = computed(() => {
 	if (!attraction.value) return [];
@@ -41,7 +43,7 @@ const nearbySameRegion = computed(() => {
 });
 
 const detailCenter = computed(() => {
-	if (!attraction.value) return { lat: 36.5, lng: 127.8 };
+	if (!attraction.value) return { lat: 37.5665, lng: 126.978 }; // 서울시청
 	return { lat: attraction.value.latitude, lng: attraction.value.longitude };
 });
 
@@ -94,8 +96,19 @@ const detailMarkers = computed<MapMarker[]>(() => {
       >
         <ChevronLeft class="w-5 h-5" />
       </Button>
-      <!-- 즐겨찾기 -->
-      <div class="absolute top-4 right-4">
+      <!-- 즐겨찾기 + 계획에 추가 -->
+      <div class="absolute top-4 right-4 flex items-center gap-2">
+        <Button
+          v-if="authStore.currentUser"
+          type="button"
+          size="icon"
+          variant="ghost"
+          class="bg-white/20 backdrop-blur-sm text-white hover:bg-white/30 hover:text-white rounded-full"
+          aria-label="계획에 추가"
+          @click="showAddToPlan = true"
+        >
+          <CalendarPlus class="w-5 h-5" />
+        </Button>
         <FavoriteButton :attraction-id="attraction.id" size="lg" />
       </div>
     </div>
@@ -212,4 +225,15 @@ const detailMarkers = computed<MapMarker[]>(() => {
       </Card>
     </div>
   </template>
+
+  <!-- 계획에 추가 모달 -->
+  <Teleport to="body">
+    <AddToPlanModal
+      v-if="showAddToPlan && attraction"
+      target-type="attraction"
+      :target-id="attraction.id"
+      :target-name="attraction.name"
+      @close="showAddToPlan = false"
+    />
+  </Teleport>
 </template>
