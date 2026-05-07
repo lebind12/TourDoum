@@ -45,6 +45,17 @@ export default {
 				md: "calc(var(--radius) - 2px)",
 				sm: "calc(var(--radius) - 4px)",
 			},
+			keyframes: {
+				wiggle: {
+					"0%, 100%": { transform: "rotate(-8deg)" },
+					"25%": { transform: "rotate(8deg)" },
+					"50%": { transform: "rotate(-6deg)" },
+					"75%": { transform: "rotate(6deg)" },
+				},
+			},
+			animation: {
+				wiggle: "wiggle 0.5s ease-in-out 2",
+			},
 		},
 	},
 	plugins: [require("tailwindcss-animate")],
