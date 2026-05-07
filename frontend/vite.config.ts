@@ -10,7 +10,8 @@ export default defineConfig({
 		},
 	},
 	server: {
-		port: 5173,
+		// default 5173 (사용자 로컬). agent worktree는 .env.agent의 VITE_PORT=30173 주입.
+		port: process.env.VITE_PORT ? Number(process.env.VITE_PORT) : 5173,
 	},
 	test: {
 		environment: "jsdom",
