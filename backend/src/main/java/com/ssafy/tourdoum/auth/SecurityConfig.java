@@ -148,6 +148,7 @@ public class SecurityConfig {
                         "/api/health",
                         "/api/members/signup",
                         "/api/attractions/**",
+                        "/api/accommodations/**",
                         "/actuator/**",
                         "/actuator/health",
                         // Swagger UI + OpenAPI spec (ADR-0008) — dev 전용 공개
