@@ -125,13 +125,10 @@ function onOverlayClick(e: MouseEvent) {
 
 <template>
   <Teleport to="body">
-    <!-- Round 8 (M): R7 모션 토큰 일원화 — duration-150 hardcode 제거. -->
-    <Transition
-      enter-active-class="transition-opacity duration-[var(--motion-base)] ease-[var(--ease-standard)]"
-      leave-active-class="transition-opacity duration-[var(--motion-base)] ease-[var(--ease-standard)]"
-      enter-from-class="opacity-0"
-      leave-to-class="opacity-0"
-    >
+    <!-- Round 9: overlay fade(R8) + panel scale-in(95→100, fade 0→1) 보강.
+         scoped CSS의 descendant 선택자로 panel 자체에 transform/opacity transition 적용.
+         reduced-motion 사용자는 index.css 글로벌 클램프가 0.01ms로 강제 — 회귀 0. -->
+    <Transition name="alert-dialog">
       <div
         v-if="open"
         id="alert-dialog-overlay"
@@ -209,3 +206,32 @@ function onOverlayClick(e: MouseEvent) {
     </Transition>
   </Teleport>
 </template>
+
+<style scoped>
+/* Round 9 — AlertDialog enter/leave:
+ * overlay(self) opacity fade + panel(descendant) scale + opacity.
+ * duration/easing은 R7 토큰 (--motion-base + --ease-emphasized — 살짝 오버슈트로 attention guide).
+ * prefers-reduced-motion 사용자는 index.css 글로벌 미디어 쿼리가 transition-duration을 0.01ms로
+ * 클램프하므로 transform이 즉시 적용된다(스킵 == 즉시 표시). */
+
+.alert-dialog-enter-active,
+.alert-dialog-leave-active {
+  transition: opacity var(--motion-base) var(--ease-standard);
+}
+.alert-dialog-enter-from,
+.alert-dialog-leave-to {
+  opacity: 0;
+}
+
+.alert-dialog-enter-active :deep(#alert-dialog-panel),
+.alert-dialog-leave-active :deep(#alert-dialog-panel) {
+  transition:
+    transform var(--motion-base) var(--ease-emphasized),
+    opacity var(--motion-base) var(--ease-standard);
+}
+.alert-dialog-enter-from :deep(#alert-dialog-panel),
+.alert-dialog-leave-to :deep(#alert-dialog-panel) {
+  transform: scale(0.95);
+  opacity: 0;
+}
+</style>

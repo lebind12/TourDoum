@@ -32,8 +32,9 @@ const variantClass = computed(() => {
     aria-live="polite"
     :class="[
       'flex items-center justify-between gap-3 rounded-lg px-4 py-3 shadow-lg text-sm font-medium',
-      // Round 8 (M): duration-300 hardcode → R7 motion-base 토큰. easing은 emphasized로 살짝 오버슈트.
-      'animate-in slide-in-from-bottom-2 duration-[var(--motion-base)] ease-[var(--ease-emphasized)]',
+      // Round 9 (Toast 검수): R8에서 ease-emphasized로 시도했으나 짧은 거리(slide-in-from-bottom-2 = 8px)
+      // 에서 오버슈트가 노이즈로만 작용 → ease-standard로 회귀. duration 토큰은 그대로 유지.
+      'animate-in slide-in-from-bottom-2 duration-[var(--motion-base)] ease-[var(--ease-standard)]',
       variantClass,
     ]"
   >
