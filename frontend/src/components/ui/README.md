@@ -27,6 +27,32 @@ shadcn-vue 공식 사이트(https://www.shadcn-vue.com/docs/components)에서 �
 | Label | `ui/label` | `for` prop으로 Input과 연결 |
 | Card / CardHeader / CardTitle / CardDescription / CardContent / CardFooter | `ui/card` | 카드 레이아웃 조각 |
 | Separator | `ui/separator` | 수평/수직 구분선, orientation prop |
+| AlertDialog | `ui/alert-dialog` | 위험 액션(탈퇴·삭제) 확인용 모달. v-model:open, @confirm, @cancel. variant=destructive |
+| Tabs | `ui/tabs` | ARIA tabs 패턴 일자별/범용 탭. v-model:active, :tabs 배열. variant=pills|underline |
+
+### AlertDialog 사용 예
+
+```vue
+<AlertDialog
+  v-model:open="showConfirm"
+  title="정말 삭제하시겠습니까?"
+  description="이 작업은 되돌릴 수 없습니다."
+  confirm-label="삭제"
+  variant="destructive"
+  :loading="deleting"
+  @confirm="handleDelete"
+/>
+```
+
+### Tabs 사용 예
+
+```vue
+<Tabs :tabs="[{key:'day1', label:'Day 1', badge: 3}]" v-model:active="activeKey" aria-label="여행 일자">
+  <template #day1>
+    <p>Day 1 내용</p>
+  </template>
+</Tabs>
+```
 
 ### 사용 예시
 
