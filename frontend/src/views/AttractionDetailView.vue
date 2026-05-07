@@ -43,7 +43,7 @@ const nearbySameRegion = computed(() => {
 });
 
 const detailCenter = computed(() => {
-	if (!attraction.value) return { lat: 36.5, lng: 127.8 };
+	if (!attraction.value) return { lat: 37.5665, lng: 126.978 }; // 서울시청
 	return { lat: attraction.value.latitude, lng: attraction.value.longitude };
 });
 

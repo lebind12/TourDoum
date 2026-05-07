@@ -19,7 +19,7 @@ const hoveredId = ref<number | null>(null);
 /** 지도 중심: 필터된 여행지 평균 위치 or 전국 중심 */
 const mapCenter = computed(() => {
 	const items = store.filtered;
-	if (items.length === 0) return { lat: 36.5, lng: 127.8 };
+	if (items.length === 0) return { lat: 37.5665, lng: 126.978 }; // 서울시청
 	const lat = items.reduce((s, a) => s + a.latitude, 0) / items.length;
 	const lng = items.reduce((s, a) => s + a.longitude, 0) / items.length;
 	return { lat, lng };
