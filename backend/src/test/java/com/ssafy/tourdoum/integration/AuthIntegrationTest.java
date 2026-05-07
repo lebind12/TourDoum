@@ -2,6 +2,7 @@
 package com.ssafy.tourdoum.integration;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -9,6 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
@@ -118,49 +120,87 @@ class AuthIntegrationTest {
     assertThat(token).as("JWT accessToken 비어있으면 안 됨").isNotBlank();
     assertThat(refreshToken).as("JWT refreshToken 비어있으면 안 됨").isNotBlank();
 
+    // BE-3: login 응답에 refresh cookie 동봉
+    Cookie refreshCookie = loginResult.getResponse().getCookie("refresh_token");
+    assertThat(refreshCookie).as("BE-3 login Set-Cookie: refresh_token").isNotNull();
+    assertThat(refreshCookie.getValue()).isEqualTo(refreshToken);
+
     // 3. GET /api/me — Authorization: Bearer 헤더
     mockMvc
         .perform(get("/api/me").header("Authorization", "Bearer " + token))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.email").value("it@example.com"));
 
-    // 4. Refresh rotation — 새 access + 새 refresh 발급, family Redis 갱신 (#63 BE-2)
+    // 4. Refresh rotation — BE-3 cookie path (body 없음). family Redis 갱신.
     MvcResult rotated =
         mockMvc
-            .perform(
-                post("/api/auth/refresh")
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content("{\"refreshToken\":\"" + refreshToken + "\"}"))
+            .perform(post("/api/auth/refresh").with(csrf()).cookie(refreshCookie))
             .andExpect(status().isOk())
             .andReturn();
     JsonNode rotatedBody = objectMapper.readTree(rotated.getResponse().getContentAsString());
     String newAccess = rotatedBody.get("accessToken").asText();
     String newRefresh = rotatedBody.get("refreshToken").asText();
     assertThat(newRefresh).isNotEqualTo(refreshToken);
+    Cookie rotatedCookie = rotated.getResponse().getCookie("refresh_token");
+    assertThat(rotatedCookie).as("rotation 응답에 refresh_token cookie 갱신").isNotNull();
+    assertThat(rotatedCookie.getValue()).isEqualTo(newRefresh);
 
-    // 5. logout — family 폐기 + 새 access denylist
+    // 5. logout — cookie path + Bearer access. family 폐기 + access denylist + cookie clear.
     mockMvc
         .perform(
             post("/api/auth/logout")
-                .header("Authorization", "Bearer " + newAccess)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"refreshToken\":\"" + newRefresh + "\"}"))
-        .andExpect(status().isNoContent());
+                .with(csrf())
+                .cookie(rotatedCookie)
+                .header("Authorization", "Bearer " + newAccess))
+        .andExpect(status().isNoContent())
+        .andExpect(
+            result -> {
+              Cookie cleared = result.getResponse().getCookie("refresh_token");
+              assertThat(cleared).isNotNull();
+              assertThat(cleared.getMaxAge()).isZero();
+            });
 
     // 6. logout 후 access는 denylist hit → 401 (#63 BE-2 정식 동작)
     mockMvc
         .perform(get("/api/me").header("Authorization", "Bearer " + newAccess))
         .andExpect(status().isUnauthorized());
 
-    // 7. logout 후 refresh도 family 폐기로 401
+    // 7. logout 후 refresh도 family 폐기로 401 (cookie path)
     mockMvc
-        .perform(
-            post("/api/auth/refresh")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"refreshToken\":\"" + newRefresh + "\"}"))
+        .perform(post("/api/auth/refresh").with(csrf()).cookie(rotatedCookie))
         .andExpect(status().isUnauthorized());
 
     // 8. Authorization 헤더 없으면 401
     mockMvc.perform(get("/api/me")).andExpect(status().isUnauthorized());
+
+    // 9. BE-2 backward-compat — body fallback도 한시 유지. 새 로그인 후 body 경로 검증.
+    MvcResult login2 =
+        mockMvc
+            .perform(
+                post("/api/auth/login")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(
+                        """
+                        {"email":"it@example.com","password":"password123"}
+                        """))
+            .andExpect(status().isOk())
+            .andReturn();
+    String refresh2 =
+        objectMapper
+            .readTree(login2.getResponse().getContentAsString())
+            .get("refreshToken")
+            .asText();
+    mockMvc
+        .perform(
+            post("/api/auth/refresh")
+                .with(csrf())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"refreshToken\":\"" + refresh2 + "\"}"))
+        .andExpect(status().isOk());
+
+    // 10. CSRF token 없이 refresh → 403 (BE-3 게이트)
+    mockMvc
+        .perform(post("/api/auth/refresh").cookie(login2.getResponse().getCookie("refresh_token")))
+        .andExpect(status().isForbidden());
   }
 }

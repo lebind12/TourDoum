@@ -53,6 +53,17 @@ tourdoum:
     # 키 회전 학습 시 previous-kid + previous-public-key-location 활성. dev에선 미사용.
     # previous-kid: dev-0
     # previous-public-key-location: classpath:keys/jwt-dev-public.pem  # 예시
+  # 인증 cookie 정책 (ADR-0011 BE-3) — refresh token transport.
+  # localhost http dev에서는 secure=false로 토글해야 cookie가 적용된다.
+  # 운영 https 배포 시 secure=true(default) 유지.
+  auth:
+    cookie:
+      name: refresh_token
+      path: /api/auth
+      secure: ${TOURDOUM_AUTH_COOKIE_SECURE:false}
+      same-site: Strict
+      # domain은 미설정(브라우저가 origin host로 처리). 다중 서브도메인 운영 전환 시 명시.
+      # domain: example.com
 
 management:
   endpoints:
