@@ -221,7 +221,7 @@ test.describe("알림 — 트리거 + 읽음 처리 (qa #28)", () => {
 		});
 	});
 
-	test("Scenario C: 단건 읽음 — API mark read → unread count 감소", async ({
+	test("Scenario C: 단건 읽음 — UI 카드 클릭 → unread count 감소 (FE-2 회귀)", async ({
 		page,
 	}) => {
 		const { email, password } = await signupAndLogin(page, "qanotif");
@@ -250,35 +250,27 @@ test.describe("알림 — 트리거 + 읽음 처리 (qa #28)", () => {
 		const before = (await beforeR.json()).count as number;
 		expect(before).toBeGreaterThanOrEqual(2);
 
-		// 첫 알림 ID 회수 (BE list)
-		const listR = await page.request.get(
-			`${BACKEND_URL}/api/notifications?page=0&size=20`,
-			{
-				headers: { Authorization: `Bearer ${accessToken}` },
-			},
+		// FE-2 (CSRF interceptor) 머지 후: store.markAsRead UI 클릭이 정상 200.
+		// 본 회차에 BE-direct → UI click 으로 회귀.
+		// 알림 항목 컨테이너(li)의 첫 클릭 가능 영역. n.link("/reservations/me")가 RouterLink 으로
+		// 적용되므로 클릭 시 SPA navigation 발생. POST /{id}/read 응답만 가로채 검증한다.
+		const firstCard = page
+			.locator("ul > li")
+			.first()
+			.locator('[class*="block focus-visible"]');
+		const markPromise = page.waitForResponse(
+			(r) =>
+				r.url().includes("/api/notifications/") &&
+				r.url().endsWith("/read") &&
+				!r.url().endsWith("/read-all") &&
+				r.request().method() === "POST",
+			{ timeout: 5000 },
 		);
-		expect(listR.ok()).toBeTruthy();
-		const list = (await listR.json()).content as Array<{ id: number }>;
-		expect(list.length).toBeGreaterThanOrEqual(2);
-		const firstId = list[0].id;
-
-		// 단건 읽음 — BE API direct (BE-3 CSRF token 필요).
-		// FE store.markAsRead UI 클릭 경로는 FE-2(CSRF interceptor) 미적용 상태에서 403.
-		// 본 spec은 BE 회귀를 보장하는 데 집중 — UI 클릭은 FE-2 머지 후 별도 회차에서 검증.
-		const csrf = await getCsrfToken(page);
-		const markResp = await page.request.post(
-			`${BACKEND_URL}/api/notifications/${firstId}/read`,
-			{
-				headers: {
-					Authorization: `Bearer ${accessToken}`,
-					"X-XSRF-TOKEN": csrf,
-					Cookie: `XSRF-TOKEN=${csrf}`,
-				},
-			},
-		);
+		await firstCard.click();
+		const markResp = await markPromise;
 		expect(markResp.ok()).toBeTruthy();
 
-		// /notifications 진입 시 fresh fetch — 미읽음 1개
+		// 라우트 이동했을 가능성 — /notifications 로 복귀해 최신 목록 검증
 		await navigateHome(page);
 		await navigateToNotifications(page);
 		await expect(page.locator('[aria-label="미읽음"]')).toHaveCount(1, {
@@ -302,7 +294,7 @@ test.describe("알림 — 트리거 + 읽음 처리 (qa #28)", () => {
 		});
 	});
 
-	test("Scenario D: 전체 읽음 → unread 0 + 버튼 사라짐", async ({ page }) => {
+	test("Scenario D: 전체 읽음 — UI 버튼 클릭 (FE-2 회귀)", async ({ page }) => {
 		const { email, password } = await signupAndLogin(page, "qanotif");
 		const accessToken = await loginApi(page, email, password);
 		const accommodationId = await getFirstAccommodationId(page);
@@ -315,23 +307,18 @@ test.describe("알림 — 트리거 + 읽음 처리 (qa #28)", () => {
 		const allReadBtn = page.getByRole("button", { name: /전체 읽음/ });
 		await expect(allReadBtn).toBeVisible({ timeout: 5000 });
 
-		// FE store.markAllAsRead UI 클릭은 FE-2(CSRF) 머지 전이라 403 — BE API direct 로 검증.
-		const csrf = await getCsrfToken(page);
-		const resp = await page.request.post(
-			`${BACKEND_URL}/api/notifications/read-all`,
-			{
-				headers: {
-					Authorization: `Bearer ${accessToken}`,
-					"X-XSRF-TOKEN": csrf,
-					Cookie: `XSRF-TOKEN=${csrf}`,
-				},
-			},
+		// FE-2 (CSRF interceptor) 정상 동작 → UI click 회귀.
+		const allReadPromise = page.waitForResponse(
+			(r) =>
+				r.url().endsWith("/api/notifications/read-all") &&
+				r.request().method() === "POST",
+			{ timeout: 5000 },
 		);
+		await allReadBtn.click();
+		const resp = await allReadPromise;
 		expect(resp.ok()).toBeTruthy();
 
-		// 다시 /notifications 진입 (fresh fetch) — 미읽음 점 0
-		await navigateHome(page);
-		await navigateToNotifications(page);
+		// 미읽음 점 모두 사라짐 (낙관적 업데이트 → 즉시 반영)
 		await expect(page.locator('[aria-label="미읽음"]')).toHaveCount(0, {
 			timeout: 5000,
 		});
