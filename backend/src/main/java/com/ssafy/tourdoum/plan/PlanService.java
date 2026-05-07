@@ -130,6 +130,27 @@ public class PlanService {
   }
 
   /**
+   * 아이템 단건 삭제.
+   *
+   * <p>계획 소유권 체크 후 아이템이 해당 계획에 속하는지 검증한다.
+   *
+   * @param planId 계획 PK
+   * @param itemId 아이템 PK
+   * @param memberId 로그인 회원 PK (권한 체크)
+   * @throws PlanNotFoundException 계획 또는 아이템 미존재 (→ 404)
+   * @throws PlanForbiddenException 본인 계획 아님 (→ 403)
+   */
+  @Transactional
+  public void deleteItem(Long planId, Long itemId, Long memberId) {
+    findAndVerify(planId, memberId);
+    PlanItem item =
+        planItemRepository
+            .findByIdAndPlanId(itemId, planId)
+            .orElseThrow(() -> new PlanNotFoundException(itemId));
+    planItemRepository.delete(item);
+  }
+
+  /**
    * 여행 계획 삭제 (cascade → 아이템도 삭제).
    *
    * @param planId 계획 PK
