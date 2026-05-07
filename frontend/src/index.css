@@ -39,8 +39,9 @@
 		--card-foreground: 210 40% 98%;
 		--popover: 222.2 84% 4.9%;
 		--popover-foreground: 210 40% 98%;
-		--primary: 200 98% 39%; /* sky-600 #0284C7 — WCAG AA ≥4.5:1 (white text 4.72:1) */
-		--primary-foreground: 210 40% 98%;
+		--primary: 200 98% 39%; /* sky-600 — text-primary 사용처 보호 위해 유지 */
+		/* Round 5 (J): white(3.93:1, AA fail) → dark(4.26:1, AA Large pass / 버튼 라벨 14px+ semibold 영역). */
+		--primary-foreground: 222.2 84% 4.9%;
 		--secondary: 217.2 32.6% 17.5%;
 		--secondary-foreground: 210 40% 98%;
 		--muted: 217.2 32.6% 17.5%;
@@ -49,12 +50,14 @@
 		--accent-foreground: 210 40% 98%;
 		--destructive: 0 62.8% 30.6%;
 		--destructive-foreground: 210 40% 98%;
-		--border: 217.2 32.6% 17.5%;
-		--input: 217.2 32.6% 17.5%;
+		/* Round 5 (J): slate-800 → mid slate. background 대비 1.37 → 3.14 ✓ WCAG 1.4.11 (non-text 3:1) */
+		--border: 215 18% 39%;
+		--input: 215 18% 39%;
 		--ring: 200 98% 39%;
 		/* ── 시맨틱 상태 토큰 (dark) ─────────────────────────────────────────── */
 		--success: 142.1 70.6% 45.3%; /* green-500 */
-		--success-foreground: 0 0% 100%;
+		/* Round 5 (J): white(2.28:1, AA fail) → dark(~6.7:1, AA pass) on green-500. */
+		--success-foreground: 222.2 84% 4.9%;
 		--warning: 37.7 92.1% 50.2%; /* amber-500 */
 		--warning-foreground: 26 83.3% 14.1%;
 	}
