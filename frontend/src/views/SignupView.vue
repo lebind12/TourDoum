@@ -130,7 +130,7 @@ async function handleSubmit() {
               {{ authStore.error }}
             </div>
 
-            <Button type="submit" class="w-full" :disabled="authStore.loading">
+            <Button type="submit" class="w-full" :disabled="authStore.loading" data-testid="signup-submit">
               {{ authStore.loading ? '처리 중...' : '회원가입' }}
             </Button>
           </form>
