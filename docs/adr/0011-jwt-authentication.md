@@ -83,7 +83,60 @@ QA-1 테스트 자산 갱신 (Playwright cookie fixture + refresh/logout/revocat
 QA-2 회귀/부하 관측 (vitest auth mock 전수 + BE security IT + RS256 검증 비용)
 ```
 
-BE-4 비밀번호 보안 강화는 BE-2 이후 병렬 가능. 단 비밀번호 변경 시 token revocation과 연결되므로 최종 QA 전 합류 필수.
+### BE-4 비밀번호 보안 강화 (2026-05-07 #3 회차 박제, researcher #6 + Codex 교차)
+
+BE-2(refresh family + denylist) 이후 병렬 가능. password 변경/reset 시 token revocation hook 호출이 필수 연결점.
+
+#### 7-box 분해
+
+```
+BE-4.1 PasswordEncoder 알고리즘
+   - Argon2id (m=64MiB, t=3, p=1) 1차 + bcrypt(cost=12) fallback (DelegatingPasswordEncoder).
+   - 벤치 실패(p99 > 200ms 등) 시 Argon2id m=32MiB, t=3 까지 허용.
+   - DelegatingPasswordEncoder prefix 기반(`{argon2id$v=19$...}` / `{bcrypt}...`).
+
+BE-4.2 Password Policy
+   - 최소 12자, 최대 ≥ 64자, 공백·유니코드 허용.
+   - HIBP top-N + 자체 blocklist 차단. ID·이메일 유사값 차단.
+   - 정기 변경 강제 X (NIST 800-63B Rev.4 기준).
+   - 3종 결합 강제 X (KISA 8자/3종은 옵션이지 의무 아님).
+
+BE-4.3 Revocation Hook
+   - password 변경/reset 성공 즉시 트리거: refresh family 폐기 + access denylist + 전 디바이스 logout.
+   - BE-2의 RefreshTokenStore.revokeFamily + AccessTokenDenylist.add 재사용. 새 코드 최소.
+
+BE-4.4 Brute-force 방어
+   - per-account 5회 실패 → 30분 자동 해제 잠금.
+   - per-IP 10회/10분 throttling 병행.
+   - 관리자 계정은 수동 해제만 (DoS 노출 시에도 시간 자동 해제 X).
+
+BE-4.5 Reset 플로우
+   - 토큰 30분 1회용 + 해시 저장(plain X) + 사용 즉시 무효 + revocation hook 호출.
+   - 본인확인은 학습 단계에선 이메일 콘솔 출력 mock.
+
+BE-4.6 Migration
+   - 기존 BCrypt strength 10 사용자 → 로그인 성공 시 Argon2id rehash on login.
+   - DelegatingPasswordEncoder의 upgradeEncoding 활용.
+
+BE-4.7 한국 기준 매핑 표 박제 (본 ADR §"근거"에 별도 추가)
+```
+
+#### 법정 vs 프로젝트 정책 분리 (Codex 교차 검토 반영)
+
+- **법정 의무 (개보위 고시 제2025-9호 §7, 2025-10-31 시행)**: 비밀번호의 일방향 저장.
+- **법정 의무 (§5(6))**: "일정 횟수 이상 인증 실패 시 접근 제한". **5회는 해설/심사 예시이지 법령 본문 수치 아님**.
+- **프로젝트 정책 (법정 수치 X)**: 12자, m=64MiB, 5회/30분, IP 10회/10분, reset 30분.
+
+#### 출처
+
+- [KISA 패스워드 선택 및 이용 안내서](https://www.kisa.or.kr/2060305/form?postSeq=14&lang_type=KO) — 2종 10자 / 3종 8자, 2019.06 개정.
+- [개인정보 안전성 확보조치 기준 고시 2025-9호](https://www.law.go.kr/LSW//admRulInfoP.do?admRulSeq=2100000265956&chrClsCd=010201) — §7 일방향 저장, §5(6) 인증 실패 제한.
+- [개보위 안내서 2024.10](https://www.privacy.go.kr/front/bbs/bbsView.do?bbsNo=BBSMSTR_000000000049&bbscttNo=20767)
+- [ISMS-P 인증기준 2.5.4](https://meganad.github.io/ISMS-P/CERT/2.5.4) — 변경 주기 조직 자율, 임시 PW 후 강제 변경 의무.
+- [NIST SP 800-63B Rev.4 (2025-08)](https://pages.nist.gov/800-63-4/sp800-63b.html) — 단독 15자, MFA 8자, 정기 변경 강제 금지.
+- [OWASP Password Storage Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html) — Argon2id 최소 m=19MiB,t=2,p=1.
+
+researcher 보고: `/tmp/researcher-be4-report.md`. Codex 교차 검토 로그: `.codex-20260507T230513Z.log`.
 
 ## 참고
 
