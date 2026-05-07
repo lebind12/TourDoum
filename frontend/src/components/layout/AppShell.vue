@@ -211,12 +211,18 @@ function closeDrawer() {
     </Sheet>
 
     <!-- Main content -->
-    <main id="main-content" tabindex="-1" class="flex-1 container py-6 focus:outline-none">
+    <main
+      id="main-content"
+      tabindex="-1"
+      :class="route.path === '/'
+        ? 'flex-1 flex flex-col overflow-hidden focus:outline-none'
+        : 'flex-1 container py-6 focus:outline-none'"
+    >
       <slot />
     </main>
 
-    <!-- Footer -->
-    <footer class="border-t border-border">
+    <!-- Footer (랜딩 페이지 / 에서는 숨김 — 랜딩 자체 CTA 섹션이 대체) -->
+    <footer v-if="route.path !== '/'" class="border-t border-border">
       <div class="container flex h-12 items-center justify-center">
         <Separator class="hidden" />
         <p class="text-xs text-muted-foreground">© 2025 TourDoum. SSAFY 특화 프로젝트.</p>

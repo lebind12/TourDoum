@@ -1,58 +1,83 @@
-import { mount } from '@vue/test-utils'
-import { http, HttpResponse } from 'msw'
-import { setupServer } from 'msw/node'
-import { createPinia, setActivePinia } from 'pinia'
 // 학습 친화 모드: 신규 테스트는 사용자가 작성. 본 파일은 패턴 참고용.
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
-import HomeView from '../HomeView.vue'
+// HomeView는 랜딩 페이지로 재설계됨 (Task #39) — 헬스체크 카드 제거, 4섹션 구성.
+import { mount } from "@vue/test-utils";
+import { createPinia, setActivePinia } from "pinia";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { createRouter, createWebHistory } from "vue-router";
+import HomeView from "../HomeView.vue";
 
-// MSW 서버 설정 — /api/health 엔드포인트를 모킹
-const server = setupServer(
-  http.get('http://localhost:8080/api/health', () => {
-    return HttpResponse.json({ status: 'UP' })
-  }),
-)
+// jsdom에는 matchMedia / IntersectionObserver가 없으므로 mock 처리
+Object.defineProperty(window, "matchMedia", {
+	writable: true,
+	value: vi.fn().mockImplementation((query: string) => ({
+		matches: false,
+		media: query,
+		addEventListener: vi.fn(),
+		removeEventListener: vi.fn(),
+	})),
+});
 
-beforeAll(() => server.listen())
-afterEach(() => server.resetHandlers())
-afterAll(() => server.close())
+const router = createRouter({
+	history: createWebHistory(),
+	routes: [
+		{ path: "/", component: HomeView },
+		{ path: "/attractions", component: { template: "<div/>" } },
+		{ path: "/accommodations", component: { template: "<div/>" } },
+		{ path: "/login", component: { template: "<div/>" } },
+		{ path: "/signup", component: { template: "<div/>" } },
+		{ path: "/chat", component: { template: "<div/>" } },
+		{ path: "/me", component: { template: "<div/>" } },
+		{
+			name: "attraction-detail",
+			path: "/attractions/:id",
+			component: { template: "<div/>" },
+		},
+		{
+			name: "accommodation-detail",
+			path: "/accommodations/:id",
+			component: { template: "<div/>" },
+		},
+	],
+});
 
-describe('HomeView', () => {
-  it('마운트 후 헬스체크 결과 "UP"을 표시한다', async () => {
-    setActivePinia(createPinia())
+describe("HomeView (랜딩 페이지)", () => {
+	beforeEach(() => {
+		setActivePinia(createPinia());
+	});
 
-    const wrapper = mount(HomeView, {
-      global: {
-        plugins: [createPinia()],
-      },
-    })
+	it("Hero 섹션 헤딩이 렌더된다", async () => {
+		const wrapper = mount(HomeView, {
+			global: { plugins: [createPinia(), router] },
+		});
+		await router.isReady();
+		expect(wrapper.text()).toContain("딱 맞는 하루");
+	});
 
-    // fetchHealth()가 비동기이므로 잠시 대기
-    await new Promise((r) => setTimeout(r, 50))
-    await wrapper.vm.$nextTick()
+	it("Features 섹션의 차별점 카드가 4개 렌더된다", async () => {
+		const wrapper = mount(HomeView, {
+			global: { plugins: [createPinia(), router] },
+		});
+		await router.isReady();
+		expect(wrapper.text()).toContain("취향 기반 추천");
+		expect(wrapper.text()).toContain("동선 최적화");
+		expect(wrapper.text()).toContain("일정 중심 경험");
+		expect(wrapper.text()).toContain("즐겨찾기 & 기록");
+	});
 
-    expect(wrapper.text()).toContain('UP')
-  })
+	it("Showcase 섹션에 인기 여행지 mock 데이터가 표시된다", async () => {
+		const wrapper = mount(HomeView, {
+			global: { plugins: [createPinia(), router] },
+		});
+		await router.isReady();
+		expect(wrapper.text()).toContain("경복궁");
+		expect(wrapper.text()).toContain("해운대 해수욕장");
+	});
 
-  it('API 오류 시 "백엔드 미가동" 메시지를 표시한다', async () => {
-    setActivePinia(createPinia())
-
-    // 오류 응답으로 핸들러 교체
-    server.use(
-      http.get('http://localhost:8080/api/health', () => {
-        return HttpResponse.error()
-      }),
-    )
-
-    const wrapper = mount(HomeView, {
-      global: {
-        plugins: [createPinia()],
-      },
-    })
-
-    await new Promise((r) => setTimeout(r, 50))
-    await wrapper.vm.$nextTick()
-
-    expect(wrapper.text()).toContain('백엔드 미가동')
-  })
-})
+	it("CTA 섹션에 회원가입 버튼이 표시된다 (비로그인)", async () => {
+		const wrapper = mount(HomeView, {
+			global: { plugins: [createPinia(), router] },
+		});
+		await router.isReady();
+		expect(wrapper.text()).toContain("무료로 시작하기");
+	});
+});
