@@ -33,8 +33,25 @@ onMounted(async () => {
       </p>
     </div>
 
+    <!-- 에러 -->
+    <template v-if="favoritesStore.error">
+      <Card>
+        <CardContent class="p-12 text-center space-y-3">
+          <p class="text-destructive font-medium">즐겨찾기를 불러오지 못했습니다.</p>
+          <p class="text-muted-foreground text-sm">{{ favoritesStore.error }}</p>
+          <button
+            type="button"
+            class="text-sm text-primary underline underline-offset-2"
+            @click="favoritesStore.fetchFavorites()"
+          >
+            다시 시도
+          </button>
+        </CardContent>
+      </Card>
+    </template>
+
     <!-- 빈 상태 -->
-    <template v-if="favoritesStore.favoriteAttractions.length === 0">
+    <template v-else-if="favoritesStore.favoriteAttractions.length === 0">
       <Card>
         <CardContent class="p-16 text-center">
           <Heart class="w-16 h-16 mx-auto text-muted-foreground/30 mb-4" aria-hidden="true" />
@@ -48,7 +65,7 @@ onMounted(async () => {
     </template>
 
     <!-- 즐겨찾기 목록 -->
-    <template v-else>
+    <template v-else-if="favoritesStore.favoriteAttractions.length > 0">
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Card
           v-for="attraction in favoritesStore.favoriteAttractions"
