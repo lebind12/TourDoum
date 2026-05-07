@@ -4,88 +4,76 @@
  */
 
 interface KakaoMapsLatLng {
-	getLat(): number;
-	getLng(): number;
+  getLat(): number
+  getLng(): number
 }
 
 interface KakaoMapsLatLngBounds {
-	getSouthWest(): KakaoMapsLatLng;
-	getNorthEast(): KakaoMapsLatLng;
+  getSouthWest(): KakaoMapsLatLng
+  getNorthEast(): KakaoMapsLatLng
 }
 
 interface KakaoMapsMap {
-	setCenter(latlng: KakaoMapsLatLng): void;
-	setLevel(level: number): void;
-	getLevel(): number;
-	getBounds(): KakaoMapsLatLngBounds;
-	relayout(): void;
+  setCenter(latlng: KakaoMapsLatLng): void
+  setLevel(level: number): void
+  getLevel(): number
+  getBounds(): KakaoMapsLatLngBounds
+  relayout(): void
 }
 
 interface KakaoMapsMarker {
-	setMap(map: KakaoMapsMap | null): void;
-	setImage(image: KakaoMapsMarkerImage): void;
-	getPosition(): KakaoMapsLatLng;
-	setTitle(title: string): void;
+  setMap(map: KakaoMapsMap | null): void
+  setImage(image: KakaoMapsMarkerImage): void
+  getPosition(): KakaoMapsLatLng
+  setTitle(title: string): void
 }
 
-type KakaoMapsMarkerImage = Record<string, unknown>;
+type KakaoMapsMarkerImage = Record<string, unknown>
 
 interface KakaoMapsInfoWindow {
-	open(map: KakaoMapsMap, marker: KakaoMapsMarker): void;
-	close(): void;
+  open(map: KakaoMapsMap, marker: KakaoMapsMarker): void
+  close(): void
 }
 
-type KakaoMapsSize = Record<string, unknown>;
+type KakaoMapsSize = Record<string, unknown>
 
 interface KakaoMapsMapsStatic {
-	Map: new (
-		container: HTMLElement,
-		options: {
-			center: KakaoMapsLatLng;
-			level: number;
-		},
-	) => KakaoMapsMap;
-	LatLng: new (lat: number, lng: number) => KakaoMapsLatLng;
-	Marker: new (options: {
-		position: KakaoMapsLatLng;
-		map?: KakaoMapsMap;
-		title?: string;
-		image?: KakaoMapsMarkerImage;
-	}) => KakaoMapsMarker;
-	MarkerImage: new (
-		src: string,
-		size: KakaoMapsSize,
-		options?: object,
-	) => KakaoMapsMarkerImage;
-	Size: new (width: number, height: number) => KakaoMapsSize;
-	InfoWindow: new (options: {
-		content: string;
-		removable?: boolean;
-	}) => KakaoMapsInfoWindow;
-	event: {
-		addListener(
-			target: KakaoMapsMap | KakaoMapsMarker,
-			type: string,
-			handler: () => void,
-		): void;
-		removeListener(
-			target: KakaoMapsMap | KakaoMapsMarker,
-			type: string,
-			handler: () => void,
-		): void;
-	};
+  Map: new (
+    container: HTMLElement,
+    options: {
+      center: KakaoMapsLatLng
+      level: number
+    },
+  ) => KakaoMapsMap
+  LatLng: new (lat: number, lng: number) => KakaoMapsLatLng
+  Marker: new (options: {
+    position: KakaoMapsLatLng
+    map?: KakaoMapsMap
+    title?: string
+    image?: KakaoMapsMarkerImage
+  }) => KakaoMapsMarker
+  MarkerImage: new (src: string, size: KakaoMapsSize, options?: object) => KakaoMapsMarkerImage
+  Size: new (width: number, height: number) => KakaoMapsSize
+  InfoWindow: new (options: {
+    content: string
+    removable?: boolean
+  }) => KakaoMapsInfoWindow
+  event: {
+    addListener(target: KakaoMapsMap | KakaoMapsMarker, type: string, handler: () => void): void
+    removeListener(target: KakaoMapsMap | KakaoMapsMarker, type: string, handler: () => void): void
+  }
 }
 
 interface KakaoStatic {
-	maps: KakaoMapsMapsStatic & {
-		load(callback: () => void): void;
-	};
+  maps: KakaoMapsMapsStatic & {
+    load(callback: () => void): void
+  }
 }
 
 declare global {
-	interface Window {
-		kakao?: KakaoStatic;
-	}
+  interface Window {
+    kakao?: KakaoStatic
+  }
 }
 
-export type {};
+export type {}

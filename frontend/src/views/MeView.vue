@@ -7,14 +7,61 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@/components/ui/card";
+import { useAccommodationsStore } from "@/stores/accommodations";
 import { useAuthStore } from "@/stores/auth";
+import {
+	calculateReservationTotal,
+	useReservationsStore,
+} from "@/stores/reservations";
+import { computed } from "vue";
+import { useRouter } from "vue-router";
+
+type ListReservationStatus = "confirmed" | "cancelled" | "completed";
 
 const authStore = useAuthStore();
+const accommodationsStore = useAccommodationsStore();
+const reservationsStore = useReservationsStore();
+const router = useRouter();
 
-// TODO(fe): reservations store 연결 — useReservationsStore().myReservations
-const myReservations = [
-	/* placeholder — fe가 store에서 채움 */
-];
+const myReservations = computed(() =>
+	reservationsStore.confirmed
+		.map((reservation) => {
+			const accommodation = accommodationsStore.getById(
+				reservation.accommodationId,
+			);
+			const status: ListReservationStatus =
+				reservation.status === "canceled" ? "cancelled" : "confirmed";
+
+			return {
+				reservationId: reservation.id,
+				accommodationName:
+					accommodation?.name ?? `숙소 #${reservation.accommodationId}`,
+				checkIn: reservation.checkIn,
+				checkOut: reservation.checkOut,
+				status,
+				totalPrice: accommodation
+					? calculateReservationTotal(
+							accommodation.pricePerNight,
+							reservation.checkIn,
+							reservation.checkOut,
+						)
+					: 0,
+				createdAt: reservation.createdAt,
+			};
+		})
+		.sort(
+			(a, b) =>
+				new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+		),
+);
+
+function cancelReservation(reservationId: string) {
+	reservationsStore.cancel(reservationId);
+}
+
+function goToAccommodations() {
+	router.push("/accommodations");
+}
 </script>
 
 <template>
@@ -93,7 +140,7 @@ const myReservations = [
           :check-out="r.checkOut"
           :status="r.status"
           :total-price="r.totalPrice"
-          @cancel="/* TODO(fe): reservations store .cancel(id) */ void 0"
+          @cancel="cancelReservation"
         />
       </div>
 
@@ -114,7 +161,7 @@ const myReservations = [
           class="mt-1 inline-flex items-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground
                  hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-colors"
           aria-label="숙소 목록으로 이동하여 여행 시작하기"
-          @click="/* TODO(fe): router.push('/accommodations') */ void 0"
+          @click="goToAccommodations"
         >
           여행 시작하기
         </button>
