@@ -1,12 +1,11 @@
 package com.ssafy.tourdoum.auth;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.ssafy.tourdoum.member.Member;
-import com.ssafy.tourdoum.member.MemberRepository;
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.List;
 import java.util.Map;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -24,22 +23,26 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 /**
- * Spring Security 6.x 설정. ADR-0003: 폼 로그인(JSON body) + Redis 세션 + BCrypt 비번 해시. CSRF: dev 비활성
- * (TODO: prod 활성화 - handoff.md 참고).
+ * Spring Security 설정 — JWT (ADR-0011 BE-1, #61).
+ *
+ * <p>이전 ADR-0003 (form login + Spring Session) 폐기. STATELESS, {@link JwtAuthenticationFilter}로
+ * Authorization: Bearer header를 SecurityContext에 매핑.
+ *
+ * <p>cookie 기반(httpOnly + Secure + SameSite=Strict) + CSRF는 BE-3 (ADR-0011) 범위.
  */
 @Configuration
 @EnableWebSecurity
+@EnableConfigurationProperties(JwtProperties.class)
 public class SecurityConfig {
 
   private final MemberDetailsService memberDetailsService;
   private final ObjectMapper objectMapper;
-  private final MemberRepository memberRepository;
+  private final JwtTokenProvider tokenProvider;
 
   /**
    * 허용 origin 목록. 쉼표 구분. default: 사용자 로컬 dev(5173/5174) + agent worktree(30173/30174). 운영 환경에선 배포
@@ -52,10 +55,10 @@ public class SecurityConfig {
   public SecurityConfig(
       MemberDetailsService memberDetailsService,
       ObjectMapper objectMapper,
-      MemberRepository memberRepository) {
+      JwtTokenProvider tokenProvider) {
     this.memberDetailsService = memberDetailsService;
     this.objectMapper = objectMapper;
-    this.memberRepository = memberRepository;
+    this.tokenProvider = tokenProvider;
   }
 
   @Bean
@@ -64,9 +67,10 @@ public class SecurityConfig {
     cfg.setAllowedOrigins(allowedOrigins);
     cfg.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
     cfg.setAllowedHeaders(List.of("*"));
-    cfg.setExposedHeaders(List.of("Set-Cookie"));
-    cfg.setAllowCredentials(true); // 세션 쿠키 송수신 허용
-    cfg.setMaxAge(3600L); // preflight 캐시 1시간
+    // BE-3에서 cookie 흐름 추가 시 Set-Cookie 노출 필요. 현 BE-1은 Bearer header 응답만.
+    cfg.setExposedHeaders(List.of("Authorization"));
+    cfg.setAllowCredentials(true);
+    cfg.setMaxAge(3600L);
 
     UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
     source.registerCorsConfiguration("/**", cfg);
@@ -87,63 +91,29 @@ public class SecurityConfig {
   }
 
   @Bean
-  public JsonAuthenticationFilter jsonAuthenticationFilter() throws Exception {
-    JsonAuthenticationFilter filter = new JsonAuthenticationFilter(objectMapper);
-    filter.setFilterProcessesUrl("/api/auth/login");
-    filter.setAuthenticationManager(authenticationManager());
-    filter.setSecurityContextRepository(new HttpSessionSecurityContextRepository());
-
-    // 로그인 성공: 200 OK + SESSION 쿠키 자동 발급 + MeResponse({id,email,nickname,role}) 반환
-    filter.setAuthenticationSuccessHandler(
-        (request, response, authentication) -> {
-          String email = authentication.getName();
-          Member member =
-              memberRepository
-                  .findByEmail(email)
-                  .orElseThrow(() -> new IllegalStateException("인증된 회원을 DB에서 찾을 수 없습니다: " + email));
-          response.setStatus(HttpServletResponse.SC_OK);
-          response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-          response.setCharacterEncoding("UTF-8");
-          objectMapper.writeValue(response.getWriter(), MeResponse.from(member));
-        });
-
-    // 로그인 실패: 401 Unauthorized
-    filter.setAuthenticationFailureHandler(
-        (request, response, exception) -> {
-          response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-          response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-          response.setCharacterEncoding("UTF-8");
-          response.getWriter().write("{\"message\":\"이메일 또는 비밀번호가 올바르지 않습니다.\"}");
-        });
-
-    return filter;
+  public JwtAuthenticationFilter jwtAuthenticationFilter() {
+    return new JwtAuthenticationFilter(tokenProvider);
   }
 
   @Bean
   public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
     http
-        // CORS: 별도 빈으로 설정 주입 (Spring Security가 우선 처리)
+        // CORS
         .cors(Customizer.withDefaults())
 
-        // CSRF: dev 비활성 (TODO: prod에서 SameSite=Lax로 완화 후 활성화 검토)
+        // CSRF: BE-1은 헤더 기반(Bearer), CSRF 무관. cookie 흐름이 추가되는 BE-3에서 정식 박제.
         .csrf(AbstractHttpConfigurer::disable)
 
-        // 세션 관리: 필요 시 세션 생성 (기본값이나 명시 필요 — Spring Security 6 호환)
-        // IF_REQUIRED: 인증 후 자동 세션 생성. STATELESS는 SESSION 쿠키 발급 불가이므로 사용 금지.
+        // STATELESS — ADR-0011 핵심. Spring Security가 HttpSession을 만들거나 사용하지 않음.
         .sessionManagement(
-            session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
+            session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 
-        // SecurityContext 저장소: requireExplicitSave(false) → SecurityContextPersistenceFilter
-        // 모드로 전환.
-        // Spring Security 6 기본(requireExplicitSave=true)은 SecurityContextHolderFilter를 사용하며
-        // 커스텀 JsonAuthenticationFilter와 결합 시 SESSION 쿠키가 응답에 실리지 않는 버그가 발생.
-        // HttpSessionSecurityContextRepository를 공유 사용하여 로그인/후속 요청 모두 세션 참조 일관성 보장.
-        .securityContext(
-            ctx ->
-                ctx.securityContextRepository(new HttpSessionSecurityContextRepository())
-                    .requireExplicitSave(false))
+        // 폼 로그인 / HTTP basic / logout 핸들러 명시 비활성 (이전 form 로그인 흔적 제거).
+        .formLogin(AbstractHttpConfigurer::disable)
+        .httpBasic(AbstractHttpConfigurer::disable)
+        .logout(AbstractHttpConfigurer::disable)
 
-        // 인가 규칙
+        // 인가 규칙 (변경 없음 — 기존과 동일)
         .authorizeHttpRequests(
             auth ->
                 auth.requestMatchers(
@@ -154,31 +124,18 @@ public class SecurityConfig {
                         "/api/accommodations/**",
                         "/actuator/**",
                         "/actuator/health",
-                        // Swagger UI + OpenAPI spec (ADR-0008) — dev 전용 공개
                         "/swagger-ui/**",
                         "/swagger-ui.html",
                         "/v3/api-docs/**",
                         "/v3/api-docs")
                     .permitAll()
-                    // 후기 목록/집계는 공개; 작성·삭제는 인증 필수 (POST/DELETE는 anyRequest().authenticated()로 처리)
                     .requestMatchers(HttpMethod.GET, "/api/reviews", "/api/reviews/summary")
                     .permitAll()
                     .anyRequest()
                     .authenticated())
 
-        // JSON 로그인 필터: UsernamePasswordAuthenticationFilter 교체
-        .addFilterAt(jsonAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class)
-
-        // 로그아웃
-        .logout(
-            logout ->
-                logout
-                    .logoutUrl("/api/auth/logout")
-                    .deleteCookies("SESSION")
-                    .invalidateHttpSession(true)
-                    .logoutSuccessHandler(
-                        (request, response, authentication) ->
-                            response.setStatus(HttpServletResponse.SC_NO_CONTENT)))
+        // JWT 필터: UsernamePasswordAuthenticationFilter 위치 앞에 등록.
+        .addFilterBefore(jwtAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class)
 
         // 401/403 JSON 응답
         .exceptionHandling(
@@ -188,18 +145,21 @@ public class SecurityConfig {
                           response.setStatus(HttpStatus.UNAUTHORIZED.value());
                           response.setContentType(MediaType.APPLICATION_JSON_VALUE);
                           response.setCharacterEncoding("UTF-8");
-                          String body =
-                              objectMapper.writeValueAsString(Map.of("message", "인증이 필요합니다."));
-                          response.getWriter().write(body);
+                          response
+                              .getWriter()
+                              .write(
+                                  objectMapper.writeValueAsString(Map.of("message", "인증이 필요합니다.")));
                         })
                     .accessDeniedHandler(
                         (request, response, accessDeniedException) -> {
-                          response.setStatus(HttpStatus.FORBIDDEN.value());
+                          response.setStatus(HttpServletResponse.SC_FORBIDDEN);
                           response.setContentType(MediaType.APPLICATION_JSON_VALUE);
                           response.setCharacterEncoding("UTF-8");
-                          String body =
-                              objectMapper.writeValueAsString(Map.of("message", "접근 권한이 없습니다."));
-                          response.getWriter().write(body);
+                          response
+                              .getWriter()
+                              .write(
+                                  objectMapper.writeValueAsString(
+                                      Map.of("message", "접근 권한이 없습니다.")));
                         }));
 
     return http.build();

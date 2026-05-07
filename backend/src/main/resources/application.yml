@@ -39,12 +39,17 @@ spring:
       # 환경변수로 오버라이드 가능. .env 파일은 Spring Boot가 자동 로드하지 않음 — shell env 또는 IDE run config에서 주입.
       port: ${REDIS_PORT:6380}
 
-  session:
-    store-type: redis
-    timeout: 30m
-    redis:
-      namespace: tourdoum:session
-      flush-mode: on_save
+  # Spring Session 폐기 — ADR-0011 (BE-1 #61). starter-data-redis는 BE-2 family/denylist용으로 유지.
+
+# JWT 설정 (ADR-0011 BE-1 #61)
+tourdoum:
+  jwt:
+    issuer: tourdoum
+    access-ttl: 15m
+    active-kid: dev-1
+    private-key-location: classpath:keys/jwt-dev-private.pem
+    public-key-location: classpath:keys/jwt-dev-public.pem
+    # previous-kid / previous-public-key-location은 BE-2 key rotation 도입 시 활성화.
 
 management:
   endpoints:

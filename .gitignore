@@ -20,6 +20,10 @@
 *.key
 *_rsa
 *_ed25519
+# JWT dev key whitelist (#61, ADR-0011 BE-1) — classpath dev RSA keypair.
+# 운영 키 절대 금지: BE-2에서 환경변수 외부화로 교체 예정.
+!backend/src/main/resources/keys/jwt-dev-private.pem
+!backend/src/main/resources/keys/jwt-dev-public.pem
 
 # --- OS / editor ---
 .DS_Store
