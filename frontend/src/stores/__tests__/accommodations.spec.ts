@@ -8,6 +8,7 @@ import { useAccommodationsStore } from "@/stores/accommodations";
 import type {
 	AccommodationApiResponse,
 	AccommodationPageResponse,
+	AccommodationRegionsApiResponse,
 } from "@/stores/accommodations";
 import { createPinia, setActivePinia } from "pinia";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -26,6 +27,8 @@ const fixture: AccommodationApiResponse = {
 	name: "해운대 씨뷰 호텔",
 	type: "HOTEL",
 	address: "부산광역시 해운대구 해변로 1",
+	sido: "부산광역시",
+	gugun: "해운대구",
 	lat: 35.1592,
 	lng: 129.1607,
 	priceFrom: 200000,
@@ -40,6 +43,8 @@ const fixture2: AccommodationApiResponse = {
 	name: "제주 펜션",
 	type: "PENSION",
 	address: "제주특별자치도 서귀포시 1",
+	sido: "제주특별자치도",
+	gugun: "서귀포시",
 	lat: 33.25,
 	lng: 126.41,
 	priceFrom: 120000,
@@ -193,6 +198,67 @@ describe("useAccommodationsStore — API 연결", () => {
 
 		store.setSearch("");
 		expect(store.filtered).toHaveLength(2);
+	});
+
+	it("fetchRegions — 성공 시 regions 캐시, 재호출 시 1회만 fetch", async () => {
+		const regions: AccommodationRegionsApiResponse = {
+			sidos: ["부산광역시", "제주특별자치도"],
+			gugunsBySido: {
+				부산광역시: ["해운대구", "수영구"],
+				제주특별자치도: ["서귀포시"],
+			},
+		};
+		mockGet.mockResolvedValueOnce({ data: regions, error: null });
+
+		const store = useAccommodationsStore();
+		await store.fetchRegions();
+		expect(store.regions).toEqual(regions);
+		expect(store.sidos).toEqual(["부산광역시", "제주특별자치도"]);
+
+		store.setSido("부산광역시");
+		expect(store.gugunsForSelectedSido).toEqual(["해운대구", "수영구"]);
+
+		// 재호출 — 이미 캐시되어 있으므로 mockGet 추가 호출 없음
+		await store.fetchRegions();
+		expect(mockGet).toHaveBeenCalledTimes(1);
+	});
+
+	it("setSido — 변경 시 selectedGugun 자동 초기화", async () => {
+		const store = useAccommodationsStore();
+		store.setSido("부산광역시");
+		store.setGugun("해운대구");
+		expect(store.selectedGugun).toBe("해운대구");
+
+		// sido 변경 → gugun 자동 초기화
+		store.setSido("제주특별자치도");
+		expect(store.selectedGugun).toBe("");
+	});
+
+	it("filtered — gugun 필터 적용", async () => {
+		const fixture3: AccommodationApiResponse = {
+			...fixture,
+			id: 3,
+			name: "수영구 호텔",
+			gugun: "수영구",
+		};
+		const pageResponse: AccommodationPageResponse = {
+			content: [fixture, fixture3],
+			page: 0,
+			size: 100,
+			totalElements: 2,
+			totalPages: 1,
+			last: true,
+		};
+		mockGet.mockResolvedValueOnce({ data: pageResponse, error: null });
+		const store = useAccommodationsStore();
+		await store.fetchAccommodations();
+
+		store.setSido("부산광역시");
+		expect(store.filtered).toHaveLength(2);
+
+		store.setGugun("해운대구");
+		expect(store.filtered).toHaveLength(1);
+		expect(store.filtered[0].id).toBe(1);
 	});
 
 	it("nearby 모드 — lat/lng 전달 시 배열 응답 처리", async () => {
