@@ -4,6 +4,8 @@ import com.ssafy.tourdoum.accommodation.AccommodationNotFoundException;
 import com.ssafy.tourdoum.attraction.AttractionNotFoundException;
 import com.ssafy.tourdoum.member.DuplicateEmailException;
 import com.ssafy.tourdoum.member.DuplicateNicknameException;
+import com.ssafy.tourdoum.plan.PlanForbiddenException;
+import com.ssafy.tourdoum.plan.PlanNotFoundException;
 import com.ssafy.tourdoum.reservation.ReservationForbiddenException;
 import com.ssafy.tourdoum.reservation.ReservationNotFoundException;
 import com.ssafy.tourdoum.review.ReviewForbiddenException;
@@ -95,7 +97,21 @@ public class GlobalExceptionHandler {
     return new ErrorResponse("id", ex.getMessage());
   }
 
-  /** 예약 날짜 오류 → 400 Bad Request. */
+  /** 여행 계획 미존재 → 404 Not Found. */
+  @ExceptionHandler(PlanNotFoundException.class)
+  @ResponseStatus(HttpStatus.NOT_FOUND)
+  public ErrorResponse handlePlanNotFound(PlanNotFoundException ex) {
+    return new ErrorResponse("id", ex.getMessage());
+  }
+
+  /** 여행 계획 접근 권한 없음 → 403 Forbidden. */
+  @ExceptionHandler(PlanForbiddenException.class)
+  @ResponseStatus(HttpStatus.FORBIDDEN)
+  public ErrorResponse handlePlanForbidden(PlanForbiddenException ex) {
+    return new ErrorResponse("id", ex.getMessage());
+  }
+
+  /** 날짜/파라미터 오류 → 400 Bad Request. */
   @ExceptionHandler(IllegalArgumentException.class)
   @ResponseStatus(HttpStatus.BAD_REQUEST)
   public ErrorResponse handleIllegalArgument(IllegalArgumentException ex) {
