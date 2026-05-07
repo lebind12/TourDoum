@@ -10,11 +10,17 @@ import { useAuthStore } from "@/stores/auth";
 import { useNotificationsStore } from "@/stores/notifications";
 import { Menu, X } from "lucide-vue-next";
 import { ref, watch } from "vue";
-import { RouterLink, useRouter } from "vue-router";
+import { RouterLink, useRoute, useRouter } from "vue-router";
 
 const authStore = useAuthStore();
 const notificationsStore = useNotificationsStore();
 const router = useRouter();
+const route = useRoute();
+
+/** 현재 경로가 주어진 prefix로 시작하면 활성 nav 스타일 적용 */
+function navClass(prefix: string): string {
+	return route.path.startsWith(prefix) ? "text-primary bg-primary/5" : "";
+}
 const drawerOpen = ref(false);
 
 // 로그인 상태에 따라 폴링 시작/중단
@@ -55,16 +61,16 @@ function closeDrawer() {
         <!-- Domain nav (≥768px) — 항상 노출 -->
         <nav class="hidden md:flex items-center gap-1 ml-6">
           <RouterLink to="/attractions">
-            <Button variant="ghost" size="sm">여행지</Button>
+            <Button variant="ghost" size="sm" :class="navClass('/attractions')">여행지</Button>
           </RouterLink>
           <RouterLink to="/accommodations">
-            <Button variant="ghost" size="sm">숙박</Button>
+            <Button variant="ghost" size="sm" :class="navClass('/accommodations')">숙박</Button>
           </RouterLink>
           <RouterLink to="/chat">
-            <Button variant="ghost" size="sm">채팅</Button>
+            <Button variant="ghost" size="sm" :class="navClass('/chat')">채팅</Button>
           </RouterLink>
           <RouterLink v-if="authStore.currentUser" to="/favorites">
-            <Button variant="ghost" size="sm">즐겨찾기</Button>
+            <Button variant="ghost" size="sm" :class="navClass('/favorites')">즐겨찾기</Button>
           </RouterLink>
         </nav>
 
@@ -150,16 +156,16 @@ function closeDrawer() {
           <Button variant="ghost" class="w-full justify-start" size="sm">🔍 검색</Button>
         </RouterLink>
         <RouterLink to="/attractions" @click="closeDrawer">
-          <Button variant="ghost" class="w-full justify-start" size="sm">여행지</Button>
+          <Button variant="ghost" class="w-full justify-start" size="sm" :class="navClass('/attractions')">여행지</Button>
         </RouterLink>
         <RouterLink to="/accommodations" @click="closeDrawer">
-          <Button variant="ghost" class="w-full justify-start" size="sm">숙박</Button>
+          <Button variant="ghost" class="w-full justify-start" size="sm" :class="navClass('/accommodations')">숙박</Button>
         </RouterLink>
         <RouterLink to="/chat" @click="closeDrawer">
-          <Button variant="ghost" class="w-full justify-start" size="sm">채팅</Button>
+          <Button variant="ghost" class="w-full justify-start" size="sm" :class="navClass('/chat')">채팅</Button>
         </RouterLink>
         <RouterLink v-if="authStore.currentUser" to="/favorites" @click="closeDrawer">
-          <Button variant="ghost" class="w-full justify-start" size="sm">즐겨찾기</Button>
+          <Button variant="ghost" class="w-full justify-start" size="sm" :class="navClass('/favorites')">즐겨찾기</Button>
         </RouterLink>
 
         <Separator class="my-2" />
