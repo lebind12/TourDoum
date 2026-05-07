@@ -90,7 +90,8 @@ function onKeydown(e: KeyboardEvent, idx: number) {
         :aria-controls="`tabpanel-${tab.key}`"
         :tabindex="activeKey === tab.key ? 0 : -1"
         class="relative shrink-0 inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-medium
-               transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+               transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring
+               focus-visible:ring-offset-2 focus-visible:ring-offset-background"
         :class="[
           variant === 'pills'
             ? (activeKey === tab.key

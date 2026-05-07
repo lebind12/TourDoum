@@ -47,14 +47,29 @@ const emit = defineEmits<{
 }>();
 
 const cancelBtnRef = ref<HTMLElement | null>(null);
+// Round 6 (I): 직전 focus 요소 추적 — Esc/cancel/confirm 모든 close 경로에서 trigger로 복귀.
+const previousFocusRef = ref<HTMLElement | null>(null);
 
-// 열릴 때 취소 버튼에 포커스
 watch(
 	() => props.open,
 	async (val) => {
 		if (val) {
+			previousFocusRef.value =
+				document.activeElement instanceof HTMLElement
+					? document.activeElement
+					: null;
 			await nextTick();
 			cancelBtnRef.value?.focus();
+		} else {
+			const el = previousFocusRef.value;
+			previousFocusRef.value = null;
+			if (
+				el?.isConnected &&
+				!el.hasAttribute("disabled") &&
+				typeof el.focus === "function"
+			) {
+				el.focus({ preventScroll: true });
+			}
 		}
 	},
 );
