@@ -27,6 +27,7 @@ class JwtTokenProviderTest {
     return new JwtProperties(
         "tourdoum",
         ttl,
+        Duration.ofDays(14),
         "dev-1",
         null,
         "classpath:keys/jwt-dev-private.pem",

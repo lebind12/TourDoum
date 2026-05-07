@@ -2,6 +2,7 @@ package com.ssafy.tourdoum.global;
 
 import com.ssafy.tourdoum.accommodation.AccommodationNotFoundException;
 import com.ssafy.tourdoum.attraction.AttractionNotFoundException;
+import com.ssafy.tourdoum.auth.RefreshTokenException;
 import com.ssafy.tourdoum.chat.ChatChannelNotFoundException;
 import com.ssafy.tourdoum.chat.ChatForbiddenException;
 import com.ssafy.tourdoum.member.DuplicateEmailException;
@@ -156,5 +157,12 @@ public class GlobalExceptionHandler {
   @ResponseStatus(HttpStatus.UNAUTHORIZED)
   public ErrorResponse handleBadCredentials(BadCredentialsException ex) {
     return new ErrorResponse("credentials", ex.getMessage());
+  }
+
+  /** Refresh token 검증 실패 / replay 감지 → 401 (ADR-0011 BE-2, #63). */
+  @ExceptionHandler(RefreshTokenException.class)
+  @ResponseStatus(HttpStatus.UNAUTHORIZED)
+  public ErrorResponse handleRefreshTokenException(RefreshTokenException ex) {
+    return new ErrorResponse("refreshToken", ex.getMessage());
   }
 }

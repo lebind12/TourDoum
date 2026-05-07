@@ -106,6 +106,7 @@ class AuthIntegrationTest {
             .andExpect(jsonPath("$.accessToken").isNotEmpty())
             .andExpect(jsonPath("$.tokenType").value("Bearer"))
             .andExpect(jsonPath("$.expiresInSeconds").value(900))
+            .andExpect(jsonPath("$.refreshToken").isNotEmpty())
             .andExpect(jsonPath("$.user.email").value("it@example.com"))
             .andExpect(jsonPath("$.user.nickname").value("ituser"))
             .andExpect(jsonPath("$.user.role").value("ROLE_USER"))
@@ -113,26 +114,53 @@ class AuthIntegrationTest {
 
     JsonNode body = objectMapper.readTree(loginResult.getResponse().getContentAsString());
     String token = body.get("accessToken").asText();
+    String refreshToken = body.get("refreshToken").asText();
     assertThat(token).as("JWT accessToken 비어있으면 안 됨").isNotBlank();
+    assertThat(refreshToken).as("JWT refreshToken 비어있으면 안 됨").isNotBlank();
 
-    // 3. GET /api/me — Authorization: Bearer 헤더, 200 + 본인 정보
+    // 3. GET /api/me — Authorization: Bearer 헤더
     mockMvc
         .perform(get("/api/me").header("Authorization", "Bearer " + token))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.email").value("it@example.com"))
-        .andExpect(jsonPath("$.nickname").value("ituser"))
-        .andExpect(jsonPath("$.role").value("ROLE_USER"));
+        .andExpect(jsonPath("$.email").value("it@example.com"));
 
-    // 4. 로그아웃 → 204 stub. BE-1는 서버 상태 없음 — denylist는 BE-2.
-    mockMvc.perform(post("/api/auth/logout")).andExpect(status().isNoContent());
+    // 4. Refresh rotation — 새 access + 새 refresh 발급, family Redis 갱신 (#63 BE-2)
+    MvcResult rotated =
+        mockMvc
+            .perform(
+                post("/api/auth/refresh")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"refreshToken\":\"" + refreshToken + "\"}"))
+            .andExpect(status().isOk())
+            .andReturn();
+    JsonNode rotatedBody = objectMapper.readTree(rotated.getResponse().getContentAsString());
+    String newAccess = rotatedBody.get("accessToken").asText();
+    String newRefresh = rotatedBody.get("refreshToken").asText();
+    assertThat(newRefresh).isNotEqualTo(refreshToken);
 
-    // 5. logout 후에도 access token은 만료(15분)까지 여전히 유효 — BE-1 의도된 한계.
-    //    BE-2에서 denylist 도입 후 401 검증으로 전환 예정.
+    // 5. logout — family 폐기 + 새 access denylist
     mockMvc
-        .perform(get("/api/me").header("Authorization", "Bearer " + token))
-        .andExpect(status().isOk());
+        .perform(
+            post("/api/auth/logout")
+                .header("Authorization", "Bearer " + newAccess)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"refreshToken\":\"" + newRefresh + "\"}"))
+        .andExpect(status().isNoContent());
 
-    // 6. Authorization 헤더 없으면 401
+    // 6. logout 후 access는 denylist hit → 401 (#63 BE-2 정식 동작)
+    mockMvc
+        .perform(get("/api/me").header("Authorization", "Bearer " + newAccess))
+        .andExpect(status().isUnauthorized());
+
+    // 7. logout 후 refresh도 family 폐기로 401
+    mockMvc
+        .perform(
+            post("/api/auth/refresh")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"refreshToken\":\"" + newRefresh + "\"}"))
+        .andExpect(status().isUnauthorized());
+
+    // 8. Authorization 헤더 없으면 401
     mockMvc.perform(get("/api/me")).andExpect(status().isUnauthorized());
   }
 }

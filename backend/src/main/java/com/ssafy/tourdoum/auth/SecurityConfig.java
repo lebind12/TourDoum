@@ -43,6 +43,7 @@ public class SecurityConfig {
   private final MemberDetailsService memberDetailsService;
   private final ObjectMapper objectMapper;
   private final JwtTokenProvider tokenProvider;
+  private final AccessTokenDenylist denylist;
 
   /**
    * 허용 origin 목록. 쉼표 구분. default: 사용자 로컬 dev(5173/5174) + agent worktree(30173/30174). 운영 환경에선 배포
@@ -55,10 +56,12 @@ public class SecurityConfig {
   public SecurityConfig(
       MemberDetailsService memberDetailsService,
       ObjectMapper objectMapper,
-      JwtTokenProvider tokenProvider) {
+      JwtTokenProvider tokenProvider,
+      AccessTokenDenylist denylist) {
     this.memberDetailsService = memberDetailsService;
     this.objectMapper = objectMapper;
     this.tokenProvider = tokenProvider;
+    this.denylist = denylist;
   }
 
   @Bean
@@ -92,7 +95,7 @@ public class SecurityConfig {
 
   @Bean
   public JwtAuthenticationFilter jwtAuthenticationFilter() {
-    return new JwtAuthenticationFilter(tokenProvider);
+    return new JwtAuthenticationFilter(tokenProvider, denylist);
   }
 
   @Bean
@@ -113,10 +116,12 @@ public class SecurityConfig {
         .httpBasic(AbstractHttpConfigurer::disable)
         .logout(AbstractHttpConfigurer::disable)
 
-        // 인가 규칙 (변경 없음 — 기존과 동일)
+        // 인가 규칙 — #63 BE-2: logout은 인증 필요로 분기 (현재 access의 jti를 회수해야 함).
         .authorizeHttpRequests(
             auth ->
-                auth.requestMatchers(
+                auth.requestMatchers(HttpMethod.POST, "/api/auth/logout")
+                    .authenticated()
+                    .requestMatchers(
                         "/api/auth/**",
                         "/api/health",
                         "/api/members/signup",

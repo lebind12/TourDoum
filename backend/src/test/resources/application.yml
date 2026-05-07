@@ -29,6 +29,7 @@ tourdoum:
   jwt:
     issuer: tourdoum
     access-ttl: 15m
+    refresh-ttl: 14d
     active-kid: dev-1
     private-key-location: classpath:keys/jwt-dev-private.pem
     public-key-location: classpath:keys/jwt-dev-public.pem

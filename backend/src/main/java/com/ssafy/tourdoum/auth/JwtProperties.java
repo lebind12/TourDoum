@@ -6,20 +6,23 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 /**
  * JWT 설정 — `tourdoum.jwt.*` (application.yml).
  *
- * <p>본 task(BE-1)는 access token 발급/검증만 다룬다. refresh/rotation/family/denylist는 BE-2 범위.
+ * <p>BE-1: access token 발급/검증.<br>
+ * BE-2(#63): refresh ttl + previous-kid 검증 활성.
  *
- * @param issuer 토큰 {@code iss} 클레임. 발급 서버 식별자.
+ * @param issuer 토큰 {@code iss} 클레임.
  * @param accessTtl access token 유효기간 — ADR-0011 기본 15분.
- * @param activeKid 현재 활성 key id ({@code kid} header). 검증 시 우선 시도.
- * @param previousKid 직전 활성 key id (rotation 직후 검증 호환). null 또는 빈 문자열이면 미사용.
- * @param privateKeyLocation active key의 PKCS#8 PEM private key classpath 위치.
- * @param publicKeyLocation active key의 PEM public key classpath 위치.
- * @param previousPublicKeyLocation previousKid가 설정된 경우 그 public key의 classpath 위치.
+ * @param refreshTtl refresh token 유효기간 — ADR-0011 기본 14일 (#63 BE-2).
+ * @param activeKid 현재 활성 kid. 발급은 항상 active.
+ * @param previousKid 직전 활성 kid — 검증 시 fallback. null/빈 문자열이면 미사용.
+ * @param privateKeyLocation active private key classpath PEM.
+ * @param publicKeyLocation active public key classpath PEM.
+ * @param previousPublicKeyLocation previousKid 사용 시 그 public key classpath PEM.
  */
 @ConfigurationProperties(prefix = "tourdoum.jwt")
 public record JwtProperties(
     String issuer,
     Duration accessTtl,
+    Duration refreshTtl,
     String activeKid,
     String previousKid,
     String privateKeyLocation,
@@ -32,6 +35,9 @@ public record JwtProperties(
     }
     if (accessTtl == null) {
       accessTtl = Duration.ofMinutes(15);
+    }
+    if (refreshTtl == null) {
+      refreshTtl = Duration.ofDays(14);
     }
     if (activeKid == null || activeKid.isBlank()) {
       activeKid = "dev-1";

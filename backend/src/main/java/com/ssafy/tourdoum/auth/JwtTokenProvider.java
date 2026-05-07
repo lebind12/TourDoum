@@ -68,6 +68,14 @@ public class JwtTokenProvider {
 
   /** access token 발급. {@link Member}가 가진 식별 정보로 클레임 채움. */
   public IssuedToken issueAccessToken(Member member) {
+    return issueAccessToken(member, UUID.randomUUID().toString());
+  }
+
+  /**
+   * access token 발급 — jti 명시 (#63 BE-2). family rotation 시 호출자가 jti를 control 한다(같은 family에서 새
+   * access의 jti를 family에 박제하기 위함).
+   */
+  public IssuedToken issueAccessToken(Member member, String jti) {
     Instant now = clock.instant();
     Instant exp = now.plus(properties.accessTtl());
     String token =
@@ -80,12 +88,39 @@ public class JwtTokenProvider {
             .subject(member.getEmail())
             .claim("uid", member.getId())
             .claim("role", member.getRole().name())
-            .id(UUID.randomUUID().toString())
+            .claim("type", "access")
+            .id(jti)
             .issuedAt(Date.from(now))
             .expiration(Date.from(exp))
             .signWith(signingKey, Jwts.SIG.RS256)
             .compact();
     return new IssuedToken(token, properties.accessTtl().toSeconds());
+  }
+
+  /**
+   * refresh token 발급 — RS256 동일 key, ttl=refreshTtl, claim에 family_id/jti/type=refresh (#63 BE-2).
+   */
+  public IssuedToken issueRefreshToken(Member member, String familyId, String jti) {
+    Instant now = clock.instant();
+    Instant exp = now.plus(properties.refreshTtl());
+    String token =
+        Jwts.builder()
+            .header()
+            .add("kid", properties.activeKid())
+            .add("typ", "refresh+JWT")
+            .and()
+            .issuer(properties.issuer())
+            .subject(member.getEmail())
+            .claim("uid", member.getId())
+            .claim("role", member.getRole().name())
+            .claim("type", "refresh")
+            .claim("family_id", familyId)
+            .id(jti)
+            .issuedAt(Date.from(now))
+            .expiration(Date.from(exp))
+            .signWith(signingKey, Jwts.SIG.RS256)
+            .compact();
+    return new IssuedToken(token, properties.refreshTtl().toSeconds());
   }
 
   /** access token 검증 + 클레임 반환. 만료/서명 오류 시 {@link io.jsonwebtoken.JwtException}. */
@@ -98,6 +133,18 @@ public class JwtTokenProvider {
             .build()
             .parseSignedClaims(token);
     return jws.getPayload();
+  }
+
+  /**
+   * refresh token 검증 + 클레임 반환. 만료/서명 오류 또는 type ≠ "refresh"이면 {@link io.jsonwebtoken.JwtException}.
+   */
+  public Claims parseRefreshToken(String token) {
+    Claims claims = parseAccessToken(token);
+    Object type = claims.get("type");
+    if (!"refresh".equals(type)) {
+      throw new io.jsonwebtoken.JwtException("type 클레임이 refresh가 아님: " + type);
+    }
+    return claims;
   }
 
   // ── PEM loader ──
