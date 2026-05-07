@@ -12,7 +12,7 @@ import { useAuthStore } from "@/stores/auth";
 import { useReservationsStore } from "@/stores/reservations";
 import { useReviewsStore } from "@/stores/reviews";
 import { ChevronLeft, MessageCircle } from "lucide-vue-next";
-import { computed, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { RouterLink, useRoute, useRouter } from "vue-router";
 
 const route = useRoute();
@@ -23,6 +23,13 @@ const authStore = useAuthStore();
 const reviewsStore = useReviewsStore();
 const id = Number(route.params.id);
 const acc = computed(() => store.getById(id));
+
+// 캐시에 없을 때 (직접 URL 진입 등) 단건 조회
+onMounted(async () => {
+	if (!store.getById(id)) {
+		await store.fetchAccommodationById(id);
+	}
+});
 
 // 현재 사용자가 이미 작성한 후기 (닉네임 기준)
 const userReview = computed(() =>
@@ -47,8 +54,26 @@ function handleReserve() {
 </script>
 
 <template>
-  <!-- 빈 상태 -->
-  <template v-if="!acc">
+  <!-- 로딩 (직접 URL 진입 시) -->
+  <template v-if="store.loading && !acc">
+    <div class="py-20 text-center">
+      <p class="text-muted-foreground">숙소 정보를 불러오는 중...</p>
+    </div>
+  </template>
+
+  <!-- 에러 -->
+  <template v-else-if="store.error && !acc">
+    <div class="py-20 text-center space-y-4">
+      <p class="text-destructive font-medium">숙소 정보를 불러오지 못했습니다.</p>
+      <p class="text-muted-foreground text-sm">{{ store.error }}</p>
+      <RouterLink to="/accommodations">
+        <Button variant="link">← 목록으로 돌아가기</Button>
+      </RouterLink>
+    </div>
+  </template>
+
+  <!-- 빈 상태 (데이터 없음) -->
+  <template v-else-if="!acc">
     <div class="py-20 text-center space-y-4">
       <p class="text-muted-foreground text-lg">숙소를 찾을 수 없습니다.</p>
       <RouterLink to="/accommodations">
