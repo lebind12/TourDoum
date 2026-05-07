@@ -9,6 +9,7 @@ import java.util.Map;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -156,6 +157,9 @@ public class SecurityConfig {
                         "/swagger-ui.html",
                         "/v3/api-docs/**",
                         "/v3/api-docs")
+                    .permitAll()
+                    // 후기 목록/집계는 공개; 작성·삭제는 인증 필수 (POST/DELETE는 anyRequest().authenticated()로 처리)
+                    .requestMatchers(HttpMethod.GET, "/api/reviews", "/api/reviews/summary")
                     .permitAll()
                     .anyRequest()
                     .authenticated())

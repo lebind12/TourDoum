@@ -10,7 +10,6 @@ import { Button } from "@/components/ui/button";
 import { useAccommodationsStore } from "@/stores/accommodations";
 import {
 	type PaymentMethod,
-	calculateReservationTotal,
 	useReservationsStore,
 } from "@/stores/reservations";
 import { computed } from "vue";
@@ -24,14 +23,16 @@ const reservationId = String(route.params.reservationId ?? "");
 
 const paymentLabels: Record<PaymentMethod, string> = {
 	card: "신용/체크카드",
-	bank: "계좌이체",
-	easy: "간편결제",
+	kakaopay: "카카오페이",
+	toss: "토스",
 };
 
 const receipt = computed(() => {
-	const reservation = reservationsStore.confirmed.find(
-		(r) => r.id === reservationId,
-	);
+	// lastConfirmed 우선, 없으면 myReservations에서 탐색
+	const reservation =
+		reservationsStore.lastConfirmed?.id === reservationId
+			? reservationsStore.lastConfirmed
+			: reservationsStore.myReservations.find((r) => r.id === reservationId);
 	if (!reservation) return null;
 
 	const accommodation = accommodationsStore.getById(
@@ -44,15 +45,10 @@ const receipt = computed(() => {
 			accommodation?.name ?? `숙소 #${reservation.accommodationId}`,
 		checkIn: reservation.checkIn,
 		checkOut: reservation.checkOut,
-		guests: reservation.adults + reservation.children,
-		totalPrice: accommodation
-			? calculateReservationTotal(
-					accommodation.pricePerNight,
-					reservation.checkIn,
-					reservation.checkOut,
-				)
-			: 0,
-		paymentMethod: paymentLabels[reservation.paymentMethod],
+		guests: reservation.guests,
+		totalPrice: reservation.totalPrice,
+		paymentMethod:
+			paymentLabels[reservation.paymentMethod] ?? reservation.paymentMethod,
 	};
 });
 

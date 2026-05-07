@@ -15,11 +15,8 @@ import { useAccommodationsStore } from "@/stores/accommodations";
 import { useAuthStore } from "@/stores/auth";
 import { useFavoritesStore } from "@/stores/favorites";
 import { usePlansStore } from "@/stores/plans";
-import {
-	calculateReservationTotal,
-	useReservationsStore,
-} from "@/stores/reservations";
-import { computed, ref } from "vue";
+import { useReservationsStore } from "@/stores/reservations";
+import { computed, onMounted, ref } from "vue";
 import { RouterLink, useRouter } from "vue-router";
 
 type ListReservationStatus = "confirmed" | "cancelled" | "completed";
@@ -33,13 +30,13 @@ const router = useRouter();
 
 // ── 내 예약 ──────────────────────────────────────────────────────────
 const myReservations = computed(() =>
-	reservationsStore.confirmed
+	reservationsStore.myReservations
 		.map((reservation) => {
 			const accommodation = accommodationsStore.getById(
 				reservation.accommodationId,
 			);
 			const status: ListReservationStatus =
-				reservation.status === "canceled" ? "cancelled" : "confirmed";
+				reservation.status === "cancelled" ? "cancelled" : "confirmed";
 
 			return {
 				reservationId: reservation.id,
@@ -48,13 +45,7 @@ const myReservations = computed(() =>
 				checkIn: reservation.checkIn,
 				checkOut: reservation.checkOut,
 				status,
-				totalPrice: accommodation
-					? calculateReservationTotal(
-							accommodation.pricePerNight,
-							reservation.checkIn,
-							reservation.checkOut,
-						)
-					: 0,
+				totalPrice: reservation.totalPrice, // BE가 제공
 				createdAt: reservation.createdAt,
 			};
 		})
@@ -64,13 +55,17 @@ const myReservations = computed(() =>
 		),
 );
 
-function cancelReservation(reservationId: string) {
-	reservationsStore.cancel(reservationId);
+async function cancelReservation(reservationId: string) {
+	await reservationsStore.cancelReservation(reservationId);
 }
 
 function goToAccommodations() {
 	router.push("/accommodations");
 }
+
+onMounted(() => {
+	reservationsStore.fetchMyReservations();
+});
 
 // ── 즐겨찾기 요약 ──────────────────────────────────────────────────────
 const favoritesPreview = computed(() =>

@@ -33,9 +33,7 @@ async function submit() {
 	}
 	errorMsg.value = null;
 	submitting.value = true;
-	// mockup: 짧은 딜레이 후 저장
-	await new Promise((r) => setTimeout(r, 200));
-	reviewsStore.addReview(
+	const result = await reviewsStore.addReview(
 		props.targetType,
 		props.targetId,
 		authStore.currentUser.nickname,
@@ -43,6 +41,10 @@ async function submit() {
 		comment.value.trim(),
 	);
 	submitting.value = false;
+	if (!result) {
+		errorMsg.value = reviewsStore.error ?? "후기 등록에 실패했습니다.";
+		return;
+	}
 	submitted.value = true;
 	comment.value = "";
 	rating.value = 5;

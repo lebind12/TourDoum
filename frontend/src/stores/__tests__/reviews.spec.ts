@@ -1,139 +1,259 @@
-import { REVIEWS_STORAGE_KEY, useReviewsStore } from "@/stores/reviews";
+/**
+ * useReviewsStore — API 연결 단위 테스트
+ *
+ * api/client.ts의 get/post/del 함수를 vi.mock으로 교체.
+ */
+import { useReviewsStore } from "@/stores/reviews";
+import type {
+	ReviewApiResponse,
+	ReviewPageResponse,
+	ReviewSummaryResponse,
+} from "@/stores/reviews";
 import { createPinia, setActivePinia } from "pinia";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const localStorageMock = (() => {
-	let store: Record<string, string> = {};
+vi.mock("@/api/client", () => ({
+	get: vi.fn(),
+	post: vi.fn(),
+	del: vi.fn(),
+}));
+
+import { del, get, post } from "@/api/client";
+const mockGet = vi.mocked(get);
+const mockPost = vi.mocked(post);
+const mockDel = vi.mocked(del);
+
+/** 테스트용 BE 응답 픽스처 */
+const fixtureReview: ReviewApiResponse = {
+	id: 1,
+	memberId: 10,
+	targetType: "ATTRACTION",
+	targetId: 42,
+	rating: 5,
+	title: "좋아요",
+	content: "정말 멋진 곳이에요!",
+	createdAt: "2026-05-07T10:00:00",
+	updatedAt: "2026-05-07T10:00:00",
+};
+
+const fixtureReview2: ReviewApiResponse = {
+	id: 2,
+	memberId: 11,
+	targetType: "ATTRACTION",
+	targetId: 42,
+	rating: 4,
+	title: null,
+	content: "괜찮아요",
+	createdAt: "2026-05-06T09:00:00",
+	updatedAt: "2026-05-06T09:00:00",
+};
+
+function makePageResponse(items: ReviewApiResponse[]): ReviewPageResponse {
 	return {
-		getItem: vi.fn((key: string) => store[key] ?? null),
-		setItem: vi.fn((key: string, value: string) => {
-			store[key] = value;
-		}),
-		removeItem: vi.fn((key: string) => {
-			delete store[key];
-		}),
-		clear: vi.fn(() => {
-			store = {};
-		}),
+		content: items,
+		totalElements: items.length,
+		page: 0,
+		size: 20,
+		totalPages: 1,
 	};
-})();
+}
 
-vi.stubGlobal("localStorage", localStorageMock);
-
-describe("useReviewsStore", () => {
+describe("useReviewsStore — API 연결", () => {
 	beforeEach(() => {
-		localStorageMock.clear();
 		setActivePinia(createPinia());
+		vi.clearAllMocks();
 	});
 
 	afterEach(() => {
 		vi.clearAllMocks();
 	});
 
-	it("시드 데이터가 로드된다 (30건 이상)", () => {
+	it("초기 상태 — reviews 비어있음, error null", () => {
 		const store = useReviewsStore();
-		expect(store.reviews.length).toBeGreaterThanOrEqual(30);
+		expect(store.reviews).toHaveLength(0);
+		expect(store.error).toBeNull();
+		expect(store.loading).toBe(false);
 	});
 
-	it("getByTarget — 여행지 1번 후기를 필터링한다", () => {
+	it("fetchByTarget — 성공 시 캐시에 매핑된 데이터 저장", async () => {
+		mockGet.mockResolvedValueOnce({
+			data: makePageResponse([fixtureReview, fixtureReview2]),
+			error: null,
+		});
+
 		const store = useReviewsStore();
-		const items = store.getByTarget("attraction", 1);
-		expect(items.length).toBeGreaterThan(0);
-		for (const r of items) {
-			expect(r.targetType).toBe("attraction");
-			expect(r.targetId).toBe(1);
-		}
+		await store.fetchByTarget("attraction", 42);
+
+		expect(mockGet).toHaveBeenCalledWith(
+			expect.stringContaining("targetType=ATTRACTION"),
+		);
+		expect(mockGet).toHaveBeenCalledWith(
+			expect.stringContaining("targetId=42"),
+		);
+		expect(store.reviews).toHaveLength(2);
+		expect(store.error).toBeNull();
+
+		// 필드 매핑 확인
+		const first = store.getByTarget("attraction", 42)[0]; // createdAt 내림차순
+		expect(first.id).toBe("1"); // Long → string
+		expect(first.targetType).toBe("attraction"); // 소문자 변환
+		expect(first.comment).toBe("정말 멋진 곳이에요!"); // content → comment
+		expect(first.authorNickname).toBe("회원 10"); // memberId 기반
 	});
 
-	it("getByTarget — 결과는 createdAt 내림차순이다", () => {
+	it("fetchByTarget — API 실패 시 error 세트", async () => {
+		mockGet.mockResolvedValueOnce({ data: null, error: "HTTP 500" });
+
 		const store = useReviewsStore();
-		const items = store.getByTarget("attraction", 1);
-		for (let i = 0; i < items.length - 1; i++) {
-			expect(new Date(items[i].createdAt).getTime()).toBeGreaterThanOrEqual(
-				new Date(items[i + 1].createdAt).getTime(),
-			);
-		}
+		await store.fetchByTarget("attraction", 42);
+
+		expect(store.error).toBe("HTTP 500");
+		expect(store.reviews).toHaveLength(0);
 	});
 
-	it("averageRating — 리뷰 없는 대상은 0을 반환한다", () => {
+	it("getByTarget — createdAt 내림차순 정렬", async () => {
+		mockGet.mockResolvedValueOnce({
+			data: makePageResponse([fixtureReview, fixtureReview2]),
+			error: null,
+		});
 		const store = useReviewsStore();
-		// 존재하지 않는 targetId
+		await store.fetchByTarget("attraction", 42);
+
+		const items = store.getByTarget("attraction", 42);
+		expect(items).toHaveLength(2);
+		expect(new Date(items[0].createdAt).getTime()).toBeGreaterThanOrEqual(
+			new Date(items[1].createdAt).getTime(),
+		);
+	});
+
+	it("getByTarget — 다른 대상의 리뷰는 포함되지 않음", async () => {
+		const otherReview: ReviewApiResponse = {
+			...fixtureReview,
+			id: 99,
+			targetId: 999,
+		};
+		mockGet
+			.mockResolvedValueOnce({
+				data: makePageResponse([fixtureReview]),
+				error: null,
+			})
+			.mockResolvedValueOnce({
+				data: makePageResponse([otherReview]),
+				error: null,
+			});
+
+		const store = useReviewsStore();
+		await store.fetchByTarget("attraction", 42);
+		await store.fetchByTarget("attraction", 999);
+
+		expect(store.getByTarget("attraction", 42)).toHaveLength(1);
+		expect(store.getByTarget("attraction", 999)).toHaveLength(1);
+	});
+
+	it("averageRating — 리뷰 없는 대상은 0 반환", () => {
+		const store = useReviewsStore();
 		expect(store.averageRating("attraction", 9999)).toBe(0);
 	});
 
-	it("averageRating — 1~5 범위의 합산 평균을 반환한다", () => {
+	it("averageRating — 캐시 기준 평균 계산", async () => {
+		mockGet.mockResolvedValueOnce({
+			data: makePageResponse([fixtureReview, fixtureReview2]),
+			error: null,
+		});
 		const store = useReviewsStore();
-		const avg = store.averageRating("attraction", 1);
-		expect(avg).toBeGreaterThanOrEqual(1);
-		expect(avg).toBeLessThanOrEqual(5);
+		await store.fetchByTarget("attraction", 42);
+
+		const avg = store.averageRating("attraction", 42);
+		expect(avg).toBeCloseTo(4.5, 1); // (5 + 4) / 2
 	});
 
-	it("addReview — 새 후기를 추가한다", () => {
+	it("fetchSummary — 성공 시 summaries 캐시 갱신", async () => {
+		const summary: ReviewSummaryResponse = { avgRating: 4.8, count: 15 };
+		mockGet.mockResolvedValueOnce({ data: summary, error: null });
+
 		const store = useReviewsStore();
-		const before = store.reviews.length;
-		const review = store.addReview(
+		const result = await store.fetchSummary("attraction", 42);
+
+		expect(result).toEqual(summary);
+		// summaries 캐시 반영 → averageRating이 summary를 우선 사용
+		expect(store.averageRating("attraction", 42)).toBe(4.8);
+	});
+
+	it("addReview — 성공 시 캐시에 추가, Review 반환", async () => {
+		mockPost.mockResolvedValueOnce({ data: fixtureReview, error: null });
+
+		const store = useReviewsStore();
+		const result = await store.addReview(
 			"attraction",
-			999,
+			42,
 			"테스터_김",
-			4,
-			"좋은 곳이에요!",
-		);
-		expect(store.reviews.length).toBe(before + 1);
-		expect(review.authorNickname).toBe("테스터_김");
-		expect(review.rating).toBe(4);
-		expect(review.targetId).toBe(999);
-	});
-
-	it("addReview — 가장 앞(최신)에 추가된다", () => {
-		const store = useReviewsStore();
-		const review = store.addReview(
-			"accommodation",
-			1,
-			"최신_사용자",
 			5,
-			"최고!",
+			"정말 멋진 곳이에요!",
 		);
-		expect(store.reviews[0].id).toBe(review.id);
+
+		expect(mockPost).toHaveBeenCalledWith("/api/reviews", {
+			targetType: "ATTRACTION",
+			targetId: 42,
+			rating: 5,
+			content: "정말 멋진 곳이에요!", // comment → content
+		});
+		expect(result).not.toBeNull();
+		expect(result?.id).toBe("1");
+		expect(result?.authorNickname).toBe("테스터_김"); // 전달된 닉네임 우선
+		expect(result?.comment).toBe("정말 멋진 곳이에요!");
+		expect(store.reviews).toHaveLength(1);
+		expect(store.reviews[0].id).toBe("1"); // 맨 앞에 추가
 	});
 
-	it("updateReview — 기존 후기를 수정한다", () => {
-		const store = useReviewsStore();
-		const review = store.addReview("attraction", 2, "수정자", 3, "그냥 그래요");
-		const success = store.updateReview(review.id, 5, "다시 보니 최고예요!");
-		expect(success).toBe(true);
-		const updated = store.reviews.find((r) => r.id === review.id);
-		if (!updated) throw new Error("review not found after update");
-		expect(updated.rating).toBe(5);
-		expect(updated.comment).toBe("다시 보니 최고예요!");
-	});
+	it("addReview — API 실패 시 null 반환, error 세트", async () => {
+		mockPost.mockResolvedValueOnce({ data: null, error: "HTTP 401" });
 
-	it("updateReview — 없는 id면 false를 반환한다", () => {
 		const store = useReviewsStore();
-		expect(store.updateReview("nonexistent", 5, "텍스트")).toBe(false);
-	});
-
-	it("deleteReview — 후기를 삭제한다", () => {
-		const store = useReviewsStore();
-		const review = store.addReview("accommodation", 2, "삭제자", 2, "별로예요");
-		const before = store.reviews.length;
-		const success = store.deleteReview(review.id);
-		expect(success).toBe(true);
-		expect(store.reviews.length).toBe(before - 1);
-		expect(store.reviews.find((r) => r.id === review.id)).toBeUndefined();
-	});
-
-	it("deleteReview — 없는 id면 false를 반환한다", () => {
-		const store = useReviewsStore();
-		expect(store.deleteReview("nonexistent")).toBe(false);
-	});
-
-	it("addReview 후 localStorage에 저장된다", async () => {
-		const store = useReviewsStore();
-		store.addReview("attraction", 1, "스토리지_테스터", 5, "잘 저장되나요?");
-		await new Promise((r) => setTimeout(r, 0));
-		expect(localStorageMock.setItem).toHaveBeenCalledWith(
-			REVIEWS_STORAGE_KEY,
-			expect.any(String),
+		const result = await store.addReview(
+			"attraction",
+			42,
+			"테스터",
+			3,
+			"보통이에요",
 		);
+
+		expect(result).toBeNull();
+		expect(store.error).toBe("HTTP 401");
+		expect(store.reviews).toHaveLength(0);
+	});
+
+	it("deleteReview — 성공 시 캐시에서 제거, true 반환", async () => {
+		// 먼저 fetchByTarget으로 캐시 채우기
+		mockGet.mockResolvedValueOnce({
+			data: makePageResponse([fixtureReview, fixtureReview2]),
+			error: null,
+		});
+		const store = useReviewsStore();
+		await store.fetchByTarget("attraction", 42);
+		expect(store.reviews).toHaveLength(2);
+
+		mockDel.mockResolvedValueOnce({ data: null, error: null });
+		const success = await store.deleteReview("1");
+
+		expect(mockDel).toHaveBeenCalledWith("/api/reviews/1");
+		expect(success).toBe(true);
+		expect(store.reviews).toHaveLength(1);
+		expect(store.reviews.find((r) => r.id === "1")).toBeUndefined();
+	});
+
+	it("deleteReview — API 실패 시 false 반환, 캐시 유지", async () => {
+		mockGet.mockResolvedValueOnce({
+			data: makePageResponse([fixtureReview]),
+			error: null,
+		});
+		const store = useReviewsStore();
+		await store.fetchByTarget("attraction", 42);
+
+		mockDel.mockResolvedValueOnce({ data: null, error: "HTTP 403" });
+		const success = await store.deleteReview("1");
+
+		expect(success).toBe(false);
+		expect(store.error).toBe("HTTP 403");
+		expect(store.reviews).toHaveLength(1); // 캐시 유지
 	});
 });

@@ -2,8 +2,18 @@ package com.ssafy.tourdoum.global;
 
 import com.ssafy.tourdoum.accommodation.AccommodationNotFoundException;
 import com.ssafy.tourdoum.attraction.AttractionNotFoundException;
+import com.ssafy.tourdoum.chat.ChatChannelNotFoundException;
+import com.ssafy.tourdoum.chat.ChatForbiddenException;
 import com.ssafy.tourdoum.member.DuplicateEmailException;
 import com.ssafy.tourdoum.member.DuplicateNicknameException;
+import com.ssafy.tourdoum.notification.NotificationForbiddenException;
+import com.ssafy.tourdoum.notification.NotificationNotFoundException;
+import com.ssafy.tourdoum.plan.PlanForbiddenException;
+import com.ssafy.tourdoum.plan.PlanNotFoundException;
+import com.ssafy.tourdoum.reservation.ReservationForbiddenException;
+import com.ssafy.tourdoum.reservation.ReservationNotFoundException;
+import com.ssafy.tourdoum.review.ReviewForbiddenException;
+import com.ssafy.tourdoum.review.ReviewNotFoundException;
 import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.validation.FieldError;
@@ -61,5 +71,82 @@ public class GlobalExceptionHandler {
   @ResponseStatus(HttpStatus.NOT_FOUND)
   public ErrorResponse handleAccommodationNotFound(AccommodationNotFoundException ex) {
     return new ErrorResponse("id", ex.getMessage());
+  }
+
+  /** 후기 미존재 → 404 Not Found. */
+  @ExceptionHandler(ReviewNotFoundException.class)
+  @ResponseStatus(HttpStatus.NOT_FOUND)
+  public ErrorResponse handleReviewNotFound(ReviewNotFoundException ex) {
+    return new ErrorResponse("id", ex.getMessage());
+  }
+
+  /** 후기 삭제 권한 없음 → 403 Forbidden. */
+  @ExceptionHandler(ReviewForbiddenException.class)
+  @ResponseStatus(HttpStatus.FORBIDDEN)
+  public ErrorResponse handleReviewForbidden(ReviewForbiddenException ex) {
+    return new ErrorResponse("id", ex.getMessage());
+  }
+
+  /** 예약 미존재 → 404 Not Found. */
+  @ExceptionHandler(ReservationNotFoundException.class)
+  @ResponseStatus(HttpStatus.NOT_FOUND)
+  public ErrorResponse handleReservationNotFound(ReservationNotFoundException ex) {
+    return new ErrorResponse("id", ex.getMessage());
+  }
+
+  /** 예약 취소 권한 없음 → 403 Forbidden. */
+  @ExceptionHandler(ReservationForbiddenException.class)
+  @ResponseStatus(HttpStatus.FORBIDDEN)
+  public ErrorResponse handleReservationForbidden(ReservationForbiddenException ex) {
+    return new ErrorResponse("id", ex.getMessage());
+  }
+
+  /** 여행 계획 미존재 → 404 Not Found. */
+  @ExceptionHandler(PlanNotFoundException.class)
+  @ResponseStatus(HttpStatus.NOT_FOUND)
+  public ErrorResponse handlePlanNotFound(PlanNotFoundException ex) {
+    return new ErrorResponse("id", ex.getMessage());
+  }
+
+  /** 여행 계획 접근 권한 없음 → 403 Forbidden. */
+  @ExceptionHandler(PlanForbiddenException.class)
+  @ResponseStatus(HttpStatus.FORBIDDEN)
+  public ErrorResponse handlePlanForbidden(PlanForbiddenException ex) {
+    return new ErrorResponse("id", ex.getMessage());
+  }
+
+  /** 알림 미존재 → 404 Not Found. */
+  @ExceptionHandler(NotificationNotFoundException.class)
+  @ResponseStatus(HttpStatus.NOT_FOUND)
+  public ErrorResponse handleNotificationNotFound(NotificationNotFoundException ex) {
+    return new ErrorResponse("id", ex.getMessage());
+  }
+
+  /** 알림 읽음 처리 권한 없음 → 403 Forbidden. */
+  @ExceptionHandler(NotificationForbiddenException.class)
+  @ResponseStatus(HttpStatus.FORBIDDEN)
+  public ErrorResponse handleNotificationForbidden(NotificationForbiddenException ex) {
+    return new ErrorResponse("id", ex.getMessage());
+  }
+
+  /** 채팅 채널 미존재 → 404 Not Found. */
+  @ExceptionHandler(ChatChannelNotFoundException.class)
+  @ResponseStatus(HttpStatus.NOT_FOUND)
+  public ErrorResponse handleChatChannelNotFound(ChatChannelNotFoundException ex) {
+    return new ErrorResponse("id", ex.getMessage());
+  }
+
+  /** 채팅 채널 접근 권한 없음 → 403 Forbidden. */
+  @ExceptionHandler(ChatForbiddenException.class)
+  @ResponseStatus(HttpStatus.FORBIDDEN)
+  public ErrorResponse handleChatForbidden(ChatForbiddenException ex) {
+    return new ErrorResponse("id", ex.getMessage());
+  }
+
+  /** 날짜/파라미터 오류 → 400 Bad Request. */
+  @ExceptionHandler(IllegalArgumentException.class)
+  @ResponseStatus(HttpStatus.BAD_REQUEST)
+  public ErrorResponse handleIllegalArgument(IllegalArgumentException ex) {
+    return new ErrorResponse("request", ex.getMessage());
   }
 }

@@ -5,19 +5,22 @@ import { Card, CardContent } from "@/components/ui/card";
 import type { Notification } from "@/stores/notifications";
 import { useNotificationsStore } from "@/stores/notifications";
 import { Bell, BellOff, CheckCheck } from "lucide-vue-next";
-import { computed } from "vue";
+import { computed, onMounted } from "vue";
 import { RouterLink } from "vue-router";
 
 const store = useNotificationsStore();
 const groups = computed(() => store.groupByDate());
 
 const typeIcon: Record<string, string> = {
-	welcome: "🎉",
-	dm: "💬",
-	reservation: "🏨",
-	review: "⭐",
+	review_reply: "⭐",
+	reservation_confirmed: "🏨",
+	reservation_canceled: "❌",
 	system: "🔔",
 };
+
+onMounted(() => {
+	store.fetchNotifications();
+});
 
 function relativeTime(iso: string): string {
 	const diff = Date.now() - new Date(iso).getTime();

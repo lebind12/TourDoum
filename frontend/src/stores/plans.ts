@@ -1,265 +1,110 @@
+import { del, get, patch, post } from "@/api/client";
 import { defineStore } from "pinia";
-import { computed, ref, watch } from "vue";
+import { computed, ref } from "vue";
 
-export const PLANS_STORAGE_KEY = "tourdoum-plans-v1"; // gitleaks:allow
-
+// ── FE 타입 ───────────────────────────────────────────────────────────────────
 export type PlanItemType = "attraction" | "accommodation";
 
 export interface PlanItem {
-	id: string;
-	type: PlanItemType;
-	refId: number;
-	time?: string;
+	id: string; // BE Long → string
+	type: PlanItemType; // BE targetType lowercase
+	refId: number; // BE targetId
+	dayIndex: number;
+	orderIndex: number;
 	memo?: string;
+	time?: string; // FE-only (UI 표시용, BE 미지원)
 }
 
 export interface PlanDay {
 	date: string; // YYYY-MM-DD
-	items: PlanItem[];
+	items: PlanItem[]; // orderIndex 오름차순
 }
 
 export interface Plan {
-	id: string;
+	id: string; // BE Long → string
 	title: string;
 	startDate: string; // YYYY-MM-DD
-	endDate: string; // YYYY-MM-DD
-	days: PlanDay[];
+	endDate: string;
+	days: PlanDay[]; // startDate~endDate 범위 + items 배치
 	createdAt: string;
 }
 
-/** 날짜 범위로 PlanDay[] 생성 */
-function buildDays(start: string, end: string): PlanDay[] {
+// ── BE API 응답 타입 ─────────────────────────────────────────────────────────
+export interface PlanItemApiResponse {
+	id: number;
+	planId: number;
+	dayIndex: number;
+	orderIndex: number;
+	targetType: "ATTRACTION" | "ACCOMMODATION";
+	targetId: number;
+	memo: string | null;
+}
+
+export interface PlanApiResponse {
+	id: number;
+	memberId: number;
+	title: string;
+	startDate: string; // "YYYY-MM-DD"
+	endDate: string;
+	createdAt: string; // ISO datetime
+	items: PlanItemApiResponse[];
+}
+
+// ── 날짜 유틸 ─────────────────────────────────────────────────────────────────
+function buildDays(startDate: string, endDate: string): PlanDay[] {
 	const days: PlanDay[] = [];
-	const cur = new Date(start);
-	const endDate = new Date(end);
-	while (cur <= endDate) {
+	const cur = new Date(startDate);
+	const end = new Date(endDate);
+	while (cur <= end) {
 		days.push({ date: cur.toISOString().slice(0, 10), items: [] });
 		cur.setDate(cur.getDate() + 1);
 	}
 	return days;
 }
 
-const SEED_PLANS: Plan[] = [
-	{
-		id: "plan-001",
-		title: "제주 3박 4일 힐링 여행",
-		startDate: "2026-06-01",
-		endDate: "2026-06-04",
-		createdAt: "2026-05-01T10:00:00Z",
-		days: [
-			{
-				date: "2026-06-01",
-				items: [
-					{
-						id: "item-001",
-						type: "attraction",
-						refId: 4,
-						time: "10:00",
-						memo: "성산일출봉 등반",
-					},
-					{
-						id: "item-002",
-						type: "accommodation",
-						refId: 1,
-						memo: "도착 후 체크인",
-					},
-				],
-			},
-			{
-				date: "2026-06-02",
-				items: [
-					{
-						id: "item-003",
-						type: "attraction",
-						refId: 27,
-						time: "11:00",
-						memo: "천지연폭포 방문",
-					},
-					{
-						id: "item-004",
-						type: "attraction",
-						refId: 42,
-						time: "14:00",
-						memo: "우도 페리 탑승",
-					},
-				],
-			},
-			{
-				date: "2026-06-03",
-				items: [
-					{
-						id: "item-005",
-						type: "attraction",
-						refId: 7,
-						time: "09:00",
-						memo: "한라산 영실 코스",
-					},
-					{
-						id: "item-006",
-						type: "attraction",
-						refId: 13,
-						time: "16:00",
-						memo: "협재해수욕장 석양",
-					},
-				],
-			},
-			{
-				date: "2026-06-04",
-				items: [
-					{
-						id: "item-007",
-						type: "attraction",
-						refId: 18,
-						time: "10:00",
-						memo: "올레길 산책 후 귀가",
-					},
-				],
-			},
-		],
-	},
-	{
-		id: "plan-002",
-		title: "부산 2박 3일 바다 여행",
-		startDate: "2026-07-15",
-		endDate: "2026-07-17",
-		createdAt: "2026-05-03T14:00:00Z",
-		days: [
-			{
-				date: "2026-07-15",
-				items: [
-					{
-						id: "item-011",
-						type: "attraction",
-						refId: 3,
-						time: "13:00",
-						memo: "해운대 해수욕장",
-					},
-					{
-						id: "item-012",
-						type: "accommodation",
-						refId: 3,
-						memo: "해운대 숙소 체크인",
-					},
-				],
-			},
-			{
-				date: "2026-07-16",
-				items: [
-					{
-						id: "item-013",
-						type: "attraction",
-						refId: 6,
-						time: "10:00",
-						memo: "광안리 해변 산책",
-					},
-					{
-						id: "item-014",
-						type: "attraction",
-						refId: 9,
-						time: "15:00",
-						memo: "감천문화마을",
-					},
-					{
-						id: "item-015",
-						type: "attraction",
-						refId: 23,
-						time: "18:00",
-						memo: "자갈치시장 회",
-					},
-				],
-			},
-			{
-				date: "2026-07-17",
-				items: [
-					{
-						id: "item-016",
-						type: "attraction",
-						refId: 39,
-						time: "11:00",
-						memo: "국제시장 구경 후 귀가",
-					},
-				],
-			},
-		],
-	},
-	{
-		id: "plan-003",
-		title: "서울 경복궁 문화 탐방",
-		startDate: "2026-08-20",
-		endDate: "2026-08-21",
-		createdAt: "2026-05-05T09:00:00Z",
-		days: [
-			{
-				date: "2026-08-20",
-				items: [
-					{
-						id: "item-021",
-						type: "attraction",
-						refId: 1,
-						time: "10:00",
-						memo: "경복궁 관람",
-					},
-					{
-						id: "item-022",
-						type: "attraction",
-						refId: 14,
-						time: "14:00",
-						memo: "북촌한옥마을 산책",
-					},
-					{
-						id: "item-023",
-						type: "attraction",
-						refId: 8,
-						time: "17:00",
-						memo: "인사동 쇼핑",
-					},
-					{
-						id: "item-024",
-						type: "accommodation",
-						refId: 5,
-						memo: "숙소 체크인",
-					},
-				],
-			},
-			{
-				date: "2026-08-21",
-				items: [
-					{
-						id: "item-025",
-						type: "attraction",
-						refId: 44,
-						time: "19:00",
-						memo: "경복궁 야간개장",
-					},
-				],
-			},
-		],
-	},
-];
-
-function loadFromStorage(): Plan[] {
-	try {
-		const raw = localStorage.getItem(PLANS_STORAGE_KEY);
-		if (!raw) return [...SEED_PLANS];
-		return JSON.parse(raw) as Plan[];
-	} catch {
-		return [...SEED_PLANS];
-	}
+// ── 매핑 함수 ─────────────────────────────────────────────────────────────────
+function mapApiItem(r: PlanItemApiResponse): PlanItem {
+	return {
+		id: r.id.toString(),
+		type: r.targetType.toLowerCase() as PlanItemType,
+		refId: r.targetId,
+		dayIndex: r.dayIndex,
+		orderIndex: r.orderIndex,
+		memo: r.memo ?? undefined,
+	};
 }
 
-export const usePlansStore = defineStore("plans", () => {
-	const plans = ref<Plan[]>(loadFromStorage());
-	const loading = ref(false);
+function mapApiToPlan(r: PlanApiResponse): Plan {
+	const days = buildDays(r.startDate, r.endDate);
 
-	// localStorage 영속
-	watch(
-		plans,
-		(val) => {
-			localStorage.setItem(PLANS_STORAGE_KEY, JSON.stringify(val));
-		},
-		{ deep: true },
+	// flat items → days에 배치 (orderIndex 오름차순)
+	const sorted = [...r.items].sort(
+		(a, b) => a.dayIndex - b.dayIndex || a.orderIndex - b.orderIndex,
 	);
+	for (const item of sorted) {
+		if (item.dayIndex >= 0 && item.dayIndex < days.length) {
+			days[item.dayIndex].items.push(mapApiItem(item));
+		}
+	}
 
+	return {
+		id: r.id.toString(),
+		title: r.title,
+		startDate: r.startDate,
+		endDate: r.endDate,
+		days,
+		createdAt: r.createdAt,
+	};
+}
+
+// ── Store ────────────────────────────────────────────────────────────────────
+export const usePlansStore = defineStore("plans", () => {
+	/** 내 계획 목록 (요약, items=[]). 상세는 fetchPlanById로 lazy 로드 */
+	const plans = ref<Plan[]>([]);
+	const loading = ref(false);
+	const error = ref<string | null>(null);
+
+	// ── computed ───────────────────────────────────────────────────────────────
 	const sortedPlans = computed(() =>
 		[...plans.value].sort(
 			(a, b) =>
@@ -271,29 +116,128 @@ export const usePlansStore = defineStore("plans", () => {
 		return plans.value.find((p) => p.id === id);
 	}
 
-	function createPlan(title: string, startDate: string, endDate: string): Plan {
-		const newPlan: Plan = {
-			id: `plan-${Date.now()}`,
+	// ── 목록 조회 ─────────────────────────────────────────────────────────────
+	/**
+	 * GET /api/plans/me — 내 여행 계획 목록 (아이템 없는 요약)
+	 */
+	async function fetchMyPlans(): Promise<void> {
+		loading.value = true;
+		error.value = null;
+
+		const result = await get<PlanApiResponse[]>("/api/plans/me");
+		loading.value = false;
+
+		if (result.error || !result.data) {
+			error.value = result.error ?? "계획 목록을 불러오지 못했습니다.";
+			return;
+		}
+
+		// 요약 응답(items=[])을 Plan으로 변환 — days는 날짜 범위만 빈 셸
+		plans.value = result.data.map(mapApiToPlan);
+	}
+
+	/**
+	 * GET /api/plans/{id} — 여행 계획 상세 (아이템 포함)
+	 * 캐시에 이미 있더라도 새로 fetch해 items를 채운다.
+	 */
+	async function fetchPlanById(id: string): Promise<Plan | null> {
+		loading.value = true;
+		error.value = null;
+
+		const result = await get<PlanApiResponse>(`/api/plans/${id}`);
+		loading.value = false;
+
+		if (result.error || !result.data) {
+			error.value = result.error ?? "계획을 불러오지 못했습니다.";
+			return null;
+		}
+
+		const mapped = mapApiToPlan(result.data);
+		// 캐시 갱신
+		const idx = plans.value.findIndex((p) => p.id === id);
+		if (idx >= 0) {
+			plans.value[idx] = mapped;
+		} else {
+			plans.value.push(mapped);
+		}
+		return mapped;
+	}
+
+	// ── 생성 ──────────────────────────────────────────────────────────────────
+	/**
+	 * POST /api/plans
+	 */
+	async function createPlan(
+		title: string,
+		startDate: string,
+		endDate: string,
+	): Promise<Plan | null> {
+		loading.value = true;
+		error.value = null;
+
+		const result = await post<PlanApiResponse>("/api/plans", {
 			title,
 			startDate,
 			endDate,
-			days: buildDays(startDate, endDate),
-			createdAt: new Date().toISOString(),
-		};
-		plans.value.push(newPlan);
-		return newPlan;
+		});
+		loading.value = false;
+
+		if (result.error || !result.data) {
+			error.value = result.error ?? "계획 생성에 실패했습니다.";
+			return null;
+		}
+
+		const mapped = mapApiToPlan(result.data);
+		plans.value.push(mapped);
+		return mapped;
 	}
 
-	function addItem(
+	// ── 아이템 추가 ───────────────────────────────────────────────────────────
+	/**
+	 * POST /api/plans/{id}/items
+	 */
+	async function addItem(
 		planId: string,
 		dayIndex: number,
-		item: Omit<PlanItem, "id">,
-	): void {
-		const plan = plans.value.find((p) => p.id === planId);
-		if (!plan || !plan.days[dayIndex]) return;
-		plan.days[dayIndex].items.push({ ...item, id: `item-${Date.now()}` });
+		item: Omit<PlanItem, "id" | "dayIndex" | "orderIndex">,
+	): Promise<PlanItem | null> {
+		const plan = getById(planId);
+		if (!plan) {
+			error.value = "계획을 찾을 수 없습니다.";
+			return null;
+		}
+
+		const day = plan.days[dayIndex];
+		const orderIndex = day ? day.items.length : 0;
+
+		const result = await post<PlanItemApiResponse>(
+			`/api/plans/${planId}/items`,
+			{
+				dayIndex,
+				orderIndex,
+				targetType: item.type.toUpperCase(),
+				targetId: item.refId,
+				memo: item.memo ?? null,
+			},
+		);
+
+		if (result.error || !result.data) {
+			error.value = result.error ?? "아이템 추가에 실패했습니다.";
+			return null;
+		}
+
+		const newItem = mapApiItem(result.data);
+		if (day) {
+			day.items.push(newItem);
+		}
+		return newItem;
 	}
 
+	// ── 아이템 제거 (클라이언트 사이드) ──────────────────────────────────────
+	/**
+	 * BE 미구현 — FE 로컬 제거만 수행.
+	 * TODO: Task #31 후속으로 BE DELETE 엔드포인트 구현 시 API 연결.
+	 */
 	function removeItem(planId: string, dayIndex: number, itemId: string): void {
 		const plan = plans.value.find((p) => p.id === planId);
 		if (!plan || !plan.days[dayIndex]) return;
@@ -302,26 +246,21 @@ export const usePlansStore = defineStore("plans", () => {
 		);
 	}
 
-	function deletePlan(planId: string): void {
-		plans.value = plans.value.filter((p) => p.id !== planId);
-	}
-
+	// ── 아이템 재정렬 ─────────────────────────────────────────────────────────
 	/**
-	 * 특정 날짜의 아이템 순서를 변경한다.
-	 * @param planId - 여행 계획 ID
-	 * @param dayIndex - plans.days 배열 인덱스
-	 * @param fromIdx - 이동할 아이템의 현재 인덱스
-	 * @param toIdx - 이동할 목표 인덱스
+	 * PATCH /api/plans/{id}/items/reorder — drag & drop 결과 BE 반영
+	 * 로컬 재정렬 먼저 → BE 전송 (낙관적 업데이트).
 	 */
-	function reorderItems(
+	async function reorderItems(
 		planId: string,
 		dayIndex: number,
 		fromIdx: number,
 		toIdx: number,
-	): void {
+	): Promise<void> {
 		const plan = plans.value.find((p) => p.id === planId);
 		if (!plan || !plan.days[dayIndex]) return;
 		const items = plan.days[dayIndex].items;
+
 		if (
 			fromIdx < 0 ||
 			fromIdx >= items.length ||
@@ -330,15 +269,69 @@ export const usePlansStore = defineStore("plans", () => {
 			fromIdx === toIdx
 		)
 			return;
+
+		// 낙관적 로컬 업데이트
 		const [moved] = items.splice(fromIdx, 1);
 		items.splice(toIdx, 0, moved);
+
+		// orderIndex 재할당
+		items.forEach((item, i) => {
+			item.orderIndex = i;
+		});
+
+		// BE 동기화 — 전체 계획의 아이템을 flat으로 직렬화
+		const allEntries: { id: number; dayIndex: number; orderIndex: number }[] =
+			[];
+		for (const day of plan.days) {
+			for (const item of day.items) {
+				allEntries.push({
+					id: Number(item.id),
+					dayIndex: item.dayIndex,
+					orderIndex: item.orderIndex,
+				});
+			}
+		}
+
+		const result = await patch<PlanItemApiResponse[]>(
+			`/api/plans/${planId}/items/reorder`,
+			{ items: allEntries },
+		);
+
+		if (result.error) {
+			error.value = result.error;
+			// 실패 시 BE 상태로 재동기화
+			await fetchPlanById(planId);
+		}
+	}
+
+	// ── 계획 삭제 ─────────────────────────────────────────────────────────────
+	/**
+	 * DELETE /api/plans/{id}
+	 */
+	async function deletePlan(planId: string): Promise<boolean> {
+		loading.value = true;
+		error.value = null;
+
+		const result = await del(`/api/plans/${planId}`);
+		loading.value = false;
+
+		if (result.error) {
+			error.value = result.error;
+			return false;
+		}
+
+		plans.value = plans.value.filter((p) => p.id !== planId);
+		return true;
 	}
 
 	return {
 		plans,
 		loading,
+		error,
 		sortedPlans,
 		getById,
+		fetchMyPlans,
+		fetchPlanById,
 		createPlan,
 		addItem,
 		removeItem,

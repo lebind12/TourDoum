@@ -6,15 +6,31 @@ import { Separator } from "@/components/ui/separator";
 import { Sheet, SheetHeader } from "@/components/ui/sheet";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { useAuthStore } from "@/stores/auth";
+import { useNotificationsStore } from "@/stores/notifications";
 import { Menu, X } from "lucide-vue-next";
-import { ref } from "vue";
+import { ref, watch } from "vue";
 import { RouterLink, useRouter } from "vue-router";
 
 const authStore = useAuthStore();
+const notificationsStore = useNotificationsStore();
 const router = useRouter();
 const drawerOpen = ref(false);
 
+// 로그인 상태에 따라 폴링 시작/중단
+watch(
+	() => authStore.currentUser,
+	(user) => {
+		if (user) {
+			notificationsStore.startPolling();
+		} else {
+			notificationsStore.stopPolling();
+		}
+	},
+	{ immediate: true },
+);
+
 async function handleLogout() {
+	notificationsStore.stopPolling();
 	await authStore.logout();
 	drawerOpen.value = false;
 	router.push("/");
