@@ -1,3 +1,4 @@
+import { getAccessToken } from "@/api/auth-token";
 import { post } from "@/api/client";
 import { get } from "@/api/client";
 import { defineStore } from "pinia";
@@ -236,12 +237,17 @@ export const useReservationsStore = defineStore("reservations", () => {
 		let errMsg: string | null = null;
 
 		try {
+			// ADR-0011 FE-1 — direct fetch도 Bearer 자동 부착 정책에 합류.
+			const headers: Record<string, string> = {
+				"Content-Type": "application/json",
+				"Idempotency-Key": idempotencyKey.value,
+			};
+			const token = getAccessToken();
+			if (token) headers.Authorization = `Bearer ${token}`;
+
 			const res = await fetch(`${BASE_URL}/api/reservations`, {
 				method: "POST",
-				headers: {
-					"Content-Type": "application/json",
-					"Idempotency-Key": idempotencyKey.value,
-				},
+				headers,
 				credentials: "include",
 				body: JSON.stringify({
 					accommodationId: draft.accommodationId,
