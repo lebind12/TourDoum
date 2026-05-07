@@ -30,6 +30,19 @@
 		--success-foreground: 0 0% 100%;
 		--warning: 37.7 92.1% 50.2%; /* amber-500 */
 		--warning-foreground: 26 83.3% 14.1%; /* amber-950 */
+		/* ── Round 7 (K): 모션 토큰 ──────────────────────────────────────────
+		 * 마이크로 인터랙션 duration / easing 통일. tailwind class에서는
+		 * `duration-[var(--motion-fast)]` / `ease-[var(--ease-standard)]`로 참조.
+		 * - fast 120ms: hover/focus 색 전환, button:active scale.
+		 * - base 180ms: input/select state 전환.
+		 * - slow 260ms: sheet/dialog enter (R6 motion-safe 대상).
+		 * reduced-motion 미디어 쿼리는 본 파일 하단에서 일괄 0.01ms로 클램프 — 토큰을
+		 * 직접 덮어쓰는 게 아니라 `transition-duration`/`animation-duration` `!important`로 차단. */
+		--motion-fast: 120ms;
+		--motion-base: 180ms;
+		--motion-slow: 260ms;
+		--ease-standard: cubic-bezier(0.2, 0, 0, 1);
+		--ease-emphasized: cubic-bezier(0.2, 0, 0, 1.2);
 	}
 
 	.dark {
