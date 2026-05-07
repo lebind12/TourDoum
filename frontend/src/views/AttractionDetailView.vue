@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import FavoriteButton from "@/components/FavoriteButton.vue";
+import KakaoMap, { type MapMarker } from "@/components/map/KakaoMap.vue";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,6 +20,23 @@ const nearbySameRegion = computed(() => {
 	return store.items
 		.filter((a) => a.sido === attraction.value?.sido && a.id !== id)
 		.slice(0, 4);
+});
+
+const detailCenter = computed(() => {
+	if (!attraction.value) return { lat: 36.5, lng: 127.8 };
+	return { lat: attraction.value.latitude, lng: attraction.value.longitude };
+});
+
+const detailMarkers = computed<MapMarker[]>(() => {
+	if (!attraction.value) return [];
+	return [
+		{
+			id: attraction.value.id,
+			lat: attraction.value.latitude,
+			lng: attraction.value.longitude,
+			title: attraction.value.name,
+		},
+	];
 });
 </script>
 
@@ -93,11 +111,12 @@ const nearbySameRegion = computed(() => {
           <CardTitle class="text-base">위치</CardTitle>
         </CardHeader>
         <CardContent>
-          <div class="h-48 bg-muted rounded-lg flex items-center justify-center mb-3">
-            <div class="text-center text-muted-foreground">
-              <p class="text-sm">지도 ({{ attraction.latitude.toFixed(4) }}, {{ attraction.longitude.toFixed(4) }})</p>
-              <p class="text-xs mt-1">카카오맵 연결 예정</p>
-            </div>
+          <div class="h-48 rounded-lg overflow-hidden mb-3">
+            <KakaoMap
+              :center="detailCenter"
+              :level="4"
+              :markers="detailMarkers"
+            />
           </div>
           <p class="text-sm text-muted-foreground">{{ attraction.address }}</p>
         </CardContent>
