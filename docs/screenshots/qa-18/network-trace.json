@@ -1,0 +1,17 @@
+[
+  {
+    "url": "http://localhost:8080/api/accommodations?size=100",
+    "status": 200,
+    "method": "GET",
+    "requestHeaders": {
+      "origin": null,
+      "referer": "http://localhost:5174/",
+      "cookie": null
+    },
+    "responseHeaders": {
+      "access-control-allow-origin": "http://localhost:5174",
+      "access-control-allow-credentials": "true",
+      "content-type": "application/json"
+    }
+  }
+]

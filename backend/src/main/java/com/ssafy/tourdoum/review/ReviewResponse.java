@@ -6,6 +6,7 @@ import java.time.LocalDateTime;
 public record ReviewResponse(
     Long id,
     Long memberId,
+    String authorNickname,
     ReviewTargetType targetType,
     Long targetId,
     int rating,
@@ -14,10 +15,12 @@ public record ReviewResponse(
     LocalDateTime createdAt,
     LocalDateTime updatedAt) {
 
-  public static ReviewResponse from(Review review) {
+  /** 닉네임 포함 변환. */
+  public static ReviewResponse from(Review review, String authorNickname) {
     return new ReviewResponse(
         review.getId(),
         review.getMemberId(),
+        authorNickname,
         review.getTargetType(),
         review.getTargetId(),
         review.getRating(),
@@ -25,5 +28,10 @@ public record ReviewResponse(
         review.getContent(),
         review.getCreatedAt(),
         review.getUpdatedAt());
+  }
+
+  /** 닉네임 미제공 시 fallback (레거시/테스트 용). */
+  public static ReviewResponse from(Review review) {
+    return from(review, null);
   }
 }

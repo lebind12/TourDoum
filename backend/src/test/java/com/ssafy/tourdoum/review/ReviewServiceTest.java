@@ -5,6 +5,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 
+import com.ssafy.tourdoum.member.Member;
+import com.ssafy.tourdoum.member.MemberRepository;
 import com.ssafy.tourdoum.notification.NotificationService;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
@@ -19,17 +21,21 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class ReviewServiceTest {
 
   @Mock private ReviewRepository reviewRepository;
+  @Mock private MemberRepository memberRepository;
   @Mock private NotificationService notificationService;
 
   @InjectMocks private ReviewService reviewService;
 
   @Test
-  @DisplayName("create — 요청 내용이 저장된 후 ReviewResponse로 반환됨")
-  void create_savesAndReturnsResponse() {
+  @DisplayName("create — 요청 내용이 저장된 후 authorNickname 포함 ReviewResponse로 반환됨")
+  void create_savesAndReturnsResponseWithNickname() {
     // given
     Long memberId = 1L;
     ReviewCreateRequest request =
         new ReviewCreateRequest(ReviewTargetType.ATTRACTION, 42L, 5, "멋진 곳", "정말 좋았어요!");
+
+    Member member = Member.builder().email("test@test.com").password("pw").nickname("테스터").build();
+    given(memberRepository.findById(memberId)).willReturn(Optional.of(member));
 
     Review saved =
         Review.builder()
@@ -47,6 +53,7 @@ class ReviewServiceTest {
 
     // then
     assertThat(response.memberId()).isEqualTo(memberId);
+    assertThat(response.authorNickname()).isEqualTo("테스터");
     assertThat(response.targetType()).isEqualTo(ReviewTargetType.ATTRACTION);
     assertThat(response.targetId()).isEqualTo(42L);
     assertThat(response.rating()).isEqualTo(5);
