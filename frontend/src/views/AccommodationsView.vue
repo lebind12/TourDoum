@@ -69,6 +69,23 @@ onMounted(() => {
       </div>
     </template>
 
+    <!-- 에러 -->
+    <template v-else-if="store.error">
+      <Card>
+        <CardContent class="p-12 text-center space-y-3">
+          <p class="text-destructive font-medium">숙박 목록을 불러오지 못했습니다.</p>
+          <p class="text-muted-foreground text-sm">{{ store.error }}</p>
+          <button
+            type="button"
+            class="text-sm text-primary underline underline-offset-2"
+            @click="store.fetchAccommodations()"
+          >
+            다시 시도
+          </button>
+        </CardContent>
+      </Card>
+    </template>
+
     <!-- 빈 상태 -->
     <template v-else-if="store.filtered.length === 0">
       <Card>
