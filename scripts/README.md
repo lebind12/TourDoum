@@ -28,6 +28,16 @@ cd frontend && npm run dev
 - BE health: http://localhost:8080/api/health
 - BE actuator: http://localhost:8080/actuator/health
 
+## 인증 e2e 실행
+
+BE/FE를 실제로 함께 띄워 인증/라우트 가드 흐름을 검증하려면:
+
+```bash
+./scripts/e2e-auth-flow.sh
+```
+
+이 스크립트는 `dev-up.sh`로 MySQL/Redis를 띄우고, 백엔드를 백그라운드로 실행한 뒤, Playwright가 e2e 전용 Vite 서버(5174)를 띄워 `frontend/e2e/auth-flow.spec.ts`를 실행한다. 종료 시 백엔드 프로세스만 내리고, MySQL/Redis 컨테이너는 확인을 위해 유지한다. 컨테이너를 내릴 때는 `./scripts/dev-down.sh`를 사용한다.
+
 ## 끝낼 때
 
 ```bash

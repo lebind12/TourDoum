@@ -63,9 +63,13 @@ class AuthIntegrationTest {
                 + "/tourdoum?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true");
     registry.add("spring.datasource.username", mysql::getUsername);
     registry.add("spring.datasource.password", mysql::getPassword);
+    // test application.yml의 H2 설정을 MySQL Testcontainer 설정으로 명시 오버라이드.
+    registry.add("spring.datasource.driver-class-name", () -> "com.mysql.cj.jdbc.Driver");
     registry.add("spring.data.redis.host", redis::getHost);
     registry.add("spring.data.redis.port", () -> redis.getMappedPort(6379));
     registry.add("spring.jpa.hibernate.ddl-auto", () -> "update");
+    registry.add(
+        "spring.jpa.properties.hibernate.dialect", () -> "org.hibernate.dialect.MySQLDialect");
   }
 
   @Autowired private MockMvc mockMvc;
