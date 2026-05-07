@@ -77,8 +77,8 @@ async function handleLogout() {
           확인 중...
         </div>
 
-        <div v-else-if="healthStore.status" class="inline-flex items-center gap-2 rounded-md bg-green-50 px-3 py-1.5 text-sm font-medium text-green-700">
-          <span class="h-2 w-2 rounded-full bg-green-500" />
+        <div v-else-if="healthStore.status" class="inline-flex items-center gap-2 rounded-md bg-success/10 px-3 py-1.5 text-sm font-medium text-success">
+          <span class="h-2 w-2 rounded-full bg-success" />
           {{ healthStore.status }}
         </div>
 

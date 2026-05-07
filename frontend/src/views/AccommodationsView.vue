@@ -2,6 +2,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useAccommodationsStore } from "@/stores/accommodations";
 import { onMounted, ref } from "vue";
 import { RouterLink } from "vue-router";
@@ -59,11 +60,11 @@ onMounted(() => {
     <!-- 로딩 -->
     <template v-if="store.loading">
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        <Card v-for="n in 6" :key="n" class="animate-pulse overflow-hidden">
-          <div class="h-48 bg-muted rounded-t-xl" />
-          <CardContent class="p-4">
-            <div class="h-4 bg-muted rounded w-3/4 mb-2" />
-            <div class="h-3 bg-muted rounded w-1/2" />
+        <Card v-for="n in 6" :key="n" class="overflow-hidden">
+          <Skeleton class="h-48 w-full rounded-t-xl rounded-b-none" />
+          <CardContent class="p-4 space-y-2">
+            <Skeleton class="h-4 w-3/4" />
+            <Skeleton class="h-3 w-1/2" />
           </CardContent>
         </Card>
       </div>

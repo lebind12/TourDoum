@@ -213,7 +213,7 @@ async function withdraw() {
           <!-- 성공 메시지 -->
           <div
             v-if="pwSuccess"
-            class="rounded-md bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-900 px-4 py-3 text-sm text-green-700 dark:text-green-400"
+            class="rounded-md bg-success/10 border border-success/30 px-4 py-3 text-sm text-success"
             role="status"
             aria-live="polite"
           >
@@ -274,7 +274,7 @@ async function withdraw() {
                 role="alert"
                 class="text-xs text-destructive"
               >{{ pwError }}</p>
-              <p v-else-if="pwConfirm && pwConfirm === pwNew" class="text-xs text-green-600 dark:text-green-400">
+              <p v-else-if="pwConfirm && pwConfirm === pwNew" class="text-xs text-success">
                 비밀번호가 일치합니다 ✓
               </p>
             </div>
