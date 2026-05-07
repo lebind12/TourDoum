@@ -84,6 +84,16 @@ public class AccommodationController {
     return ResponseEntity.ok(PageResponse.from(result));
   }
 
+  /** 숙박 행정구역 옵션 조회 — FE 시·도/시·군·구 필터 select 채움. 매 list fetch마다 distinct 추출하지 않도록 별도 endpoint. */
+  @Operation(
+      summary = "숙박 행정구역 옵션 조회",
+      description = "FE 필터 컴포넌트용 시·도 목록 + 시·도별 시·군·구 목록(한글 사전순). 인증 불필요.")
+  @ApiResponses({@ApiResponse(responseCode = "200", description = "행정구역 옵션 응답")})
+  @GetMapping("/regions")
+  public ResponseEntity<AccommodationRegionsResponse> regions() {
+    return ResponseEntity.ok(accommodationService.getRegions());
+  }
+
   /**
    * 숙박 단건 조회.
    *

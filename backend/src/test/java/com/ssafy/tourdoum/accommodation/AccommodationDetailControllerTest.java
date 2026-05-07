@@ -37,6 +37,8 @@ class AccommodationDetailControllerTest {
             .name("디테일 테스트 호텔")
             .type(AccommodationType.HOTEL)
             .address("서울특별시 중구 테스트로 1")
+            .sido("서울특별시")
+            .gugun("중구")
             .lat(new BigDecimal("37.5636"))
             .lng(new BigDecimal("126.9826"))
             .priceFrom(180000)
@@ -70,7 +72,10 @@ class AccommodationDetailControllerTest {
         .andExpect(jsonPath("$.maxGuests").value(4))
         .andExpect(jsonPath("$.checkInTime").value("15:00"))
         .andExpect(jsonPath("$.checkOutTime").value("11:00"))
-        .andExpect(jsonPath("$.reviewCount").value(0));
+        .andExpect(jsonPath("$.reviewCount").value(0))
+        // #43 V16 — sido/gugun 응답 노출
+        .andExpect(jsonPath("$.sido").value("서울특별시"))
+        .andExpect(jsonPath("$.gugun").value("중구"));
   }
 
   @Test

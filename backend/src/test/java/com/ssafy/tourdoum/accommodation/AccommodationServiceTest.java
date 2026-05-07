@@ -34,6 +34,8 @@ class AccommodationServiceTest {
         .name(name)
         .type(type)
         .address(address)
+        .sido("서울특별시")
+        .gugun("중구")
         .lat(new BigDecimal("37.5636"))
         .lng(new BigDecimal("126.9826"))
         .priceFrom(150000)
@@ -46,6 +48,27 @@ class AccommodationServiceTest {
         .checkOutTime("11:00")
         .description("테스트용 숙박")
         .build();
+  }
+
+  @Test
+  @DisplayName("getRegions — repository 페어를 한글 사전순 sidos + gugunsBySido로 그룹화")
+  void getRegions_groups_pairs_by_sido() {
+    // given — repository는 (sido, gugun) ASCENDING 정렬 페어 반환
+    given(accommodationRepository.findDistinctSidoGugunPairs())
+        .willReturn(
+            List.of(
+                new Object[] {"부산광역시", "기장군"},
+                new Object[] {"부산광역시", "해운대구"},
+                new Object[] {"서울특별시", "강남구"},
+                new Object[] {"서울특별시", "중구"}));
+
+    // when
+    AccommodationRegionsResponse response = accommodationService.getRegions();
+
+    // then
+    assertThat(response.sidos()).containsExactly("부산광역시", "서울특별시");
+    assertThat(response.gugunsBySido().get("부산광역시")).containsExactly("기장군", "해운대구");
+    assertThat(response.gugunsBySido().get("서울특별시")).containsExactly("강남구", "중구");
   }
 
   @Test
@@ -127,6 +150,8 @@ class AccommodationServiceTest {
     given(projection.getName()).willReturn("명동 호텔");
     given(projection.getType()).willReturn("HOTEL");
     given(projection.getAddress()).willReturn("서울특별시 중구 명동길 33");
+    given(projection.getSido()).willReturn("서울특별시");
+    given(projection.getGugun()).willReturn("중구");
     given(projection.getLat()).willReturn(new BigDecimal("37.5636"));
     given(projection.getLng()).willReturn(new BigDecimal("126.9826"));
     given(projection.getPriceFrom()).willReturn(150000);
