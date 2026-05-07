@@ -1,155 +1,146 @@
-# handoff — be/reservations-domain
+# handoff — be/plans-domain
 
 ## 완료 내용
 
-- `POST /api/reservations/quote` — 가격 견적 (DB 저장 없음, SESSION 인증 필수)
-- `POST /api/reservations` — 예약 확정 (Idempotency-Key 헤더 필수, 201 반환)
-- `GET /api/reservations/me` — 내 예약 목록 (최신순)
-- `POST /api/reservations/{id}/cancel` — 예약 취소 (본인 예약만 가능)
-- Flyway V10: `reservations` 테이블 + `uk_reservations_idempotency_key` UNIQUE 인덱스
-- `GlobalExceptionHandler` — ReservationNotFound(404), ReservationForbidden(403), IllegalArgument(400) 추가
+- `POST /api/plans` — 여행 계획 생성 (201)
+- `GET /api/plans/me` — 내 여행 계획 목록 (아이템 없는 요약, 최신순)
+- `GET /api/plans/{id}` — 여행 계획 상세 (아이템 포함, 403 권한 체크)
+- `POST /api/plans/{id}/items` — 아이템 추가 (201)
+- `PATCH /api/plans/{id}/items/reorder` — drag reorder (dayIndex + orderIndex 일괄 갱신)
+- `DELETE /api/plans/{id}` — 계획 삭제 (cascade → 아이템 포함, 204)
+- Flyway V11: plans + plan_items (FK ON DELETE CASCADE)
+- GlobalExceptionHandler: PlanNotFound(404), PlanForbidden(403) 추가
+- Mockito 단위테스트 2종 (reorder 정렬, 날짜 유효성 검증)
 
 ---
 
-## FE 연결 가이드 (Task #23 — FE-wire-4)
+## FE 연결 가이드 (Task #25 — FE-wire-5)
 
-### 1. PaymentMethod 매핑
+### 1. FE store `plans.ts` 필드 매핑
 
-FE `reservations.ts` mock의 `paymentMethod`는 소문자(`'card'`, `'kakaopay'`, `'toss'`)를 사용하나
-BE는 대문자 enum을 받는다.
+| FE store 필드 | BE 응답 필드 | 변환 |
+|---|---|---|
+| `id` (string) | `id` (Long) | `res.id.toString()` |
+| `title` | `title` | 동일 |
+| `startDate` / `endDate` | `startDate` / `endDate` | 'YYYY-MM-DD' 동일 |
+| `items[].type` (소문자) | `targetType` (대문자) | `.toLowerCase()` |
+| `items[].itemId` | `targetId` | 동일 |
+| `items[].dayIndex` | `dayIndex` | 동일 |
+| `items[].order` | `orderIndex` | 필드명 다름: `orderIndex` |
+| `items[].note` | `memo` | 필드명 다름: `memo` |
 
-| FE mock값 | BE PaymentMethod |
-|---|---|
-| `'card'` | `'CARD'` |
-| `'kakaopay'` | `'KAKAOPAY'` |
-| `'toss'` | `'TOSS'` |
-
-```typescript
-// FE 요청 시 대문자 변환
-paymentMethod: store.selectedPayment.toUpperCase()
-```
-
-### 2. 인원 수 매핑
-
-FE `ReservationDatesView`의 `adults` + `children` → BE `guests` (합산):
+### 2. 계획 생성
 
 ```typescript
-guests: state.adults + state.children
-```
-
-### 3. 3단계 예약 플로우
-
-#### Step 1 — 날짜/인원 선택 후 견적 요청
-
-```typescript
-// POST /api/reservations/quote
-const quote = await fetch('/api/reservations/quote', {
+// POST /api/plans
+const plan = await fetch('/api/plans', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({
-    accommodationId: accommodationId,
-    checkIn: checkIn,       // 'YYYY-MM-DD'
-    checkOut: checkOut,     // 'YYYY-MM-DD'
-    guests: adults + children,
+    title: state.title,
+    startDate: state.startDate,  // 'YYYY-MM-DD'
+    endDate: state.endDate,
   }),
 }).then(r => r.json())
-
-// quote 응답 필드:
-// { accommodationId, checkIn, checkOut, nights, guests,
-//   pricePerNight, cleaningFee, totalPrice }
 ```
 
-#### Step 2 — 결제 수단 선택 후 확정
+### 3. 아이템 추가
 
 ```typescript
-// POST /api/reservations (Idempotency-Key 헤더 필수)
-const idempotencyKey = crypto.randomUUID()
-
-const reservation = await fetch('/api/reservations', {
+// POST /api/plans/{id}/items
+await fetch(`/api/plans/${planId}/items`, {
   method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-    'Idempotency-Key': idempotencyKey,   // 중복 방지 UUID
-  },
+  headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({
-    accommodationId: accommodationId,
-    checkIn: checkIn,
-    checkOut: checkOut,
-    guests: adults + children,
-    paymentMethod: selectedPayment.toUpperCase(),  // 'CARD' | 'KAKAOPAY' | 'TOSS'
+    dayIndex: item.dayIndex,
+    orderIndex: item.order,        // FE 'order' → BE 'orderIndex'
+    targetType: item.type.toUpperCase(),  // 'attraction' → 'ATTRACTION'
+    targetId: item.itemId,
+    memo: item.note ?? null,       // FE 'note' → BE 'memo'
   }),
-}).then(r => r.json())
-```
-
-**멱등성**: 네트워크 재시도 시 동일한 `idempotencyKey`로 재요청하면 기존 예약을 그대로 반환한다.
-`idempotencyKey`를 세션스토리지에 저장해 결제 완료 뷰로 넘기면 안전하다.
-
-#### Step 3 — 내 예약 목록 조회
-
-```typescript
-// GET /api/reservations/me
-const myReservations = await fetch('/api/reservations/me').then(r => r.json())
-
-// 응답 배열 요소:
-// { id, memberId, accommodationId, checkIn, checkOut, guests,
-//   totalPrice, paymentMethod, status, idempotencyKey, createdAt }
-```
-
-#### 취소
-
-```typescript
-// POST /api/reservations/{id}/cancel
-await fetch(`/api/reservations/${reservationId}/cancel`, { method: 'POST' })
-```
-
-### 4. Pinia store 교체 패턴
-
-```typescript
-// src/stores/reservations.ts
-import { defineStore } from 'pinia'
-
-export const useReservationStore = defineStore('reservation', {
-  state: () => ({
-    quote: null as ReservationQuoteResponse | null,
-    current: null as ReservationResponse | null,
-    list: [] as ReservationResponse[],
-    idempotencyKey: '',
-  }),
-  actions: {
-    async fetchQuote(payload: QuotePayload) {
-      this.idempotencyKey = crypto.randomUUID()  // 견적 단계에서 미리 생성
-      this.quote = await $fetch('/api/reservations/quote', {
-        method: 'POST', body: payload,
-      })
-    },
-    async confirm(payload: ConfirmPayload) {
-      this.current = await $fetch('/api/reservations', {
-        method: 'POST',
-        headers: { 'Idempotency-Key': this.idempotencyKey },
-        body: { ...payload, paymentMethod: payload.paymentMethod.toUpperCase() },
-      })
-    },
-    async fetchMyList() {
-      this.list = await $fetch('/api/reservations/me')
-    },
-    async cancel(id: number) {
-      await $fetch(`/api/reservations/${id}/cancel`, { method: 'POST' })
-      this.list = this.list.filter(r => r.id !== id)
-    },
-  },
 })
 ```
 
-### 5. CLEANING_FEE 동기화
+### 4. Drag Reorder
 
-BE `ReservationService.CLEANING_FEE = 20_000` (원).
-FE에 동일한 상수가 있다면 삭제하고 quote 응답의 `cleaningFee` 필드를 사용할 것.
+```typescript
+// PATCH /api/plans/{id}/items/reorder
+// FE drag 완료 후 전체 아이템 순서 배열을 전송
+await fetch(`/api/plans/${planId}/items/reorder`, {
+  method: 'PATCH',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    items: plan.items.map(item => ({
+      id: Number(item.id),       // string → number
+      dayIndex: item.dayIndex,
+      orderIndex: item.order,    // FE 'order' → BE 'orderIndex'
+    })),
+  }),
+})
+```
+
+### 5. 상세 조회 (아이템 포함)
+
+```typescript
+// GET /api/plans/{id}
+const detail = await fetch(`/api/plans/${planId}`).then(r => r.json())
+// items 배열: [{ id, planId, dayIndex, orderIndex, targetType, targetId, memo }]
+
+// FE store 변환
+const storeItems = detail.items.map(i => ({
+  id: i.id.toString(),
+  dayIndex: i.dayIndex,
+  order: i.orderIndex,          // BE 'orderIndex' → FE 'order'
+  type: i.targetType.toLowerCase(),  // 'ATTRACTION' → 'attraction'
+  itemId: i.targetId,
+  note: i.memo,
+}))
+```
+
+### 6. Pinia store 교체 패턴
+
+```typescript
+// src/stores/plans.ts
+actions: {
+  async createPlan(payload) {
+    const res = await $fetch('/api/plans', { method: 'POST', body: payload })
+    this.plans.unshift(this.toStorePlan(res))
+  },
+  async fetchMyPlans() {
+    const list = await $fetch('/api/plans/me')
+    this.plans = list.map(this.toStorePlan)
+  },
+  async fetchDetail(id: string) {
+    const res = await $fetch(`/api/plans/${id}`)
+    this.current = this.toStorePlanWithItems(res)
+  },
+  async addItem(planId: string, item) {
+    await $fetch(`/api/plans/${planId}/items`, {
+      method: 'POST',
+      body: { ...item, targetType: item.type.toUpperCase(), targetId: item.itemId,
+              memo: item.note, orderIndex: item.order },
+    })
+    await this.fetchDetail(planId)  // 재조회
+  },
+  async reorder(planId: string, items) {
+    await $fetch(`/api/plans/${planId}/items/reorder`, {
+      method: 'PATCH',
+      body: { items: items.map(i => ({
+        id: Number(i.id), dayIndex: i.dayIndex, orderIndex: i.order })) },
+    })
+  },
+  async deletePlan(id: string) {
+    await $fetch(`/api/plans/${id}`, { method: 'DELETE' })
+    this.plans = this.plans.filter(p => p.id !== id)
+  },
+}
+```
 
 ---
 
 ## 미해결 질문 / Reviewer 검토 포인트
 
-1. **상태코드**: `confirm` 멱등 재요청 시 현재 항상 201을 반환한다 (컨트롤러가 status 분기 없음). 재요청 시 200을 돌려줘야 하는지 FE 팀과 협의 필요.
-2. **guests 검증**: 현재 `@Min(1)` 검증이 없음 — `ReservationConfirmRequest`에 추가 고려.
-3. **날짜 범위 검증**: `checkIn >= today` 검증 없음 — 비즈니스 룰 확인 후 추가.
-4. **예약 완료 뷰 네비게이션**: `ReservationCompleteView`에서 `idempotencyKey`를 어떻게 전달할지 FE 설계 필요.
+1. **상세 조회 권한**: `GET /api/plans/{id}` — 현재 본인 계획만 조회 가능. 공유 계획 기능 필요 시 정책 변경 필요.
+2. **아이템 삭제 엔드포인트 없음**: 스펙에 없어서 미구현. FE가 필요할 경우 `DELETE /api/plans/{planId}/items/{itemId}` 추가 요청.
+3. **날짜 범위 검증**: `startDate == endDate` (당일치기)는 현재 거부됨 — 허용 여부 확인 필요.
+4. **목록 vs 상세 분리**: `myList`는 아이템 없는 요약, `detail`은 아이템 포함. N+1 없음 (`@OneToMany`는 EAGER 아님 — `detail` 호출 시 lazy loading).
