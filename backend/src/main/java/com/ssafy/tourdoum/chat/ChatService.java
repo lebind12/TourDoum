@@ -6,6 +6,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Limit;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,14 +26,17 @@ public class ChatService {
   private final ChatChannelRepository channelRepository;
   private final ChatMemberRepository memberRepository;
   private final ChatMessageRepository messageRepository;
+  private final ChatDmCreator dmCreator;
 
   public ChatService(
       ChatChannelRepository channelRepository,
       ChatMemberRepository memberRepository,
-      ChatMessageRepository messageRepository) {
+      ChatMessageRepository messageRepository,
+      ChatDmCreator dmCreator) {
     this.channelRepository = channelRepository;
     this.memberRepository = memberRepository;
     this.messageRepository = messageRepository;
+    this.dmCreator = dmCreator;
   }
 
   /**
@@ -123,8 +128,11 @@ public class ChatService {
   public ChatMessageResponse send(Long channelId, Long memberId, String content) {
     verifyMember(channelId, memberId);
     ChatMessage message =
-        messageRepository.save(
+        messageRepository.saveAndFlush(
             ChatMessage.builder().channelId(channelId).senderId(memberId).content(content).build());
+    // ADR-0012 v2 BE-2: monotonic guarded UPDATE — race가 있어도 최신 상태로만 수렴.
+    // 영향 row 0건은 stale로 후퇴 차단 — 정상.
+    channelRepository.updateLastMessage(channelId, message.getId(), message.getCreatedAt());
     return ChatMessageResponse.from(message);
   }
 
@@ -141,24 +149,23 @@ public class ChatService {
     if (memberId.equals(otherMemberId)) {
       throw new IllegalArgumentException("자기 자신과 DM 채널을 열 수 없습니다.");
     }
+    long min = Math.min(memberId, otherMemberId);
+    long max = Math.max(memberId, otherMemberId);
 
-    return channelRepository
-        .findDmChannel(memberId, otherMemberId)
-        .map(ChatChannelResponse::from)
-        .orElseGet(
-            () -> {
-              ChatChannel channel =
-                  channelRepository.save(
-                      ChatChannel.builder()
-                          .name("DM:" + memberId + ":" + otherMemberId)
-                          .type(ChatChannelType.DM)
-                          .build());
-              memberRepository.save(
-                  ChatMember.builder().channelId(channel.getId()).memberId(memberId).build());
-              memberRepository.save(
-                  ChatMember.builder().channelId(channel.getId()).memberId(otherMemberId).build());
-              return ChatChannelResponse.from(channel);
-            });
+    // 1. fast path — 기존 DM pair UNIQUE 인덱스 단일 lookup.
+    Optional<ChatChannel> existing = channelRepository.findByDmMemberMinAndDmMemberMax(min, max);
+    if (existing.isPresent()) {
+      return ChatChannelResponse.from(existing.get());
+    }
+
+    // 2. 신규 — REQUIRES_NEW로 saveAndFlush. UNIQUE 위반은 동시 race가 이긴 쪽이 박아둔 상태.
+    // 회수 시 InnoDB REPEATABLE READ로 외부 트랜잭션 snapshot이 winner의 commit을 못 보는 케이스가 있어
+    // findFresh(REQUIRES_NEW)로 새 snapshot을 떠 재조회한다.
+    try {
+      return ChatChannelResponse.from(dmCreator.createOrFail(min, max));
+    } catch (DataIntegrityViolationException dup) {
+      return dmCreator.findFresh(min, max).map(ChatChannelResponse::from).orElseThrow(() -> dup);
+    }
   }
 
   private void verifyMember(Long channelId, Long memberId) {

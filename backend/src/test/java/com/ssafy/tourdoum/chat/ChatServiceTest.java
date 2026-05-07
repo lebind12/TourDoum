@@ -27,55 +27,89 @@ class ChatServiceTest {
   @Mock private ChatChannelRepository channelRepository;
   @Mock private ChatMemberRepository memberRepository;
   @Mock private ChatMessageRepository messageRepository;
+  @Mock private ChatDmCreator dmCreator;
 
   @InjectMocks private ChatService chatService;
 
   @Test
-  @DisplayName("openDm — 기존 DM 채널이 없으면 새 채널을 자동 생성하고 두 멤버를 추가한다")
-  void openDm_createsNewChannel_whenNotExists() {
-    // given
-    Long memberA = 1L;
-    Long memberB = 2L;
-
-    given(channelRepository.findDmChannel(memberA, memberB)).willReturn(Optional.empty());
-
-    ChatChannel savedChannel =
+  @DisplayName("openDm — fast path: findByDmMemberMinAndDmMemberMax 매치 시 즉시 반환")
+  void openDm_returns_existing_via_pair_lookup() {
+    long memberA = 5L;
+    long memberB = 2L;
+    ChatChannel existing =
         ChatChannel.builder()
-            .name("DM:" + memberA + ":" + memberB)
+            .name("DM:2:5")
             .type(ChatChannelType.DM)
+            .dmMemberMin(2L)
+            .dmMemberMax(5L)
             .build();
-    given(channelRepository.save(any(ChatChannel.class))).willReturn(savedChannel);
-    given(memberRepository.save(any(ChatMember.class)))
-        .willAnswer(invocation -> invocation.getArgument(0));
+    given(channelRepository.findByDmMemberMinAndDmMemberMax(2L, 5L))
+        .willReturn(Optional.of(existing));
 
-    // when
     ChatChannelResponse response = chatService.openDm(memberA, memberB);
 
-    // then
-    assertThat(response).isNotNull();
     assertThat(response.type()).isEqualTo(ChatChannelType.DM);
   }
 
   @Test
-  @DisplayName("openDm — 기존 DM 채널이 있으면 기존 채널을 반환한다 (중복 생성 방지)")
-  void openDm_returnsExistingChannel_whenAlreadyExists() {
-    // given
-    Long memberA = 1L;
-    Long memberB = 2L;
-
-    ChatChannel existing =
+  @DisplayName("openDm — 신규 DM은 dmCreator.createOrFail로 위임 (REQUIRES_NEW)")
+  void openDm_creates_new_via_dmCreator() {
+    long memberA = 5L;
+    long memberB = 2L;
+    given(channelRepository.findByDmMemberMinAndDmMemberMax(2L, 5L)).willReturn(Optional.empty());
+    ChatChannel created =
         ChatChannel.builder()
-            .name("DM:" + memberA + ":" + memberB)
+            .name("DM:2:5")
             .type(ChatChannelType.DM)
+            .dmMemberMin(2L)
+            .dmMemberMax(5L)
             .build();
-    given(channelRepository.findDmChannel(memberA, memberB)).willReturn(Optional.of(existing));
+    given(dmCreator.createOrFail(2L, 5L)).willReturn(created);
 
-    // when
     ChatChannelResponse response = chatService.openDm(memberA, memberB);
 
-    // then
-    assertThat(response).isNotNull();
     assertThat(response.type()).isEqualTo(ChatChannelType.DM);
+  }
+
+  @Test
+  @DisplayName("openDm — DataIntegrityViolationException catch → re-find로 race winner를 반환")
+  void openDm_recovers_from_unique_violation_via_refind() {
+    long memberA = 5L;
+    long memberB = 2L;
+    ChatChannel raceWinner =
+        ChatChannel.builder()
+            .name("DM:2:5")
+            .type(ChatChannelType.DM)
+            .dmMemberMin(2L)
+            .dmMemberMax(5L)
+            .build();
+    given(channelRepository.findByDmMemberMinAndDmMemberMax(2L, 5L)).willReturn(Optional.empty());
+    given(dmCreator.createOrFail(2L, 5L))
+        .willThrow(
+            new org.springframework.dao.DataIntegrityViolationException(
+                "uk_chat_channels_dm_pair"));
+    // catch 분기는 dmCreator.findFresh(REQUIRES_NEW) 사용 — InnoDB snapshot 회피.
+    given(dmCreator.findFresh(2L, 5L)).willReturn(Optional.of(raceWinner));
+
+    ChatChannelResponse response = chatService.openDm(memberA, memberB);
+
+    assertThat(response.type()).isEqualTo(ChatChannelType.DM);
+  }
+
+  @Test
+  @DisplayName("send — saveAndFlush 후 channelRepository.updateLastMessage 호출")
+  void send_invokes_guarded_update_last_message() {
+    Long channelId = 10L;
+    Long memberId = 1L;
+    given(channelRepository.existsById(channelId)).willReturn(true);
+    given(memberRepository.existsByChannelIdAndMemberId(channelId, memberId)).willReturn(true);
+    ChatMessage saved = stub(7L, channelId, memberId, "hi", LocalDateTime.of(2026, 5, 8, 13, 0, 0));
+    given(messageRepository.saveAndFlush(any(ChatMessage.class))).willReturn(saved);
+
+    chatService.send(channelId, memberId, "hi");
+
+    org.mockito.Mockito.verify(channelRepository)
+        .updateLastMessage(eq(channelId), eq(7L), eq(saved.getCreatedAt()));
   }
 
   @Test
