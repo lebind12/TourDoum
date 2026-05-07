@@ -2,11 +2,14 @@ package com.ssafy.tourdoum.auth;
 
 import com.ssafy.tourdoum.member.Member;
 import com.ssafy.tourdoum.member.MemberRepository;
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.JwtException;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -24,40 +27,41 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * 인증 API — JWT 기반 (ADR-0011 BE-1, #61).
+ * 인증 API — JWT 기반.
  *
  * <ul>
- *   <li>{@code POST /api/auth/login} → access token 발급
- *   <li>{@code POST /api/auth/logout} → 204 stub (BE-2 denylist 추가 예정)
- *   <li>{@code GET /api/me} → SecurityContext의 {@link UserDetails} 기반 회원 조회
+ *   <li>{@code POST /api/auth/login} — JWT access + refresh 발급 (BE-1 + BE-2)
+ *   <li>{@code POST /api/auth/refresh} — refresh rotation (BE-2, #63)
+ *   <li>{@code POST /api/auth/logout} — family 폐기 + access denylist (BE-2, #63)
+ *   <li>{@code GET /api/me} — SecurityContext 기반 회원 조회
  * </ul>
- *
- * <p>이전 form-login + Spring Session 흐름은 ADR-0011로 폐기. {@link JwtAuthenticationFilter}가
- * Authorization: Bearer header를 SecurityContext로 변환한다.
  */
-@Tag(name = "Auth", description = "인증·인가 API (로그인/로그아웃/내 정보)")
+@Tag(name = "Auth", description = "인증·인가 API (로그인/리프레시/로그아웃/내 정보)")
 @RestController
 @RequestMapping("/api")
 public class AuthController {
 
   private final AuthenticationManager authenticationManager;
+  private final AuthService authService;
   private final JwtTokenProvider tokenProvider;
   private final MemberRepository memberRepository;
 
   public AuthController(
       AuthenticationManager authenticationManager,
+      AuthService authService,
       JwtTokenProvider tokenProvider,
       MemberRepository memberRepository) {
     this.authenticationManager = authenticationManager;
+    this.authService = authService;
     this.tokenProvider = tokenProvider;
     this.memberRepository = memberRepository;
   }
 
   @Operation(
       summary = "로그인",
-      description = "이메일/비밀번호로 인증 후 access token (RS256, 15분 TTL)을 Bearer 형태로 발급한다.")
+      description = "이메일/비밀번호 인증 후 access(15m) + refresh(14d) 토큰 발급. family Redis 박제.")
   @ApiResponses({
-    @ApiResponse(responseCode = "200", description = "JWT + 회원 정보"),
+    @ApiResponse(responseCode = "200", description = "JWT 응답"),
     @ApiResponse(responseCode = "401", description = "이메일 또는 비밀번호 불일치")
   })
   @PostMapping("/auth/login")
@@ -74,16 +78,47 @@ public class AuthController {
         memberRepository
             .findByEmail(email)
             .orElseThrow(() -> new UsernameNotFoundException("회원 없음: " + email));
-    JwtTokenProvider.IssuedToken issued = tokenProvider.issueAccessToken(member);
-    return ResponseEntity.ok(LoginResponse.of(issued, MeResponse.from(member)));
+    return ResponseEntity.ok(authService.issueOnLogin(member));
   }
 
   @Operation(
-      summary = "로그아웃 (stub)",
-      description = "BE-1에서는 서버 상태 없음. BE-2에서 refresh denylist 추가 예정. 클라이언트는 메모리 토큰을 폐기.")
-  @ApiResponse(responseCode = "204", description = "OK (no-op)")
+      summary = "Refresh rotation",
+      description = "refresh token 검증 → 새 access + 새 refresh 발급. replay 감지 시 family 전체 폐기.")
+  @ApiResponses({
+    @ApiResponse(responseCode = "200", description = "새 토큰 쌍"),
+    @ApiResponse(responseCode = "401", description = "refresh 만료/서명 오류/replay 감지")
+  })
+  @PostMapping("/auth/refresh")
+  public ResponseEntity<LoginResponse> refresh(@Valid @RequestBody RefreshRequest request) {
+    return ResponseEntity.ok(authService.rotate(request.refreshToken()));
+  }
+
+  @Operation(
+      summary = "로그아웃",
+      description = "refresh token이 동봉되면 family 전체 폐기. 현재 access는 denylist에 추가되어 만료까지 무효.")
+  @ApiResponse(responseCode = "204", description = "OK")
+  @SecurityRequirement(name = "bearerAuth")
   @PostMapping("/auth/logout")
-  public ResponseEntity<Void> logout() {
+  public ResponseEntity<Void> logout(
+      @RequestBody(required = false) LogoutRequest request, HttpServletRequest httpRequest) {
+    String accessJti = (String) httpRequest.getAttribute(JwtAuthenticationFilter.ATTR_ACCESS_JTI);
+    Object expiresAtAttr =
+        httpRequest.getAttribute(JwtAuthenticationFilter.ATTR_ACCESS_EXPIRES_AT_EPOCH_SECOND);
+    long ttlSeconds = 0;
+    if (expiresAtAttr instanceof Number n) {
+      ttlSeconds = n.longValue() - java.time.Instant.now().getEpochSecond();
+    }
+
+    String familyId = null;
+    if (request != null && request.refreshToken() != null && !request.refreshToken().isBlank()) {
+      try {
+        Claims claims = tokenProvider.parseRefreshToken(request.refreshToken());
+        familyId = claims.get("family_id", String.class);
+      } catch (JwtException ignore) {
+        // 무효 refresh는 무시 — access denylist만 처리.
+      }
+    }
+    authService.logout(accessJti, ttlSeconds, familyId);
     return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
   }
 

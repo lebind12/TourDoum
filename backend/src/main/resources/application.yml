@@ -46,10 +46,13 @@ tourdoum:
   jwt:
     issuer: tourdoum
     access-ttl: 15m
+    refresh-ttl: 14d  # ADR-0011 BE-2 (#63)
     active-kid: dev-1
     private-key-location: classpath:keys/jwt-dev-private.pem
     public-key-location: classpath:keys/jwt-dev-public.pem
-    # previous-kid / previous-public-key-location은 BE-2 key rotation 도입 시 활성화.
+    # 키 회전 학습 시 previous-kid + previous-public-key-location 활성. dev에선 미사용.
+    # previous-kid: dev-0
+    # previous-public-key-location: classpath:keys/jwt-dev-public.pem  # 예시
 
 management:
   endpoints:

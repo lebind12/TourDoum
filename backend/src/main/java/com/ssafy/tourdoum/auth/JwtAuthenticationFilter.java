@@ -20,17 +20,28 @@ import org.springframework.web.filter.OncePerRequestFilter;
 /**
  * JWT 인증 필터 — `Authorization: Bearer <jwt>` 추출 → 검증 → SecurityContext 채움.
  *
- * <p>ADR-0011 BE-1: 헤더 흐름만 처리. cookie 추출은 BE-3에서 추가. 토큰 부재/검증 실패 시 SecurityContext를 비워둔 채 통과시켜 후속
- * 인가 단계({@code AuthorizationFilter})가 401을 반환하게 한다.
+ * <p>BE-1: 헤더 흐름. BE-2(#63): denylist 체크 + access claim을 request attribute로 expose (logout endpoint
+ * 가 jti/expiresAt 사용).
+ *
+ * <p>cookie 추출은 BE-3에서 추가. 토큰 부재/검증 실패/denylist 매치 시 SecurityContext를 비워둔 채 통과시켜 후속 인가 단계가 401을
+ * 반환하게 한다.
  */
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
   private static final String BEARER_PREFIX = "Bearer ";
 
-  private final JwtTokenProvider tokenProvider;
+  /** request attribute key — controller에서 logout 시 jti/expiresAt 회수. */
+  public static final String ATTR_ACCESS_JTI = "auth.access.jti";
 
-  public JwtAuthenticationFilter(JwtTokenProvider tokenProvider) {
+  public static final String ATTR_ACCESS_EXPIRES_AT_EPOCH_SECOND =
+      "auth.access.expiresAtEpochSecond";
+
+  private final JwtTokenProvider tokenProvider;
+  private final AccessTokenDenylist denylist;
+
+  public JwtAuthenticationFilter(JwtTokenProvider tokenProvider, AccessTokenDenylist denylist) {
     this.tokenProvider = tokenProvider;
+    this.denylist = denylist;
   }
 
   @Override
@@ -41,19 +52,33 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     if (token != null) {
       try {
         Claims claims = tokenProvider.parseAccessToken(token);
-        Object roleClaim = claims.get("role");
-        String role = roleClaim != null ? roleClaim.toString() : "ROLE_USER";
-        UserDetails userDetails =
-            User.withUsername(claims.getSubject())
-                .password("") // password는 JWT 검증 후 의미 없음 — Spring 보안 모델 호환용 placeholder
-                .authorities(List.of(new SimpleGrantedAuthority(role)))
-                .build();
-        UsernamePasswordAuthenticationToken authentication =
-            new UsernamePasswordAuthenticationToken(
-                userDetails, null, userDetails.getAuthorities());
-        SecurityContext context = SecurityContextHolder.createEmptyContext();
-        context.setAuthentication(authentication);
-        SecurityContextHolder.setContext(context);
+        String jti = claims.getId();
+        if (jti != null && denylist.contains(jti)) {
+          // logout/revoke 처리된 access — 인증 실패로 간주.
+          SecurityContextHolder.clearContext();
+        } else {
+          Object roleClaim = claims.get("role");
+          String role = roleClaim != null ? roleClaim.toString() : "ROLE_USER";
+          UserDetails userDetails =
+              User.withUsername(claims.getSubject())
+                  .password("") // JWT 검증 후 의미 없음 — Spring 보안 모델 호환 placeholder
+                  .authorities(List.of(new SimpleGrantedAuthority(role)))
+                  .build();
+          UsernamePasswordAuthenticationToken authentication =
+              new UsernamePasswordAuthenticationToken(
+                  userDetails, null, userDetails.getAuthorities());
+          SecurityContext context = SecurityContextHolder.createEmptyContext();
+          context.setAuthentication(authentication);
+          SecurityContextHolder.setContext(context);
+
+          // logout endpoint가 jti/expiresAt을 회수하기 위해 request attribute로 expose.
+          request.setAttribute(ATTR_ACCESS_JTI, jti);
+          if (claims.getExpiration() != null) {
+            request.setAttribute(
+                ATTR_ACCESS_EXPIRES_AT_EPOCH_SECOND,
+                claims.getExpiration().toInstant().getEpochSecond());
+          }
+        }
       } catch (JwtException ex) {
         // 무효 토큰 → SecurityContext 비움 → 후속 AuthorizationFilter가 401 반환.
         SecurityContextHolder.clearContext();
