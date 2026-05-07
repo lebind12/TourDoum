@@ -18,6 +18,7 @@ import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
@@ -123,6 +124,21 @@ public class SecurityConfig {
 
         // CSRF: dev 비활성 (TODO: prod에서 SameSite=Lax로 완화 후 활성화 검토)
         .csrf(AbstractHttpConfigurer::disable)
+
+        // 세션 관리: 필요 시 세션 생성 (기본값이나 명시 필요 — Spring Security 6 호환)
+        // IF_REQUIRED: 인증 후 자동 세션 생성. STATELESS는 SESSION 쿠키 발급 불가이므로 사용 금지.
+        .sessionManagement(
+            session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
+
+        // SecurityContext 저장소: requireExplicitSave(false) → SecurityContextPersistenceFilter
+        // 모드로 전환.
+        // Spring Security 6 기본(requireExplicitSave=true)은 SecurityContextHolderFilter를 사용하며
+        // 커스텀 JsonAuthenticationFilter와 결합 시 SESSION 쿠키가 응답에 실리지 않는 버그가 발생.
+        // HttpSessionSecurityContextRepository를 공유 사용하여 로그인/후속 요청 모두 세션 참조 일관성 보장.
+        .securityContext(
+            ctx ->
+                ctx.securityContextRepository(new HttpSessionSecurityContextRepository())
+                    .requireExplicitSave(false))
 
         // 인가 규칙
         .authorizeHttpRequests(

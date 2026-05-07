@@ -7,6 +7,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
@@ -14,7 +15,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
-import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
@@ -107,22 +107,27 @@ class AuthIntegrationTest {
             .andExpect(jsonPath("$.role").value("ROLE_USER"))
             .andReturn();
 
-    // 세션 추출
-    MockHttpSession session = (MockHttpSession) loginResult.getRequest().getSession(false);
-    assertThat(session).isNotNull();
+    // 세션 쿠키 추출 — Spring Session Redis가 활성화된 환경에서는 HttpSession이
+    // SessionRepositoryRequestWrapper 안에 래핑되어 request.getSession(false) 로 접근 불가.
+    // 대신 응답의 Set-Cookie: SESSION=... 헤더로 세션 식별자를 검증한다.
+    Cookie sessionCookie = loginResult.getResponse().getCookie("SESSION");
+    assertThat(sessionCookie).as("로그인 응답에 SESSION 쿠키가 있어야 한다").isNotNull();
+    assertThat(sessionCookie.getValue()).as("SESSION 쿠키 값이 비어 있으면 안 된다").isNotEmpty();
 
-    // 3. GET /api/me — 쿠키 동봉, 200 + 본인 정보
+    // 3. GET /api/me — SESSION 쿠키 동봉, 200 + 본인 정보
     mockMvc
-        .perform(get("/api/me").session(session))
+        .perform(get("/api/me").cookie(sessionCookie))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.email").value("it@example.com"))
         .andExpect(jsonPath("$.nickname").value("ituser"))
         .andExpect(jsonPath("$.role").value("ROLE_USER"));
 
     // 4. 로그아웃 → 204
-    mockMvc.perform(post("/api/auth/logout").session(session)).andExpect(status().isNoContent());
+    mockMvc
+        .perform(post("/api/auth/logout").cookie(sessionCookie))
+        .andExpect(status().isNoContent());
 
-    // 5. 로그아웃 후 /api/me → 401
-    mockMvc.perform(get("/api/me").session(session)).andExpect(status().isUnauthorized());
+    // 5. 로그아웃 후 /api/me → 401 (세션 무효화 확인)
+    mockMvc.perform(get("/api/me").cookie(sessionCookie)).andExpect(status().isUnauthorized());
   }
 }
