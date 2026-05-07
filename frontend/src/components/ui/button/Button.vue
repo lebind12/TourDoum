@@ -4,7 +4,11 @@ import { type VariantProps, cva } from "class-variance-authority";
 import { computed } from "vue";
 
 const buttonVariants = cva(
-	"inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
+	// Round 7 (K): transition을 colors→[colors,transform,box-shadow]로 확장 +
+	// active:scale-[0.98] 미세 press feedback. duration/easing은 `--motion-fast` /
+	// `--ease-standard` 토큰 참조. focus-visible ring은 R6 결정 그대로 유지.
+	// reduced-motion 사용자는 index.css의 `prefers-reduced-motion` 블록이 0.01ms로 클램프.
+	"inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-[color,background-color,border-color,box-shadow,transform] duration-[var(--motion-fast)] ease-[var(--ease-standard)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50 disabled:active:scale-100",
 	{
 		variants: {
 			variant: {

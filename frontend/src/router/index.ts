@@ -170,6 +170,12 @@ if (import.meta.env.DEV) {
 		name: "dev-ui-catalog",
 		component: () => import("@/views/dev/UiCatalogView.vue"),
 	});
+	// Round 7: `/me` mock fixture — auth 없이 다크 contrast 점검.
+	router.addRoute({
+		path: "/dev/me-mock",
+		name: "dev-me-mock",
+		component: () => import("@/views/dev/MeMockView.vue"),
+	});
 }
 
 router.beforeEach(async (to) => {
