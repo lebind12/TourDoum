@@ -7,6 +7,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.validation.constraints.Size;
 import java.time.LocalDateTime;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -34,6 +35,7 @@ public class ChatMessage {
   private Long senderId;
 
   @Column(nullable = false, columnDefinition = "TEXT")
+  @Size(max = 4000) // ADR-0012 v2 §3 — content length 상한.
   private String content;
 
   @CreatedDate
