@@ -1,6 +1,6 @@
 import { getAccessToken } from "@/api/auth-token";
-import { post } from "@/api/client";
-import { get } from "@/api/client";
+import { get, post } from "@/api/client";
+import { CSRF_HEADER_NAME, readXsrfToken } from "@/api/csrf";
 import { defineStore } from "pinia";
 import { ref } from "vue";
 
@@ -237,13 +237,15 @@ export const useReservationsStore = defineStore("reservations", () => {
 		let errMsg: string | null = null;
 
 		try {
-			// ADR-0011 FE-1 — direct fetch도 Bearer 자동 부착 정책에 합류.
+			// ADR-0011 FE-1/FE-2 — direct fetch 도 Bearer + CSRF 자동 부착 정책에 합류.
 			const headers: Record<string, string> = {
 				"Content-Type": "application/json",
 				"Idempotency-Key": idempotencyKey.value,
 			};
 			const token = getAccessToken();
 			if (token) headers.Authorization = `Bearer ${token}`;
+			const xsrf = readXsrfToken();
+			if (xsrf) headers[CSRF_HEADER_NAME] = xsrf;
 
 			const res = await fetch(`${BASE_URL}/api/reservations`, {
 				method: "POST",
