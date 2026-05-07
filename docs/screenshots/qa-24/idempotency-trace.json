@@ -1,0 +1,12 @@
+{
+  "idempotencyKey": "e911f539-8882-40e5-b019-38b39965d614",
+  "call1": {
+    "status": 201,
+    "id": 10
+  },
+  "call2": {
+    "status": 201,
+    "id": 10
+  },
+  "sameReservationId": true
+}
