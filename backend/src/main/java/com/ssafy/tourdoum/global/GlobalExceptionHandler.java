@@ -4,6 +4,8 @@ import com.ssafy.tourdoum.accommodation.AccommodationNotFoundException;
 import com.ssafy.tourdoum.attraction.AttractionNotFoundException;
 import com.ssafy.tourdoum.member.DuplicateEmailException;
 import com.ssafy.tourdoum.member.DuplicateNicknameException;
+import com.ssafy.tourdoum.reservation.ReservationForbiddenException;
+import com.ssafy.tourdoum.reservation.ReservationNotFoundException;
 import com.ssafy.tourdoum.review.ReviewForbiddenException;
 import com.ssafy.tourdoum.review.ReviewNotFoundException;
 import java.util.List;
@@ -77,5 +79,26 @@ public class GlobalExceptionHandler {
   @ResponseStatus(HttpStatus.FORBIDDEN)
   public ErrorResponse handleReviewForbidden(ReviewForbiddenException ex) {
     return new ErrorResponse("id", ex.getMessage());
+  }
+
+  /** 예약 미존재 → 404 Not Found. */
+  @ExceptionHandler(ReservationNotFoundException.class)
+  @ResponseStatus(HttpStatus.NOT_FOUND)
+  public ErrorResponse handleReservationNotFound(ReservationNotFoundException ex) {
+    return new ErrorResponse("id", ex.getMessage());
+  }
+
+  /** 예약 취소 권한 없음 → 403 Forbidden. */
+  @ExceptionHandler(ReservationForbiddenException.class)
+  @ResponseStatus(HttpStatus.FORBIDDEN)
+  public ErrorResponse handleReservationForbidden(ReservationForbiddenException ex) {
+    return new ErrorResponse("id", ex.getMessage());
+  }
+
+  /** 예약 날짜 오류 → 400 Bad Request. */
+  @ExceptionHandler(IllegalArgumentException.class)
+  @ResponseStatus(HttpStatus.BAD_REQUEST)
+  public ErrorResponse handleIllegalArgument(IllegalArgumentException ex) {
+    return new ErrorResponse("request", ex.getMessage());
   }
 }
