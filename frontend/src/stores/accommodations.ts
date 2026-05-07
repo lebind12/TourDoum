@@ -12,6 +12,10 @@ export interface AccommodationApiResponse {
 	name: string;
 	type: AccommodationApiType;
 	address: string;
+	/** 시·도 (be #43 V16 도입) */
+	sido: string;
+	/** 시·군·구 (be #43 V16 도입) */
+	gugun: string;
 	lat: number;
 	lng: number;
 	priceFrom: number;
@@ -19,6 +23,12 @@ export interface AccommodationApiResponse {
 	thumbnailUrl: string;
 	description: string;
 	distanceMeters: number | null;
+}
+
+/** GET /api/accommodations/regions 응답 (be #43) */
+export interface AccommodationRegionsApiResponse {
+	sidos: string[];
+	gugunsBySido: Record<string, string[]>;
 }
 
 /** GET /api/accommodations (페이지 모드) 래퍼 */
@@ -58,9 +68,9 @@ export interface Accommodation {
 	rating: number;
 	/** BE 미제공 — 0 기본값 */
 	reviewCount: number;
-	/** BE 미제공 — address에서 파생 또는 빈 문자열 */
+	/** be #43 V16 도입 — list/detail 응답에서 직접 매핑 */
 	sido: string;
-	/** BE 미제공 — 빈 문자열 */
+	/** be #43 V16 도입 — list/detail 응답에서 직접 매핑 */
 	gugun: string;
 	/** BE 미제공 */
 	hostId?: number;
@@ -97,8 +107,8 @@ function mapApiToAccommodation(r: AccommodationApiResponse): Accommodation {
 		pricePerNight: r.priceFrom,
 		rating: r.rating,
 		reviewCount: 0, // BE 미제공
-		sido: "", // BE 미제공
-		gugun: "", // BE 미제공
+		sido: r.sido, // be #43
+		gugun: r.gugun, // be #43
 		amenities: [], // BE 미제공
 		maxGuests: 2, // BE 미제공 — 기본값
 		checkInTime: "15:00", // BE 미제공 — 기본값
@@ -114,7 +124,13 @@ export const useAccommodationsStore = defineStore("accommodations", () => {
 	const searchQuery = ref("");
 	const selectedType = ref("");
 	const selectedSido = ref("");
+	const selectedGugun = ref("");
 	const maxPrice = ref<number | null>(null);
+	/**
+	 * GET /api/accommodations/regions 캐시 (be #43).
+	 * null = 아직 fetch 전. 한 번 채워지면 재호출하지 않는다.
+	 */
+	const regions = ref<AccommodationRegionsApiResponse | null>(null);
 
 	/** 로드된 items 기준 타입 목록 */
 	const types = computed<Accommodation["type"][]>(
@@ -122,12 +138,37 @@ export const useAccommodationsStore = defineStore("accommodations", () => {
 			[...new Set(items.value.map((a) => a.type))] as Accommodation["type"][],
 	);
 
-	/** 로드된 items 기준 시도 목록 (sido 빈 문자열 제외) */
-	const sidos = computed(() =>
-		[...new Set(items.value.map((a) => a.sido))].filter(Boolean),
-	);
+	/**
+	 * 시·도 목록.
+	 * regions(BE distinct)가 로드되어 있으면 그것을 우선,
+	 * 그렇지 않으면 현재 items에서 파생(빈 문자열 제외).
+	 */
+	const sidos = computed(() => {
+		if (regions.value && regions.value.sidos.length > 0) {
+			return regions.value.sidos;
+		}
+		return [...new Set(items.value.map((a) => a.sido))].filter(Boolean);
+	});
 
-	/** 클라이언트 사이드 필터 (type/sido/price는 BE API가 미지원 → FE에서 처리) */
+	/**
+	 * 선택된 시·도에 해당하는 시·군·구 목록.
+	 * regions 캐시 우선, 없으면 items 파생, sido 미선택 시 빈 배열.
+	 */
+	const gugunsForSelectedSido = computed<string[]>(() => {
+		if (!selectedSido.value) return [];
+		if (regions.value) {
+			return regions.value.gugunsBySido[selectedSido.value] ?? [];
+		}
+		return [
+			...new Set(
+				items.value
+					.filter((a) => a.sido === selectedSido.value)
+					.map((a) => a.gugun),
+			),
+		].filter(Boolean);
+	});
+
+	/** 클라이언트 사이드 필터 (BE list 쿼리 파라미터 미지원 → FE에서 처리, fe #50). */
 	const filtered = computed(() =>
 		items.value.filter((a) => {
 			const matchesSearch =
@@ -136,9 +177,17 @@ export const useAccommodationsStore = defineStore("accommodations", () => {
 				a.address.includes(searchQuery.value);
 			const matchesType = !selectedType.value || a.type === selectedType.value;
 			const matchesSido = !selectedSido.value || a.sido === selectedSido.value;
+			const matchesGugun =
+				!selectedGugun.value || a.gugun === selectedGugun.value;
 			const matchesPrice =
 				maxPrice.value === null || a.pricePerNight <= maxPrice.value;
-			return matchesSearch && matchesType && matchesSido && matchesPrice;
+			return (
+				matchesSearch &&
+				matchesType &&
+				matchesSido &&
+				matchesGugun &&
+				matchesPrice
+			);
 		}),
 	);
 
@@ -229,14 +278,42 @@ export const useAccommodationsStore = defineStore("accommodations", () => {
 		return mapped;
 	}
 
+	/**
+	 * 행정구역 옵션 조회 — GET /api/accommodations/regions (be #43).
+	 *
+	 * 한 세션에 한 번만 호출(`regions !== null`이면 즉시 return).
+	 * 실패 시 error를 세트하지만 throw하지 않는다 (필터 select는 items fallback로 동작).
+	 */
+	async function fetchRegions(): Promise<void> {
+		if (regions.value !== null) return;
+
+		const result = await get<AccommodationRegionsApiResponse>(
+			"/api/accommodations/regions",
+		);
+
+		if (result.error || !result.data) {
+			error.value = result.error ?? "지역 목록을 불러오지 못했습니다.";
+			return;
+		}
+
+		regions.value = result.data;
+	}
+
 	function setSearch(query: string) {
 		searchQuery.value = query;
 	}
 	function setType(type: string) {
 		selectedType.value = type;
 	}
+	/** sido 변경 시 gugun 선택은 자동 초기화 — 잘못된 (sido, gugun) 조합 방지. */
 	function setSido(sido: string) {
+		if (sido !== selectedSido.value) {
+			selectedGugun.value = "";
+		}
 		selectedSido.value = sido;
+	}
+	function setGugun(gugun: string) {
+		selectedGugun.value = gugun;
 	}
 	function setMaxPrice(price: number | null) {
 		maxPrice.value = price;
@@ -249,16 +326,21 @@ export const useAccommodationsStore = defineStore("accommodations", () => {
 		searchQuery,
 		selectedType,
 		selectedSido,
+		selectedGugun,
 		maxPrice,
+		regions,
 		types,
 		sidos,
+		gugunsForSelectedSido,
 		filtered,
 		getById,
 		fetchAccommodations,
 		fetchAccommodationById,
+		fetchRegions,
 		setSearch,
 		setType,
 		setSido,
+		setGugun,
 		setMaxPrice,
 	};
 });

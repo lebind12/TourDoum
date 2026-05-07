@@ -46,6 +46,14 @@ public class Accommodation {
   @Column(length = 500)
   private String address;
 
+  /** 시·도 (예: 서울특별시, 부산광역시). #43 V16 도입, FE 필터 옵션 소스. */
+  @Column(nullable = false, length = 20)
+  private String sido;
+
+  /** 시·군·구 (예: 강남구, 해운대구, 강릉시). #43 V16 도입. */
+  @Column(nullable = false, length = 40)
+  private String gugun;
+
   @Column(nullable = false, precision = 9, scale = 6)
   private BigDecimal lat;
 
@@ -63,6 +71,26 @@ public class Accommodation {
   @Column(name = "thumbnail_url", length = 1000)
   private String thumbnailUrl;
 
+  /** Hero 이미지 URL — 상세 화면용. 카드 카탈로그는 thumbnailUrl 유지. */
+  @Column(name = "image_url", length = 1000)
+  private String imageUrl;
+
+  /** Comma-separated amenities. e.g., {@code "Wi-Fi,주차,조식"}. DTO에서 List&lt;String&gt;로 split. */
+  @Column(nullable = false, length = 500)
+  private String amenities;
+
+  /** 최대 투숙 인원. */
+  @Column(name = "max_guests", nullable = false)
+  private int maxGuests;
+
+  /** Check-in 시각 ({@code "HH:mm"}). */
+  @Column(name = "check_in_time", nullable = false, length = 5)
+  private String checkInTime;
+
+  /** Check-out 시각 ({@code "HH:mm"}). */
+  @Column(name = "check_out_time", nullable = false, length = 5)
+  private String checkOutTime;
+
   @Column(columnDefinition = "TEXT")
   private String description;
 
@@ -79,20 +107,36 @@ public class Accommodation {
       String name,
       AccommodationType type,
       String address,
+      String sido,
+      String gugun,
       BigDecimal lat,
       BigDecimal lng,
       Integer priceFrom,
       BigDecimal rating,
       String thumbnailUrl,
+      String imageUrl,
+      String amenities,
+      Integer maxGuests,
+      String checkInTime,
+      String checkOutTime,
       String description) {
     this.name = name;
     this.type = type;
     this.address = address;
+    // NOT NULL — builder 미지정 시 빈 문자열 기본 (V16 default와 일치).
+    this.sido = sido == null ? "" : sido;
+    this.gugun = gugun == null ? "" : gugun;
     this.lat = lat;
     this.lng = lng;
     this.priceFrom = priceFrom;
     this.rating = rating;
     this.thumbnailUrl = thumbnailUrl;
+    this.imageUrl = imageUrl;
+    // NOT NULL 컬럼 default — builder 미지정 시 안전 기본값.
+    this.amenities = amenities == null ? "" : amenities;
+    this.maxGuests = maxGuests == null ? 2 : maxGuests;
+    this.checkInTime = checkInTime == null ? "15:00" : checkInTime;
+    this.checkOutTime = checkOutTime == null ? "11:00" : checkOutTime;
     this.description = description;
   }
 }

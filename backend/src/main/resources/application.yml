@@ -1,5 +1,6 @@
 server:
-  port: 8080
+  # default는 사용자 로컬 dev용(8080). agent worktree는 .env.agent의 SERVER_PORT=30080 주입.
+  port: ${SERVER_PORT:8080}
 
 spring:
   application:

@@ -1,7 +1,12 @@
 package com.ssafy.tourdoum.accommodation;
 
 import com.ssafy.tourdoum.common.algorithm.KmpMatcher;
+import com.ssafy.tourdoum.review.ReviewRepository;
+import com.ssafy.tourdoum.review.ReviewTargetType;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -18,9 +23,12 @@ public class AccommodationService {
   private static final int KEYWORD_CANDIDATE_LIMIT = 20_000;
 
   private final AccommodationRepository accommodationRepository;
+  private final ReviewRepository reviewRepository;
 
-  public AccommodationService(AccommodationRepository accommodationRepository) {
+  public AccommodationService(
+      AccommodationRepository accommodationRepository, ReviewRepository reviewRepository) {
     this.accommodationRepository = accommodationRepository;
+    this.reviewRepository = reviewRepository;
   }
 
   /**
@@ -74,16 +82,54 @@ public class AccommodationService {
   }
 
   /**
-   * 숙박 단건 조회.
+   * 숙박 단건 상세 조회 — detail DTO 반환.
+   *
+   * <p>list/nearby 응답({@link AccommodationResponse})과 분리. amenities/maxGuests/checkIn 등 상세 화면 전용
+   * 필드와 {@link ReviewRepository#aggregateByTarget}으로 집계한 reviewCount 를 포함한다.
    *
    * @throws AccommodationNotFoundException 해당 id가 없을 때 (GlobalExceptionHandler → 404)
    */
-  public AccommodationResponse getById(Long id) {
+  public AccommodationDetailResponse getById(Long id) {
     Accommodation accommodation =
         accommodationRepository
             .findById(id)
             .orElseThrow(() -> new AccommodationNotFoundException(id));
-    return AccommodationResponse.from(accommodation);
+    long reviewCount = countReviews(id);
+    return AccommodationDetailResponse.from(accommodation, reviewCount);
+  }
+
+  /**
+   * 본 숙박을 대상으로 작성된 후기 건수.
+   *
+   * <p>{@link ReviewRepository#aggregateByTarget}는 {@code [AVG(rating), COUNT(r)]} 형태이며 후기가 없으면
+   * COUNT=0 을 반환한다. detail 1회당 추가 쿼리 1회.
+   */
+  private long countReviews(Long accommodationId) {
+    Object[] aggregate =
+        reviewRepository.aggregateByTarget(ReviewTargetType.ACCOMMODATION, accommodationId);
+    if (aggregate == null || aggregate.length < 2 || aggregate[1] == null) {
+      return 0L;
+    }
+    return ((Number) aggregate[1]).longValue();
+  }
+
+  /**
+   * 행정구역 옵션 조회 — `GET /api/accommodations/regions`. FE 시·도/시·군·구 필터 select 옵션 소스.
+   *
+   * <p>{@link AccommodationRepository#findDistinctSidoGugunPairs}이 한글 사전순 (sido, gugun) 페어를 반환하므로
+   * 그룹화만 수행. {@code LinkedHashMap}으로 sido 정렬 유지.
+   */
+  public AccommodationRegionsResponse getRegions() {
+    Map<String, List<String>> mutable = new LinkedHashMap<>();
+    for (Object[] pair : accommodationRepository.findDistinctSidoGugunPairs()) {
+      String sido = (String) pair[0];
+      String gugun = (String) pair[1];
+      mutable.computeIfAbsent(sido, k -> new ArrayList<>()).add(gugun);
+    }
+    Map<String, List<String>> immutable = new LinkedHashMap<>();
+    mutable.forEach((k, v) -> immutable.put(k, List.copyOf(v)));
+    List<String> sidos = List.copyOf(immutable.keySet());
+    return new AccommodationRegionsResponse(sidos, immutable);
   }
 
   /**

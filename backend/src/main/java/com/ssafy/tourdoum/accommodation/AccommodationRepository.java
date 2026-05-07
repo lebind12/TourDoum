@@ -44,7 +44,7 @@ public interface AccommodationRepository extends JpaRepository<Accommodation, Lo
       nativeQuery = true,
       value =
           """
-          SELECT id, name, type, address, lat, lng, price_from AS priceFrom,
+          SELECT id, name, type, address, sido, gugun, lat, lng, price_from AS priceFrom,
                  rating, thumbnail_url AS thumbnailUrl, description,
                  ST_Distance_Sphere(location, ST_SRID(POINT(:lng, :lat), 4326)) AS distance
           FROM accommodations
@@ -57,4 +57,19 @@ public interface AccommodationRepository extends JpaRepository<Accommodation, Lo
       @Param("lng") double lng,
       @Param("radiusMeters") int radiusMeters,
       @Param("limit") int limit);
+
+  /**
+   * Distinct (sido, gugun) 페어 조회 — `/api/accommodations/regions` 응답 빌드용.
+   *
+   * <p>JPQL의 {@code constructor expression} 대신 native projection({@code Object[]})으로 받아 서비스 레이어에서
+   * 그룹화한다. 행정구역 한글 사전순 정렬.
+   */
+  @Query(
+      """
+      SELECT DISTINCT a.sido, a.gugun
+      FROM Accommodation a
+      WHERE a.sido <> '' AND a.gugun <> ''
+      ORDER BY a.sido, a.gugun
+      """)
+  List<Object[]> findDistinctSidoGugunPairs();
 }

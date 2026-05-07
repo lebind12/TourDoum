@@ -1,4 +1,4 @@
-import { defineConfig, devices } from '@playwright/test'
+import { defineConfig, devices } from "@playwright/test";
 
 /**
  * e2e 테스트 설정.
@@ -9,34 +9,38 @@ import { defineConfig, devices } from '@playwright/test'
  *
  * CI(Jenkins)에서는 PLAYWRIGHT_BASE_URL 환경 변수로 URL 오버라이드 가능.
  */
-// BE SecurityConfig.allowedOrigins는 http://localhost:5173,5174만 허용한다.
+// BE SecurityConfig.allowedOrigins는 http://localhost:5173/5174 + 30173/30174만 허용한다.
 // 127.0.0.1로 띄우면 브라우저 origin이 http://127.0.0.1:5174가 되어 CORS 차단된다.
 // → 반드시 localhost로 통일 (TASK_18 진단 결과).
-const E2E_HOST = 'localhost'
-const E2E_PORT = 5174
-const E2E_URL = `http://${E2E_HOST}:${E2E_PORT}`
+//
+// 포트 분리:
+// - 사용자 로컬 dev: 5173 / e2e 5174 (default)
+// - agent worktree: 30173 / e2e 30174 (.env.agent의 VITE_PORT/E2E_PORT 주입)
+const E2E_HOST = "localhost";
+const E2E_PORT = process.env.E2E_PORT ? Number(process.env.E2E_PORT) : 5174;
+const E2E_URL = `http://${E2E_HOST}:${E2E_PORT}`;
 
 export default defineConfig({
-  testDir: './e2e',
-  fullyParallel: true,
-  forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 1 : undefined,
-  reporter: 'html',
-  use: {
-    baseURL: process.env.PLAYWRIGHT_BASE_URL ?? E2E_URL,
-    trace: 'on-first-retry',
-  },
-  projects: [
-    {
-      name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
-    },
-  ],
-  webServer: {
-    command: `npm run dev -- --host ${E2E_HOST} --port ${E2E_PORT} --strictPort`,
-    url: E2E_URL,
-    reuseExistingServer: !process.env.CI,
-    timeout: 120 * 1000,
-  },
-})
+	testDir: "./e2e",
+	fullyParallel: true,
+	forbidOnly: !!process.env.CI,
+	retries: process.env.CI ? 2 : 0,
+	workers: process.env.CI ? 1 : undefined,
+	reporter: "html",
+	use: {
+		baseURL: process.env.PLAYWRIGHT_BASE_URL ?? E2E_URL,
+		trace: "on-first-retry",
+	},
+	projects: [
+		{
+			name: "chromium",
+			use: { ...devices["Desktop Chrome"] },
+		},
+	],
+	webServer: {
+		command: `npm run dev -- --host ${E2E_HOST} --port ${E2E_PORT} --strictPort`,
+		url: E2E_URL,
+		reuseExistingServer: !process.env.CI,
+		timeout: 120 * 1000,
+	},
+});

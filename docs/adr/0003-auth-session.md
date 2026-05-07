@@ -1,8 +1,10 @@
 # ADR 0003 — 인증 방식 및 세션 전략
 
 - 작성일: 2026-05-06
-- 상태: Accepted
+- 상태: **Superseded by [ADR-0011](0011-jwt-authentication.md)** (2026-05-07)
 - 작성자: Implementer-A (BE) — be/feat-domain-user worktree
+
+> **2026-05-07 갱신**: 본 ADR의 Spring Session + 폼 로그인 결정은 ADR-0011(JWT 단독 + httpOnly cookie + RS256 + refresh rotation + Redis revocation)로 대체. Redis 컨테이너는 유지하되 인증 저장소 역할은 제거되고 보안 상태 저장소(refresh family/denylist/throttling)로 재활용. 이력 보존을 위해 본 문서는 보존.
 
 ---
 

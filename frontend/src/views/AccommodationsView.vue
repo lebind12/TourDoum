@@ -12,8 +12,18 @@ const store = useAccommodationsStore();
 const searchInput = ref(store.searchQuery);
 const selectedType = ref(store.selectedType);
 const selectedSido = ref(store.selectedSido);
+const selectedGugun = ref(store.selectedGugun);
+
+function onSidoChange() {
+	// store.setSido가 sido 변경 시 selectedGugun을 ""로 초기화하므로
+	// 로컬 ref도 동기화한다 (Select v-model 일관성).
+	store.setSido(selectedSido.value);
+	selectedGugun.value = store.selectedGugun;
+}
 
 onMounted(() => {
+	// 행정구역 옵션과 목록을 병렬 로드.
+	store.fetchRegions();
 	store.fetchAccommodations();
 });
 </script>
@@ -46,10 +56,20 @@ onMounted(() => {
           </Select>
           <Select
             v-model="selectedSido"
-            @change="store.setSido(selectedSido)"
+            aria-label="시·도 선택"
+            @change="onSidoChange"
           >
-            <option value="">전체 지역</option>
+            <option value="">전체 시·도</option>
             <option v-for="sido in store.sidos" :key="sido" :value="sido">{{ sido }}</option>
+          </Select>
+          <Select
+            v-model="selectedGugun"
+            aria-label="시·군·구 선택"
+            :disabled="!selectedSido"
+            @change="store.setGugun(selectedGugun)"
+          >
+            <option value="">전체 시·군·구</option>
+            <option v-for="g in store.gugunsForSelectedSido" :key="g" :value="g">{{ g }}</option>
           </Select>
         </div>
         <p class="text-muted-foreground text-xs mt-2">검색 결과: {{ store.filtered.length }}건</p>

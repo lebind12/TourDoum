@@ -6,6 +6,8 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.mock;
 
+import com.ssafy.tourdoum.review.ReviewRepository;
+import com.ssafy.tourdoum.review.ReviewTargetType;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
@@ -23,6 +25,8 @@ class AccommodationServiceTest {
 
   @Mock private AccommodationRepository accommodationRepository;
 
+  @Mock private ReviewRepository reviewRepository;
+
   @InjectMocks private AccommodationService accommodationService;
 
   private Accommodation buildAccommodation(String name, AccommodationType type, String address) {
@@ -30,31 +34,98 @@ class AccommodationServiceTest {
         .name(name)
         .type(type)
         .address(address)
+        .sido("서울특별시")
+        .gugun("중구")
         .lat(new BigDecimal("37.5636"))
         .lng(new BigDecimal("126.9826"))
         .priceFrom(150000)
         .rating(new BigDecimal("4.3"))
         .thumbnailUrl("https://picsum.photos/seed/test/400/300")
+        .imageUrl("https://picsum.photos/seed/test-hero/800/600")
+        .amenities("Wi-Fi,주차,조식,피트니스")
+        .maxGuests(4)
+        .checkInTime("15:00")
+        .checkOutTime("11:00")
         .description("테스트용 숙박")
         .build();
   }
 
   @Test
-  @DisplayName("getById 정상 — id가 존재하면 AccommodationResponse 반환")
+  @DisplayName("getRegions — repository 페어를 한글 사전순 sidos + gugunsBySido로 그룹화")
+  void getRegions_groups_pairs_by_sido() {
+    // given — repository는 (sido, gugun) ASCENDING 정렬 페어 반환
+    given(accommodationRepository.findDistinctSidoGugunPairs())
+        .willReturn(
+            List.of(
+                new Object[] {"부산광역시", "기장군"},
+                new Object[] {"부산광역시", "해운대구"},
+                new Object[] {"서울특별시", "강남구"},
+                new Object[] {"서울특별시", "중구"}));
+
+    // when
+    AccommodationRegionsResponse response = accommodationService.getRegions();
+
+    // then
+    assertThat(response.sidos()).containsExactly("부산광역시", "서울특별시");
+    assertThat(response.gugunsBySido().get("부산광역시")).containsExactly("기장군", "해운대구");
+    assertThat(response.gugunsBySido().get("서울특별시")).containsExactly("강남구", "중구");
+  }
+
+  @Test
+  @DisplayName("getById 정상 — id가 존재하면 detail DTO + reviewCount 반환")
   void getById_success() {
     // given
     Long id = 1L;
     Accommodation accommodation =
         buildAccommodation("명동 호텔", AccommodationType.HOTEL, "서울특별시 중구 명동길 33");
     given(accommodationRepository.findById(id)).willReturn(Optional.of(accommodation));
+    // ReviewRepository.aggregateByTarget — [AVG(rating), COUNT(r)]
+    given(reviewRepository.aggregateByTarget(ReviewTargetType.ACCOMMODATION, id))
+        .willReturn(new Object[] {new BigDecimal("4.5"), 7L});
 
     // when
-    AccommodationResponse response = accommodationService.getById(id);
+    AccommodationDetailResponse response = accommodationService.getById(id);
 
     // then
     assertThat(response.name()).isEqualTo("명동 호텔");
     assertThat(response.type()).isEqualTo(AccommodationType.HOTEL);
-    assertThat(response.distanceMeters()).isNull();
+    assertThat(response.imageUrl()).isEqualTo("https://picsum.photos/seed/test-hero/800/600");
+    assertThat(response.amenities()).containsExactly("Wi-Fi", "주차", "조식", "피트니스");
+    assertThat(response.maxGuests()).isEqualTo(4);
+    assertThat(response.checkInTime()).isEqualTo("15:00");
+    assertThat(response.checkOutTime()).isEqualTo("11:00");
+    assertThat(response.reviewCount()).isEqualTo(7L);
+  }
+
+  @Test
+  @DisplayName("getById — 후기 0건이면 reviewCount=0, amenities 비면 빈 리스트")
+  void getById_zeroReviews_emptyAmenities() {
+    // given
+    Long id = 2L;
+    Accommodation accommodation =
+        Accommodation.builder()
+            .name("이태원 게스트하우스")
+            .type(AccommodationType.GUESTHOUSE)
+            .address("서울특별시 용산구 이태원로 142")
+            .lat(new BigDecimal("37.5347"))
+            .lng(new BigDecimal("126.9940"))
+            .amenities("") // 빈 amenities
+            .maxGuests(2)
+            .checkInTime("16:00")
+            .checkOutTime("10:00")
+            .build();
+    given(accommodationRepository.findById(id)).willReturn(Optional.of(accommodation));
+    // 후기 0건: AVG=null, COUNT=0
+    given(reviewRepository.aggregateByTarget(ReviewTargetType.ACCOMMODATION, id))
+        .willReturn(new Object[] {null, 0L});
+
+    // when
+    AccommodationDetailResponse response = accommodationService.getById(id);
+
+    // then
+    assertThat(response.amenities()).isEmpty();
+    assertThat(response.reviewCount()).isEqualTo(0L);
+    assertThat(response.maxGuests()).isEqualTo(2);
   }
 
   @Test
@@ -79,6 +150,8 @@ class AccommodationServiceTest {
     given(projection.getName()).willReturn("명동 호텔");
     given(projection.getType()).willReturn("HOTEL");
     given(projection.getAddress()).willReturn("서울특별시 중구 명동길 33");
+    given(projection.getSido()).willReturn("서울특별시");
+    given(projection.getGugun()).willReturn("중구");
     given(projection.getLat()).willReturn(new BigDecimal("37.5636"));
     given(projection.getLng()).willReturn(new BigDecimal("126.9826"));
     given(projection.getPriceFrom()).willReturn(150000);
