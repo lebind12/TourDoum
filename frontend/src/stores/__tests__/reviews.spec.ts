@@ -27,6 +27,7 @@ const mockDel = vi.mocked(del);
 const fixtureReview: ReviewApiResponse = {
 	id: 1,
 	memberId: 10,
+	authorNickname: "테스터_김",
 	targetType: "ATTRACTION",
 	targetId: 42,
 	rating: 5,
@@ -39,6 +40,7 @@ const fixtureReview: ReviewApiResponse = {
 const fixtureReview2: ReviewApiResponse = {
 	id: 2,
 	memberId: 11,
+	authorNickname: null, // null → "알 수 없음" fallback
 	targetType: "ATTRACTION",
 	targetId: 42,
 	rating: 4,
@@ -98,7 +100,7 @@ describe("useReviewsStore — API 연결", () => {
 		expect(first.id).toBe("1"); // Long → string
 		expect(first.targetType).toBe("attraction"); // 소문자 변환
 		expect(first.comment).toBe("정말 멋진 곳이에요!"); // content → comment
-		expect(first.authorNickname).toBe("회원 10"); // memberId 기반
+		expect(first.authorNickname).toBe("테스터_김"); // BE authorNickname 필드
 	});
 
 	it("fetchByTarget — API 실패 시 error 세트", async () => {
@@ -179,14 +181,13 @@ describe("useReviewsStore — API 연결", () => {
 		expect(store.averageRating("attraction", 42)).toBe(4.8);
 	});
 
-	it("addReview — 성공 시 캐시에 추가, Review 반환", async () => {
+	it("addReview — 성공 시 캐시에 추가, Review 반환 (BE authorNickname 사용)", async () => {
 		mockPost.mockResolvedValueOnce({ data: fixtureReview, error: null });
 
 		const store = useReviewsStore();
 		const result = await store.addReview(
 			"attraction",
 			42,
-			"테스터_김",
 			5,
 			"정말 멋진 곳이에요!",
 		);
@@ -199,7 +200,7 @@ describe("useReviewsStore — API 연결", () => {
 		});
 		expect(result).not.toBeNull();
 		expect(result?.id).toBe("1");
-		expect(result?.authorNickname).toBe("테스터_김"); // 전달된 닉네임 우선
+		expect(result?.authorNickname).toBe("테스터_김"); // BE authorNickname 사용
 		expect(result?.comment).toBe("정말 멋진 곳이에요!");
 		expect(store.reviews).toHaveLength(1);
 		expect(store.reviews[0].id).toBe("1"); // 맨 앞에 추가
@@ -209,13 +210,7 @@ describe("useReviewsStore — API 연결", () => {
 		mockPost.mockResolvedValueOnce({ data: null, error: "HTTP 401" });
 
 		const store = useReviewsStore();
-		const result = await store.addReview(
-			"attraction",
-			42,
-			"테스터",
-			3,
-			"보통이에요",
-		);
+		const result = await store.addReview("attraction", 42, 3, "보통이에요");
 
 		expect(result).toBeNull();
 		expect(store.error).toBe("HTTP 401");
