@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import ReviewForm from "@/components/review/ReviewForm.vue";
+import ReviewList from "@/components/review/ReviewList.vue";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -129,6 +131,14 @@ function handleReserve() {
               <p class="text-muted-foreground text-sm">지도 연결 예정</p>
             </div>
             <p class="text-muted-foreground text-sm">{{ acc.address }}</p>
+          </CardContent>
+        </Card>
+
+        <!-- 후기 섹션 -->
+        <Card>
+          <CardContent class="pt-6 space-y-4">
+            <ReviewList target-type="accommodation" :target-id="acc.id" />
+            <ReviewForm target-type="accommodation" :target-id="acc.id" />
           </CardContent>
         </Card>
       </div>
