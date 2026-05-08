@@ -8,6 +8,7 @@ import { expect, test } from "@playwright/test";
 import { signupAndLogin } from "./_helpers/auth";
 
 const RUN = process.env.CAPTURE_QA24 === "1";
+const BACKEND_URL = process.env.VITE_API_BASE_URL ?? "http://localhost:30080";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -30,7 +31,7 @@ test.describe("qa-24 캡처", () => {
 		await signupAndLogin(page, "qa24cap");
 
 		const r = await page.request.get(
-			"http://localhost:8080/api/accommodations?size=1",
+			`${BACKEND_URL}/api/accommodations?size=1`,
 		);
 		const accommodationId = (await r.json()).content[0].id;
 
@@ -42,9 +43,7 @@ test.describe("qa-24 캡처", () => {
 			path: path.join(OUT, "01-step1-dates.png"),
 			fullPage: true,
 		});
-		await page
-			.getByRole("button", { name: "결제 수단 선택으로 이동" })
-			.click();
+		await page.getByRole("button", { name: "결제 수단 선택으로 이동" }).click();
 
 		// Step 2
 		await expect(page.locator("h1")).toContainText("결제");
@@ -57,7 +56,7 @@ test.describe("qa-24 캡처", () => {
 		const idempotencyKey = crypto.randomUUID();
 		const checkIn = dateAfter(30);
 		const checkOut = dateAfter(32);
-		await page.request.post("http://localhost:8080/api/reservations/quote", {
+		await page.request.post(`${BACKEND_URL}/api/reservations/quote`, {
 			data: { accommodationId, checkIn, checkOut, guests: 2 },
 		});
 		const body = {
@@ -67,14 +66,14 @@ test.describe("qa-24 캡처", () => {
 			guests: 2,
 			paymentMethod: "CARD",
 		};
-		const r1 = await page.request.post(
-			"http://localhost:8080/api/reservations",
-			{ headers: { "Idempotency-Key": idempotencyKey }, data: body },
-		);
-		const r2 = await page.request.post(
-			"http://localhost:8080/api/reservations",
-			{ headers: { "Idempotency-Key": idempotencyKey }, data: body },
-		);
+		const r1 = await page.request.post(`${BACKEND_URL}/api/reservations`, {
+			headers: { "Idempotency-Key": idempotencyKey },
+			data: body,
+		});
+		const r2 = await page.request.post(`${BACKEND_URL}/api/reservations`, {
+			headers: { "Idempotency-Key": idempotencyKey },
+			data: body,
+		});
 		const trace = {
 			idempotencyKey,
 			body,
@@ -83,21 +82,15 @@ test.describe("qa-24 캡처", () => {
 			sameId: (await r1.json()).id === (await r2.json()).id,
 		};
 		// 실제로 위 await는 stream 한 번씩만 가능 — 다시 캡처
-		const c1 = await page.request.post(
-			"http://localhost:8080/api/reservations",
-			{
-				headers: { "Idempotency-Key": idempotencyKey },
-				data: body,
-			},
-		);
+		const c1 = await page.request.post(`${BACKEND_URL}/api/reservations`, {
+			headers: { "Idempotency-Key": idempotencyKey },
+			data: body,
+		});
 		const c1json = await c1.json();
-		const c2 = await page.request.post(
-			"http://localhost:8080/api/reservations",
-			{
-				headers: { "Idempotency-Key": idempotencyKey },
-				data: body,
-			},
-		);
+		const c2 = await page.request.post(`${BACKEND_URL}/api/reservations`, {
+			headers: { "Idempotency-Key": idempotencyKey },
+			data: body,
+		});
 		const c2json = await c2.json();
 		fs.writeFileSync(
 			path.join(OUT, "idempotency-trace.json"),
@@ -116,9 +109,7 @@ test.describe("qa-24 캡처", () => {
 		// /me
 		await page.goto("/me");
 		await expect(
-			page.locator(
-				'section[aria-labelledby="my-reservations-heading"]',
-			),
+			page.locator('section[aria-labelledby="my-reservations-heading"]'),
 		).toBeVisible();
 		await page.screenshot({
 			path: path.join(OUT, "03-me-with-reservation.png"),

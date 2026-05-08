@@ -10,6 +10,7 @@
  * Scenario B: 비로그인 /favorites 시도 → /login 리다이렉트 → 로그인 후 자동 복귀
  */
 import { expect, test } from "@playwright/test";
+import { navigateTo } from "./_helpers/nav";
 
 const RUN = process.env.E2E_BACKEND === "1";
 
@@ -39,22 +40,26 @@ test("Scenario A: 회원가입 → 로그인 → /me → /attractions → /favor
 	);
 
 	// 4. /me 진입 (본인 정보 페이지)
-	await page.goto("/me");
+	await navigateTo(page, "/me");
 	await expect(page).toHaveURL("/me");
 	// "내 정보"는 현재 디자인 시스템 카피 — 본인/프로필/계정과 동치 의도.
-	await expect(page.locator("h1, h2")).toContainText(
+	await expect(page.locator("h1, h2").first()).toContainText(
 		/내 정보|본인|프로필|계정/,
 	);
 
 	// 5. /attractions 진입 (관광지 목록)
-	await page.goto("/attractions");
+	await navigateTo(page, "/attractions");
 	await expect(page).toHaveURL("/attractions");
-	await expect(page.locator("h1, h2")).toContainText(/관광지|attraction/i);
+	await expect(page.locator("h1, h2").first()).toContainText(
+		/여행지|관광지|attraction/i,
+	);
 
 	// 6. /favorites 진입 (즐겨찾기 — 로그인 필요, 이미 로그인되어 있으므로 접근 가능)
-	await page.goto("/favorites");
+	await navigateTo(page, "/favorites");
 	await expect(page).toHaveURL("/favorites");
-	await expect(page.locator("h1, h2")).toContainText(/즐겨찾기|favorite/i);
+	await expect(page.locator("h1, h2").first()).toContainText(
+		/즐겨찾기|favorite/i,
+	);
 
 	// 7. 로그아웃 버튼 클릭
 	await page.click(".btn-logout");
@@ -69,7 +74,7 @@ test("Scenario B: 비로그인 /favorites 접근 → /login 리다이렉트 → 
 	page,
 }) => {
 	// 1. /favorites에 비로그인 상태로 접근 시도
-	await page.goto("/favorites");
+	await navigateTo(page, "/favorites");
 
 	// 2. /login으로 리다이렉트되어야 함 (SavedRequest 패턴)
 	await expect(page).toHaveURL("/login");
@@ -98,7 +103,7 @@ test("Scenario B: 비로그인 /favorites 접근 → /login 리다이렉트 → 
 	await page.click(".btn-logout");
 
 	// 6. /me에 비로그인 상태로 접근 시도
-	await page.goto("/me");
+	await navigateTo(page, "/me");
 
 	// 7. /login으로 리다이렉트되어야 함
 	await expect(page).toHaveURL("/login");

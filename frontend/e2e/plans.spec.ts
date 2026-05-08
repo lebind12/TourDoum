@@ -21,6 +21,7 @@
  */
 import { type Page, expect, test } from "@playwright/test";
 import { signupAndLogin } from "./_helpers/auth";
+import { navigateTo } from "./_helpers/nav";
 
 const RUN = process.env.E2E_BACKEND === "1";
 // agent worktree는 30080, 사용자 로컬 dev는 8080. .env.agent의 VITE_API_BASE_URL을 우선.
@@ -81,7 +82,7 @@ test.describe("계획 — 가드 + 생성 + reorder + 삭제", () => {
 	test.skip(!RUN, "E2E_BACKEND=1 환경변수 없음 — 실제 BE+FE 필요. 스킵.");
 
 	test("Scenario A: 비로그인 /plans → /login 리다이렉트", async ({ page }) => {
-		await page.goto("/plans");
+		await navigateTo(page, "/plans");
 		await expect(page).toHaveURL(/\/login/);
 	});
 
@@ -90,7 +91,7 @@ test.describe("계획 — 가드 + 생성 + reorder + 삭제", () => {
 	}) => {
 		await signupAndLogin(page, "qaplan");
 
-		await page.goto("/plans/new");
+		await navigateTo(page, "/plans/new");
 		await expect(page.locator("#plan-title")).toBeVisible();
 		await page.locator("#plan-title").fill(`e2e UI plan ${Date.now()}`);
 		await page.locator("#plan-start").fill(dateAfter(7));
@@ -109,7 +110,7 @@ test.describe("계획 — 가드 + 생성 + reorder + 삭제", () => {
 		const attractionIds = await getFirstAttractionIds(page, 3);
 		const planId = await createPlanWithItems(page, attractionIds);
 
-		await page.goto(`/plans/${planId}`);
+		await navigateTo(page, `/plans/${planId}`);
 		await expect(page).toHaveURL(new RegExp(`/plans/${planId}`));
 
 		// 일정 ol 노출 + 3개 li
@@ -130,7 +131,10 @@ test.describe("계획 — 가드 + 생성 + reorder + 삭제", () => {
 		expect(detailRes.ok()).toBeTruthy();
 		const detail = await detailRes.json();
 		// items의 정확한 shape은 BE DTO에 의존 — items 배열을 찾아 id 추출
-		const items = detail.items ?? detail.days?.flatMap((d: { items: { id: number }[] }) => d.items) ?? [];
+		const items =
+			detail.items ??
+			detail.days?.flatMap((d: { items: { id: number }[] }) => d.items) ??
+			[];
 		expect(items.length).toBe(3);
 		const [first, second, third] = items;
 
@@ -150,7 +154,7 @@ test.describe("계획 — 가드 + 생성 + reorder + 삭제", () => {
 		expect(r.ok()).toBeTruthy();
 
 		// /plans/:id 진입 + 새로고침 → 새 순서 잔존
-		await page.goto(`/plans/${planId}`);
+		await navigateTo(page, `/plans/${planId}`);
 		await page.reload();
 		const list = page.locator("ol li[draggable='true']");
 		await expect(list).toHaveCount(3);
@@ -174,17 +178,14 @@ test.describe("계획 — 가드 + 생성 + reorder + 삭제", () => {
 		const attractionIds = await getFirstAttractionIds(page, 3);
 		const planId = await createPlanWithItems(page, attractionIds);
 
-		await page.goto(`/plans/${planId}`);
+		await navigateTo(page, `/plans/${planId}`);
 		const list = page.locator("ol li[draggable='true']");
 		await expect(list).toHaveCount(3);
 
 		// 첫 item 제거 — aria-label은 `${itemLabel} 일정에서 제거`
 		// 첫 li 안의 제거 button을 hover 대신 직접 click 가능 (opacity-0 group-hover:opacity-100
 		// 이지만 disabled 아님)
-		await list
-			.first()
-			.locator('button[aria-label$="일정에서 제거"]')
-			.click();
+		await list.first().locator('button[aria-label$="일정에서 제거"]').click();
 
 		await expect(list).toHaveCount(2, { timeout: 5000 });
 

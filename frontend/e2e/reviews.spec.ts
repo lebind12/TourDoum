@@ -25,6 +25,7 @@
  */
 import { expect, test } from "@playwright/test";
 import { signupAndLogin } from "./_helpers/auth";
+import { navigateTo } from "./_helpers/nav";
 
 const RUN = process.env.E2E_BACKEND === "1";
 test.skip(!RUN, "E2E_BACKEND=1 환경변수 없음 — 실제 BE+FE 필요. 스킵.");
@@ -36,10 +37,8 @@ test.skip(!RUN, "E2E_BACKEND=1 환경변수 없음 — 실제 BE+FE 필요. 스�
 async function gotoFirstAttractionDetail(
 	page: import("@playwright/test").Page,
 ): Promise<void> {
-	await page.goto("/attractions");
-	const addButton = page
-		.locator('button[aria-label="즐겨찾기 추가"]')
-		.first();
+	await navigateTo(page, "/attractions");
+	const addButton = page.locator('button[aria-label="즐겨찾기 추가"]').first();
 	const errorText = page.getByText("불러오지 못했");
 	await expect(addButton.or(errorText)).toBeVisible({ timeout: 10000 });
 
@@ -102,9 +101,9 @@ test.describe("후기 — 작성 + 유효성 + 회귀", () => {
 		await page.getByRole("button", { name: "후기 등록" }).click();
 
 		// 성공 메시지 (role=status, aria-live=polite)
-		await expect(
-			page.getByText("후기가 등록되었습니다!"),
-		).toBeVisible({ timeout: 5000 });
+		await expect(page.getByText("후기가 등록되었습니다!")).toBeVisible({
+			timeout: 5000,
+		});
 
 		// 목록에 본인 닉네임 + 본문 노출.
 		// 닉네임은 AppShell 헤더 + ReviewList 양쪽 매칭 가능 → 본문이 unique이므로 본문으로 검증.
@@ -126,9 +125,9 @@ test.describe("후기 — 작성 + 유효성 + 회귀", () => {
 		await page.getByRole("button", { name: "후기 작성" }).click();
 		await page.locator("#review-comment").fill(`정상 후기 ${marker}`);
 		await page.getByRole("button", { name: "후기 등록" }).click();
-		await expect(
-			page.getByText("후기가 등록되었습니다!"),
-		).toBeVisible({ timeout: 5000 });
+		await expect(page.getByText("후기가 등록되었습니다!")).toBeVisible({
+			timeout: 5000,
+		});
 
 		// 새로고침
 		await page.reload();

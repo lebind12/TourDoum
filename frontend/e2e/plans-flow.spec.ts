@@ -8,6 +8,7 @@
  */
 import { expect, test } from "@playwright/test";
 import { signupAndLogin } from "./_helpers/auth";
+import { navigateTo } from "./_helpers/nav";
 
 /** Pinia auth store가 사용하는 localStorage 키를 직접 주입하여 auth guard를 우회한다.
  * BE 미구현이므로 /api/me 호출은 실패하지만, store-only 상태로 /plans를 렌더링한다.
@@ -19,18 +20,18 @@ import { signupAndLogin } from "./_helpers/auth";
 
 test.describe("여행 계획 — 공개 접근 및 리다이렉트 검증", () => {
 	test("비로그인 /plans → /login 리다이렉트", async ({ page }) => {
-		await page.goto("/plans");
+		await navigateTo(page, "/plans");
 		// auth guard가 로그인 페이지로 보내야 함
 		await expect(page).toHaveURL(/\/login/);
 	});
 
 	test("비로그인 /plans/new → /login 리다이렉트", async ({ page }) => {
-		await page.goto("/plans/new");
+		await navigateTo(page, "/plans/new");
 		await expect(page).toHaveURL(/\/login/);
 	});
 
 	test("비로그인 /plans/plan-001 → /login 리다이렉트", async ({ page }) => {
-		await page.goto("/plans/plan-001");
+		await navigateTo(page, "/plans/plan-001");
 		await expect(page).toHaveURL(/\/login/);
 	});
 });
@@ -46,7 +47,7 @@ test.describe("여행 계획 — 로그인 후 happy path (E2E_BACKEND=1 필요)
 		await signupAndLogin(page, "planner");
 
 		// /plans 진입
-		await page.goto("/plans");
+		await navigateTo(page, "/plans");
 		await expect(page).toHaveURL("/plans");
 		await expect(
 			page.getByRole("heading", { name: /내 여행 계획/ }),
@@ -61,7 +62,7 @@ test.describe("여행 계획 — 로그인 후 happy path (E2E_BACKEND=1 필요)
 	}) => {
 		await signupAndLogin(page, "newplanner");
 
-		await page.goto("/plans/new");
+		await navigateTo(page, "/plans/new");
 		await expect(
 			page.getByRole("heading", { name: /새 여행 계획/ }),
 		).toBeVisible();
@@ -83,7 +84,7 @@ test.describe("여행 계획 — 로그인 후 happy path (E2E_BACKEND=1 필요)
 	test("/plans/:id — 시드 계획 상세 진입 + 일자 탭 전환", async ({ page }) => {
 		await signupAndLogin(page, "detailplanner");
 
-		await page.goto("/plans/plan-001");
+		await navigateTo(page, "/plans/plan-001");
 		await expect(page.getByText("제주 3박 4일 힐링 여행")).toBeVisible();
 
 		// Day 1 이미 선택됨 — 성산일출봉 아이템 확인
