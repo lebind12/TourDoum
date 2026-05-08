@@ -2,6 +2,7 @@
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useToast } from "@/composables/useToast";
 import { useChatStore } from "@/stores/chat";
 import { ChevronLeft, Send } from "lucide-vue-next";
 import { nextTick, onMounted, onUnmounted, ref, watch } from "vue";
@@ -9,10 +10,16 @@ import { RouterLink, useRoute } from "vue-router";
 
 const route = useRoute();
 const chatStore = useChatStore();
+const { error: toastError } = useToast();
 const inputText = ref("");
 const messagesEl = ref<HTMLElement | null>(null);
+const topSentinelEl = ref<HTMLElement | null>(null);
 
 const channelId = String(route.params.channelId);
+
+let _observer: IntersectionObserver | null = null;
+let _loadingOlder = false;
+let _lastError: string | null = null;
 
 function formatTime(iso: string): string {
 	const d = new Date(iso);
@@ -34,21 +41,74 @@ function scrollToBottom() {
 	}
 }
 
+/**
+ * 상단 sentinel 진입 → fetchOlder() → prepend 후 scrollTop 보정.
+ * prepend 로 인해 list height 가 증가한 만큼 scrollTop 을 더해 사용자 시야 고정.
+ */
+async function loadOlderWithAnchor() {
+	if (_loadingOlder) return;
+	if (chatStore.hasMoreOlder[channelId] === false) return;
+	if (!messagesEl.value) return;
+	_loadingOlder = true;
+	const prevHeight = messagesEl.value.scrollHeight;
+	const prevTop = messagesEl.value.scrollTop;
+	const added = await chatStore.fetchOlder(channelId);
+	await nextTick();
+	if (added > 0 && messagesEl.value) {
+		const delta = messagesEl.value.scrollHeight - prevHeight;
+		messagesEl.value.scrollTop = prevTop + delta;
+	}
+	_loadingOlder = false;
+}
+
+function setupObserver() {
+	if (typeof IntersectionObserver === "undefined") return;
+	if (!topSentinelEl.value || !messagesEl.value) return;
+	_observer?.disconnect();
+	_observer = new IntersectionObserver(
+		(entries) => {
+			for (const entry of entries) {
+				if (entry.isIntersecting) {
+					loadOlderWithAnchor();
+				}
+			}
+		},
+		{ root: messagesEl.value, threshold: 0.1 },
+	);
+	_observer.observe(topSentinelEl.value);
+}
+
 watch(
 	() => chatStore.activeMessages.length,
 	async () => {
 		await nextTick();
-		scrollToBottom();
+		// 새 메시지가 append 된 경우만 bottom 스크롤. prepend 시엔 _loadingOlder 가 true.
+		if (!_loadingOlder) scrollToBottom();
+	},
+);
+
+// cursor 변조 토스트 — store.error 가 cursor 관련 메시지일 때 알림.
+watch(
+	() => chatStore.error,
+	(msg) => {
+		if (msg && msg !== _lastError && msg.startsWith("잘못된 페이지 정보")) {
+			_lastError = msg;
+			toastError(msg);
+		}
 	},
 );
 
 onMounted(async () => {
 	await chatStore.setActiveChannel(channelId);
-	nextTick(scrollToBottom);
+	await nextTick();
+	scrollToBottom();
+	setupObserver();
 });
 
 onUnmounted(() => {
 	chatStore.stopPolling();
+	_observer?.disconnect();
+	_observer = null;
 });
 </script>
 
@@ -81,6 +141,20 @@ onUnmounted(() => {
     <template v-else>
       <!-- 메시지 목록 -->
       <div ref="messagesEl" class="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-4 bg-muted/20">
+        <!-- 상단 sentinel — IntersectionObserver 가 진입 감지 → fetchOlder -->
+        <div
+          ref="topSentinelEl"
+          aria-hidden="true"
+          class="h-1 -mt-1 shrink-0"
+          data-testid="chat-top-sentinel"
+        />
+        <p
+          v-if="chatStore.hasMoreOlder[channelId] === false && chatStore.activeMessages.length > 0"
+          class="text-center text-xs text-muted-foreground py-2"
+        >
+          더 이상 이전 메시지가 없습니다.
+        </p>
+
         <div
           v-for="msg in chatStore.activeMessages"
           :key="msg.id"
