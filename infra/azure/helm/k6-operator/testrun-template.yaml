@@ -1,0 +1,41 @@
+# k6 TestRun custom resource — k6-operator 가 제공하는 CRD.
+# k6-operator install 후 적용:
+#   kubectl apply -f testrun-template.yaml -n loadgen
+#
+# 30만 RPS = parallelism N × VU × RPS_per_VU. README §Phase 6 진입 처방 참고.
+
+apiVersion: k6.io/v1alpha1
+kind: TestRun
+metadata:
+  name: tourdoum-30krps
+  namespace: loadgen
+spec:
+  # parallelism = runner pod 개수. eviction 분산 (Spot capacity 회수 대응).
+  parallelism: 4
+  separate: true
+  # k6 script ConfigMap 에서 주입.
+  script:
+    configMap:
+      name: k6-script-tourdoum
+      file: test.js
+  # Spot 노드에 toleration + nodeSelector
+  runner:
+    resources:
+      requests:
+        cpu: 1000m
+        memory: 1Gi
+      limits:
+        cpu: 2000m
+        memory: 2Gi
+    tolerations:
+      - key: kubernetes.azure.com/scalesetpriority
+        operator: Equal
+        value: spot
+        effect: NoSchedule
+    nodeSelector:
+      kubernetes.azure.com/scalesetpriority: spot
+    env:
+      - name: TARGET_URL
+        value: 'http://nginx-ingress.tourdoum-prod-app.svc.cluster.local'
+      - name: K6_OUT
+        value: 'experimental-prometheus-rw=http://kube-prometheus-stack-prometheus.monitoring.svc.cluster.local:9090/api/v1/write'

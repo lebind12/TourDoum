@@ -1,0 +1,31 @@
+# grafana/k6-operator Helm values — scale-lab.
+# repo: https://github.com/grafana/k6-operator
+# install:
+#   helm repo add grafana https://grafana.github.io/helm-charts
+#   helm install k6-operator grafana/k6-operator -n k6 --create-namespace -f values.yaml
+#
+# 30만 RPS generator. Spot user pool 에 스케줄 (toleration + nodeSelector).
+# JWT pool 적재 처방 (Codex 5회차) — README.md §JWT pool 처방.
+
+manager:
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  # Spot 노드 회피 — operator 자체는 system pool 권장 (eviction 시 TestRun 추적 손실 방지)
+  tolerations: []
+  nodeSelector:
+    tourdoum.io/pool: system
+
+# k6 runner 자체 (CR `TestRun` 으로 별도 spawn). 본 chart 는 operator 만 설치.
+# TestRun manifests 는 infra/azure/k8s/scale-lab/k6/ (별 디렉터리, Helm values 와 분리).
+authProxy:
+  enabled: false
+
+# 메트릭 export — Prometheus PodMonitor 가 k6 runner 의 ServiceMonitor 자동 픽업.
+prometheus:
+  metrics:
+    enabled: true

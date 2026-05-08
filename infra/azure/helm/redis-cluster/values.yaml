@@ -1,0 +1,65 @@
+# bitnami/redis-cluster Helm values — scale-lab.
+# repo:  oci://registry-1.docker.io/bitnamicharts/redis-cluster
+# install:
+#   helm install redis bitnami/redis-cluster -n data --create-namespace -f values.yaml
+#
+# JWT 9000만 token 사전 적재 + Lua token pre-confirm (ADR-0013 §Phase 6).
+# **maxmemory-policy = noeviction** — Codex 5회차 hard requirement.
+#   (allkeys-lru / volatile-lru 는 JWT 적재가 LRU 로 떨궈질 위험 → 인증 실패 폭주)
+
+# 6 nodes (3 master + 3 replica) — cluster mode.
+cluster:
+  nodes: 6
+  replicas: 1   # master 당 replica 1
+
+# 영속성 (학습 단계 — Spot eviction 시 데이터 손실 가능. AKS Premium SSD 권장)
+persistence:
+  enabled: true
+  size: 32Gi
+  storageClass: managed-csi-premium
+
+auth:
+  enabled: true
+  # password 는 Helm install 시 --set redis.password=<sha> 또는 별도 Secret 로 주입.
+  # 본 values 에 박제 X.
+  existingSecret: redis-cluster-auth
+  existingSecretPasswordKey: redis-password
+
+# Spot 노드 거부 (data loss 위험) — system pool 또는 spotd2s 와 분리된 storage 풀 권장.
+# Phase 1 학습 단계는 system pool toleration 만.
+nodeSelector:
+  tourdoum.io/pool: system
+
+tolerations: []
+
+resources:
+  requests:
+    cpu: 500m
+    memory: 4Gi
+  limits:
+    cpu: 1000m
+    memory: 6Gi
+
+# Redis 설정 — maxmemory-policy + persistence + replica
+redis:
+  configmap: |-
+    maxmemory 4gb
+    maxmemory-policy noeviction
+    appendonly yes
+    appendfsync everysec
+    cluster-require-full-coverage no
+    cluster-node-timeout 15000
+  livenessProbe:
+    enabled: true
+    initialDelaySeconds: 30
+  readinessProbe:
+    enabled: true
+    initialDelaySeconds: 10
+
+# 메트릭 export
+metrics:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+    namespace: monitoring
+    interval: 30s
