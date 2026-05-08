@@ -30,6 +30,22 @@
 		--success-foreground: 0 0% 100%;
 		--warning: 37.7 92.1% 50.2%; /* amber-500 */
 		--warning-foreground: 26 83.3% 14.1%; /* amber-950 */
+		/* ── R11: 예약 FSM 사용자 라벨용 상태 색 (semantic alias 보강) ──────────
+		 * --success/--warning과 의미 중복을 피하기 위해 "예약 진행 중 / 실패 / 중성"만 신규.
+		 * 사용 매핑은 frontend/src/types/reservation.ts의 USER_STATE_LABEL/COLOR_TOKEN 표 참고. */
+		--state-pending: 200 98% 39%; /* sky-600 — 진행 중 (QUEUED/INVENTORY_RESERVED/PAYMENT_PENDING) */
+		--state-pending-foreground: 0 0% 100%;
+		--state-failed: 0 84.2% 60.2%; /* red-500 — REJECTED/CANCELLED/FAILED/REVERSED */
+		--state-failed-foreground: 0 0% 100%;
+		--state-neutral: 215.4 16.3% 56.9%; /* slate-400 — REFUNDED/대기 중성 */
+		--state-neutral-foreground: 0 0% 100%;
+		/* ── R11: 대기열 진행도 / 카운트다운 / 배너 그라디언트 ─────────────── */
+		--queue-progress-from: 200 98% 39%; /* sky-600 */
+		--queue-progress-to: 158 64% 52%; /* emerald-500 */
+		--countdown-warning-bg: 0 86% 97%; /* red-50 */
+		--countdown-warning-text: 0 74% 32%; /* red-800 — 4.5:1 이상 보장 */
+		--banner-emphasis-from: 204 100% 97%; /* sky-50 */
+		--banner-emphasis-to: 226 100% 97%; /* indigo-50 */
 		/* ── Round 7 (K): 모션 토큰 ──────────────────────────────────────────
 		 * 마이크로 인터랙션 duration / easing 통일. tailwind class에서는
 		 * `duration-[var(--motion-fast)]` / `ease-[var(--ease-standard)]`로 참조.
@@ -73,6 +89,20 @@
 		--success-foreground: 222.2 84% 4.9%;
 		--warning: 37.7 92.1% 50.2%; /* amber-500 */
 		--warning-foreground: 26 83.3% 14.1%;
+		/* ── R11: 예약 FSM 라벨 상태색 (dark) ───────────────────────────────── */
+		--state-pending: 200 98% 50%; /* sky-500 — 다크 대비 보강 */
+		--state-pending-foreground: 222.2 84% 4.9%;
+		--state-failed: 0 72% 51%; /* red-500 dark variant — text foreground 흰색 유지 */
+		--state-failed-foreground: 0 0% 100%;
+		--state-neutral: 215 20% 65%; /* slate-300 */
+		--state-neutral-foreground: 222.2 84% 4.9%;
+		/* ── R11: 대기열/카운트다운/배너 (dark) ────────────────────────────── */
+		--queue-progress-from: 200 98% 50%; /* sky-500 */
+		--queue-progress-to: 158 64% 52%; /* emerald-500 */
+		--countdown-warning-bg: 0 63% 18%; /* red-950 */
+		--countdown-warning-text: 0 91% 78%; /* red-300 — 다크 배경 4.5:1 보장 */
+		--banner-emphasis-from: 217 51% 12%; /* sky-950 dark */
+		--banner-emphasis-to: 226 41% 14%; /* indigo-950 dark */
 	}
 }
 
