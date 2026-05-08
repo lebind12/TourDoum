@@ -22,6 +22,8 @@ const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8080";
 export interface ApiResponse<T> {
 	data: T | null;
 	error: string | null;
+	/** HTTP 상태 코드. 호출자가 400/404 등을 분기 처리할 수 있다(옵셔널, 비파괴). */
+	status?: number;
 }
 
 export interface RequestOptions {
@@ -115,11 +117,11 @@ async function rawFetch(
 
 async function toApiResponse<T>(res: Response): Promise<ApiResponse<T>> {
 	if (!res.ok) {
-		return { data: null, error: await extractError(res) };
+		return { data: null, error: await extractError(res), status: res.status };
 	}
 	const text = await res.text();
 	const data: T = text ? (JSON.parse(text) as T) : (null as T);
-	return { data, error: null };
+	return { data, error: null, status: res.status };
 }
 
 export async function get<T>(
@@ -203,9 +205,9 @@ export async function del(
 			options,
 		);
 		if (!res.ok) {
-			return { data: null, error: await extractError(res) };
+			return { data: null, error: await extractError(res), status: res.status };
 		}
-		return { data: null, error: null };
+		return { data: null, error: null, status: res.status };
 	} catch (err) {
 		return {
 			data: null,
