@@ -196,7 +196,10 @@ cl-memory 양자화 후보 (회차 종료 session-log에서):
 
 ## 8. 미해결 backlog (인계)
 
-- **사용자 push origin develop** — develop 189 ahead, push 안 하면 stale 위험
+- **사용자 push origin develop** — develop 193 ahead (qa #36 + ADR 갱신 추가), push 안 하면 stale 위험
+- **🐞 BE-4 IP-lockout false-positive race (긴급, 5회차 BE 첫 task 후보)** — `RedisLoginLockoutService` ip-threshold=10/10min window가 k6 동시 login burst 시 정상 password에도 fail 카운터 누적 → IP 락아웃. 4회차 회차 중 4회 `redis-cli FLUSHDB` 필요. 처방: per-IP 카운터를 success 시 reset 또는 fail 분류 정밀화 (timeout vs invalid password 분리)
+- **outbox batch-size 50 → 200 default 변경** — qa #36 측정: drain 70 → 147 ev/s (+110%) ingestion +3% p95 -5% error 0%. `application.yml` `tourdoum.outbox.batch-size` default 갱신 후보 (별 task)
+- **Argon2id signup thread-bound** — qa #36 측정: signup p95 660ms 단일 / 33s 동시 20VU. 운영 영향 낮음 (가입 빈도 ↓), k6 setup 동시 burst 영향만. Phase 6 측정 시 thread pool 분리 또는 burst rate limit 권고
 - **qa task #9** stage별 latency + batch-size 튜닝 (5~10분)
 - **23 e2e 잔여 FAIL** 카테고리별 처리 (deep-link / auth-reload / strict mode / 플레이키)
 - **BE 분할 운영 모델** 박제 (Codex GO with caveats 7 정정 + CODEOWNERS + MIGRATION_REGISTRY 박제 후 spawn)

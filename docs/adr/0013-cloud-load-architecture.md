@@ -238,7 +238,7 @@ Azure Cost Management budget은 **알림만**, **자동 차단 chain은 별도 �
 
 | Phase | 측정 목표 | 도달 신호 |
 |---|---|---|
-| **Phase 1** | local-dev 단일 Pod baseline — p95 SLA RPS | ✅ **2026-05-08 도달**: 416 RPS @ p95 1.25s / outbox drain 70 ev/s / transition_log 1:1 / 0% error (qa #35 commit, `docs/notes/2026-05-08-qa-k6-1-phase1-rerun.md`) |
+| **Phase 1** | local-dev 단일 Pod baseline — p95 SLA RPS | ✅ **2026-05-08 도달**: 416 RPS @ p95 1.25s / outbox drain 70 ev/s / transition_log 1:1 / 0% error (qa #35 commit, `docs/notes/2026-05-08-qa-k6-1-phase1-rerun.md`). **batch=50 → 200 튜닝 (qa #36)**: drain 70 → **147 ev/s (+110%)** ingestion +3% p95 -5% — outbox 운영 default 변경 권고. Stage-trend (qa #36): signup p95 660ms 단일/33s 동시20VU (Argon2id thread bound), login 4.5ms 단일. **BE-4 IP-lockout false-positive race** 발견 (k6 burst 시 정상 password도 fail 카운터 누적 → 별 BE task) |
 | **Phase 2** | prod-lite ACA 2~4 replica scale-out — HPA cold-start gap (90~145s 추정) + ingress 429/queue depth/drop rate | 시연 가능 + 측정값 박제 |
 | **Phase 3** | scale-lab Layer 0 (MySQL 1 writer) baseline — 3k~5k confirmed/sec 30s burst | 측정값 + 한계 박제 |
 | **Phase 4** | Layer 4 (MariaDB shard N=10) — shard당 30k confirmed/sec 30s burst → 합 30만 30s burst | 측정값 박제 |
