@@ -175,7 +175,7 @@ test.describe("채팅 폴링 (qa #30)", () => {
 	// `(result.data ?? []).map(...)` 호출 시 TypeError → 폴링 무동작(메시지 미노출).
 	// ADR-0012 FE-1 (ChatView keyset state + items 매핑) 머지 후 `test()` 로 복원.
 	// BE 라운드트립은 curl 로 별도 검증 (handoff §"FE 차단" 참조).
-	test.skip("Scenario A (DM): B가 API로 보낸 메시지가 A의 UI에 폴링으로 노출 — FE-1 머지 후 활성화", async ({
+	test("Scenario A (DM): B가 API로 보낸 메시지가 A의 UI에 폴링으로 노출", async ({
 		page,
 	}) => {
 		// A: UI signup + login (브라우저 module-closure 박제)
