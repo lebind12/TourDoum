@@ -78,6 +78,8 @@ class ReservationContractIT {
 
   @Autowired private MockMvc mockMvc;
   @Autowired private ObjectMapper objectMapper;
+  @Autowired private com.ssafy.tourdoum.reservation.ReservationTransitionLogRepository logRepo;
+  @Autowired private com.ssafy.tourdoum.outbox.OutboxRepository outboxRepo;
 
   @Test
   @DisplayName(
@@ -116,21 +118,38 @@ class ReservationContractIT {
     assertThat(accessToken).isNotBlank();
 
     // 3) POST /api/reservations — Bearer만, X-XSRF-TOKEN/csrf token 없음. 201 기대.
-    mockMvc
-        .perform(
-            post("/api/reservations")
-                .header("Authorization", "Bearer " + accessToken)
-                .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(
-                    "{\"accommodationId\":1,"
-                        + "\"checkIn\":\"2026-09-15\","
-                        + "\"checkOut\":\"2026-09-17\","
-                        + "\"guests\":2,"
-                        + "\"paymentMethod\":\"CARD\"}"))
-        .andExpect(status().isCreated())
-        .andExpect(jsonPath("$.id").exists())
-        .andExpect(jsonPath("$.status").value("CONFIRMED"));
+    MvcResult res =
+        mockMvc
+            .perform(
+                post("/api/reservations")
+                    .header("Authorization", "Bearer " + accessToken)
+                    .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(
+                        "{\"accommodationId\":1,"
+                            + "\"checkIn\":\"2026-09-15\","
+                            + "\"checkOut\":\"2026-09-17\","
+                            + "\"guests\":2,"
+                            + "\"paymentMethod\":\"CARD\"}"))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.id").exists())
+            .andExpect(jsonPath("$.status").value("CONFIRMED"))
+            .andExpect(jsonPath("$.state").value("CONFIRMED"))
+            .andReturn();
+    Long rid = objectMapper.readTree(res.getResponse().getContentAsString()).get("id").asLong();
+
+    // BE-13.1 wiring 회귀 가드 — confirm() 경로도 transition_log + outbox INSERT 해야 함.
+    // 누락되면 ADR-0013 §결정 (15) Phase 1 outbox drain rate / audit trail 측정 불가.
+    assertThat(logRepo.findByReservationIdOrderByCreatedAtAsc(rid))
+        .as("confirm() 경로 transition_log INSERT")
+        .hasSize(1)
+        .first()
+        .matches(l -> l.getFromState() == null)
+        .matches(
+            l -> l.getToState() == com.ssafy.tourdoum.reservation.ReservationState.CONFIRMED);
+    assertThat(outboxRepo.findByAggregateIdAndEventType(rid, "Notify"))
+        .as("confirm() 경로 outbox Notify INSERT")
+        .hasSize(1);
   }
 
   @Test
