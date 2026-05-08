@@ -176,6 +176,12 @@ if (import.meta.env.DEV) {
 		name: "dev-me-mock",
 		component: () => import("@/views/dev/MeMockView.vue"),
 	});
+	// Round 11: 예약 시퀀스 lab — PeakSeasonBanner + queue/payment fixture 시각 검증.
+	router.addRoute({
+		path: "/dev/r11-reservation-lab",
+		name: "dev-r11-reservation-lab",
+		component: () => import("@/views/dev/R11ReservationLabView.vue"),
+	});
 }
 
 router.beforeEach(async (to) => {
