@@ -60,6 +60,16 @@ public class Reservation {
   @Column(nullable = false, length = 20)
   private ReservationStatus status;
 
+  /**
+   * FSM SOT — ADR-0013 §결정 (3). 기존 {@link #status}와 V18~ 단계에서 병존하며 BE-14에서 통합.
+   *
+   * <p>본 column은 {@link ReservationRepository#transitionState} conditional UPDATE로만 갱신해야
+   * replica 안전 + 멱등성이 보장된다.
+   */
+  @Enumerated(EnumType.STRING)
+  @Column(nullable = false, length = 32)
+  private ReservationState state;
+
   /** Idempotency-Key 헤더 값 — UNIQUE INDEX로 중복 예약 방지. */
   @Column(name = "idempotency_key", nullable = false, unique = true, length = 128)
   private String idempotencyKey;
@@ -67,6 +77,10 @@ public class Reservation {
   @CreatedDate
   @Column(nullable = false, updatable = false)
   private LocalDateTime createdAt;
+
+  @org.springframework.data.annotation.LastModifiedDate
+  @Column(name = "updated_at", nullable = false)
+  private LocalDateTime updatedAt;
 
   @Builder
   public Reservation(
@@ -77,7 +91,8 @@ public class Reservation {
       int guests,
       int totalPrice,
       PaymentMethod paymentMethod,
-      String idempotencyKey) {
+      String idempotencyKey,
+      ReservationState initialState) {
     this.memberId = memberId;
     this.accommodationId = accommodationId;
     this.checkIn = checkIn;
@@ -86,10 +101,11 @@ public class Reservation {
     this.totalPrice = totalPrice;
     this.paymentMethod = paymentMethod;
     this.status = ReservationStatus.CONFIRMED;
+    this.state = initialState != null ? initialState : ReservationState.CONFIRMED;
     this.idempotencyKey = idempotencyKey;
   }
 
-  /** 예약 취소. */
+  /** 예약 취소 — legacy {@link ReservationStatus}만 갱신. FSM 전이는 BE-14에서 통합. */
   public void cancel() {
     this.status = ReservationStatus.CANCELED;
   }

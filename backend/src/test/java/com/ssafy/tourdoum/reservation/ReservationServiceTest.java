@@ -26,6 +26,8 @@ class ReservationServiceTest {
   @Mock private ReservationRepository reservationRepository;
   @Mock private AccommodationRepository accommodationRepository;
   @Mock private NotificationService notificationService;
+  @Mock private ReservationTransitionLogRepository transitionLogRepository;
+  @Mock private com.ssafy.tourdoum.outbox.OutboxRepository outboxRepository;
 
   @InjectMocks private ReservationService reservationService;
 
