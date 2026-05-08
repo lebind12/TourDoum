@@ -10,9 +10,22 @@
 
 사용자 명시 = "새 세션에서 실 배포 진행". 다음 architect 첫 단계:
 
-1. **Azure 계정 검증** — `claude mcp list` (azure-mcp ✓ Connected) + `az account show` 확인
-2. **Cost Management budget 박제** — `infra/azure/cost/*.json` 사용해 `az consumption budget create` (Phase 1 자동 차단 X, alert만)
-3. **Resource Group 3종 생성** — `az deployment sub create --template-file infra/azure/bicep/main.bicep --parameters infra/azure/bicep/parameters/dev.bicepparam` (subscription id / tenant id / region 사용자 입력 후)
+### 사용자 액션 완료 (5회차 진입 직전, 2026-05-08)
+- ✅ `git push origin develop` (4회차 193 commits 푸시 완료, develop = origin/develop 동기)
+- ✅ Azure 계정 검증: `todo.silhum@gmail.com` (primary lebind11@gmail.com과 별도 계정), 기본 디렉터리 `TODOSILHUMG...`, 리소스 0개 clean state
+- ✅ **Subscription ID:** `5a248f32-365e-4baa-9f26-e4038cfd7b98` (실험용/Trial)
+
+### ⚠️ 크레딧 만료 제약 (반드시 준수)
+- **$200 USD 크레딧 30일 만료** = ~**2026-06-07 만료** (오늘 2026-05-08 기준)
+- 4회차 인계 가정 "12개월 Free tier"는 부분 무효 — 12개월은 일부 서비스(B1ms MySQL 등)만, $200 크레딧은 30일 한정
+- **5회차 우선순위:** prod-lite + scale-lab 1회 RPS 검증까지 압축 진행 (크레딧 소진 빠르게)
+- **6회차 이후:** Stop/Deallocate로 크레딧 보존, Free tier 한도 내만 상시 가동
+- **2026-06-01 만료 임박 시:** Pay-As-You-Go 전환 여부 사용자 결정 필요
+
+### Architect 첫 단계
+1. **Azure 계정 검증** — `claude mcp list` (azure-mcp ✓ Connected) + `az account show` 확인. subscription id 위 박제값 사용.
+2. **Cost Management budget 박제** — `infra/azure/cost/*.json` 사용해 `az consumption budget create` (alert 임계 $50/$100/$150 권고, 30일 만료 고려)
+3. **Resource Group 3종 생성** — `az deployment sub create --template-file infra/azure/bicep/main.bicep --parameters infra/azure/bicep/parameters/dev.bicepparam` (subscription id `5a248f32-365e-4baa-9f26-e4038cfd7b98` + tenant id + region 주입)
 4. **prod-lite 본격 deployment** — `infra/azure/bicep/modules/prod-lite/prod-app-stack.bicep` + `prod-data-stack.bicep` `what-if` 후 사용자 승인 후 deploy
 5. **GitHub Actions OIDC Federated Credential** — `infra/azure/github-oidc-setup.md` 절차서 따라 사용자 dashboard 액션
 6. **Vercel project import** — `infra/vercel/github-integration-setup.md` 절차서 따라 사용자 dashboard 액션
