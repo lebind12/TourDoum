@@ -43,7 +43,7 @@ async function signupAndLogin(page: Page): Promise<{
 	const ts = Date.now();
 	const rand = Math.floor(Math.random() * 10000);
 	const email = `qa-fav-${ts}-${rand}@example.com`;
-	const password = "password1";
+	const password = "E2eTestSecure!9x";
 	const nickname = `qaf${ts}${rand}`.slice(0, 20);
 
 	await page.goto("/signup");
@@ -89,9 +89,7 @@ test.describe("즐겨찾기 — 가드 + CRUD", () => {
 			page.getByText("아직 즐겨찾기한 여행지가 없어요"),
 		).toBeVisible();
 		// 카운트 = 0
-		await expect(
-			page.getByText(/내가 저장한 여행지\s*0\s*곳/),
-		).toBeVisible();
+		await expect(page.getByText(/내가 저장한 여행지\s*0\s*곳/)).toBeVisible();
 	});
 
 	test("Scenario C: /attractions에서 즐겨찾기 추가 → /favorites에 노출", async ({
@@ -115,10 +113,7 @@ test.describe("즐겨찾기 — 가드 + CRUD", () => {
 		// 첫 카드의 이름 캡처 — addButton과 같은 카드(Card 부모)의 h2.
 		// Card 컴포넌트 구조: Card > <RouterLink> > Card > [img, CardContent[h2, ...FavoriteButton]]
 		// 카드 단위 컨테이너가 명시적이지 않으므로 페이지 전체에서 카드 h2 첫 번째 사용.
-		const firstCardName = await page
-			.locator("h2")
-			.first()
-			.textContent();
+		const firstCardName = await page.locator("h2").first().textContent();
 		expect(firstCardName?.trim().length).toBeGreaterThan(0);
 
 		// 토글 추가 (RouterLink 안에 있지만 FavoriteButton은 @click.prevent로 막음)
@@ -129,17 +124,15 @@ test.describe("즐겨찾기 — 가드 + CRUD", () => {
 		await expect(page).toHaveURL("/favorites");
 
 		// 빈 상태 메시지가 사라지고 그리드 노출
-		await expect(
-			page.getByText("아직 즐겨찾기한 여행지가 없어요"),
-		).toHaveCount(0);
+		await expect(page.getByText("아직 즐겨찾기한 여행지가 없어요")).toHaveCount(
+			0,
+		);
 		await expect(page.locator("div.grid").first()).toBeVisible({
 			timeout: 5000,
 		});
 
 		// 카운트 = 1 + 첫 카드 이름이 목록에 노출
-		await expect(
-			page.getByText(/내가 저장한 여행지\s*1\s*곳/),
-		).toBeVisible();
+		await expect(page.getByText(/내가 저장한 여행지\s*1\s*곳/)).toBeVisible();
 		const trimmedName = (firstCardName ?? "").trim();
 		await expect(
 			page.locator("div.grid h2", { hasText: trimmedName }).first(),
@@ -163,9 +156,7 @@ test.describe("즐겨찾기 — 가드 + CRUD", () => {
 		await expect(page.locator("div.grid").first()).toBeVisible({
 			timeout: 5000,
 		});
-		await expect(
-			page.getByText(/내가 저장한 여행지\s*1\s*곳/),
-		).toBeVisible();
+		await expect(page.getByText(/내가 저장한 여행지\s*1\s*곳/)).toBeVisible();
 
 		// 제거 버튼 클릭 (`${name} 즐겨찾기 제거` aria-label)
 		const removeButton = page
@@ -178,8 +169,6 @@ test.describe("즐겨찾기 — 가드 + CRUD", () => {
 		await expect(
 			page.getByText("아직 즐겨찾기한 여행지가 없어요"),
 		).toBeVisible();
-		await expect(
-			page.getByText(/내가 저장한 여행지\s*0\s*곳/),
-		).toBeVisible();
+		await expect(page.getByText(/내가 저장한 여행지\s*0\s*곳/)).toBeVisible();
 	});
 });

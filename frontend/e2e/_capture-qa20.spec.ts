@@ -23,7 +23,7 @@ async function signupAndLogin(page: Page): Promise<string> {
 	await page
 		.locator('form[aria-label="회원가입 폼"]')
 		.getByLabel(/비밀번호|password/i)
-		.fill("password1");
+		.fill("E2eTestSecure!9x");
 	await page.getByLabel(/닉네임|nickname/i).fill(nickname);
 	await page.getByTestId("signup-submit").click();
 	await expect(page).toHaveURL("/");
@@ -37,9 +37,7 @@ test("capture: favorites empty / add / list / remove", async ({ page }) => {
 
 	// 1. 빈 상태
 	await page.goto("/favorites");
-	await expect(
-		page.getByText("아직 즐겨찾기한 여행지가 없어요"),
-	).toBeVisible();
+	await expect(page.getByText("아직 즐겨찾기한 여행지가 없어요")).toBeVisible();
 	await page.screenshot({
 		path: path.join(OUT, "01-favorites-empty.png"),
 		fullPage: true,
@@ -47,9 +45,7 @@ test("capture: favorites empty / add / list / remove", async ({ page }) => {
 
 	// 2. /attractions 즐겨찾기 추가
 	await page.goto("/attractions");
-	const addButton = page
-		.locator('button[aria-label="즐겨찾기 추가"]')
-		.first();
+	const addButton = page.locator('button[aria-label="즐겨찾기 추가"]').first();
 	await expect(addButton).toBeVisible({ timeout: 10000 });
 	await addButton.click();
 	await page.screenshot({
@@ -66,13 +62,8 @@ test("capture: favorites empty / add / list / remove", async ({ page }) => {
 	});
 
 	// 4. 제거 후 빈 상태 복귀
-	await page
-		.locator('button[aria-label$="즐겨찾기 제거"]')
-		.first()
-		.click();
-	await expect(
-		page.getByText("아직 즐겨찾기한 여행지가 없어요"),
-	).toBeVisible();
+	await page.locator('button[aria-label$="즐겨찾기 제거"]').first().click();
+	await expect(page.getByText("아직 즐겨찾기한 여행지가 없어요")).toBeVisible();
 	await page.screenshot({
 		path: path.join(OUT, "04-favorites-after-remove.png"),
 		fullPage: true,

@@ -20,7 +20,7 @@ test("Scenario A: 회원가입 → 로그인 → /me → /attractions → /favor
 }) => {
 	const ts = Date.now();
 	const email = `e2e_${ts}@tourdoum.test`;
-	const password = "Password1!";
+	const password = "E2eTestSecure!9x";
 	const nickname = `테스터${ts % 10000}`;
 
 	// 1. 회원가입
@@ -78,7 +78,7 @@ test("Scenario B: 비로그인 /favorites 접근 → /login 리다이렉트 → 
 	// 4. 로그인 수행
 	const ts = Date.now();
 	const email = `e2e_${ts}@tourdoum.test`;
-	const password = "Password1!";
+	const password = "E2eTestSecure!9x";
 	const nickname = `테스터${ts % 10000}`;
 
 	// 먼저 회원가입해야 로그인 가능

@@ -15,7 +15,7 @@ test("회원가입/로그인 후 숙박 예약 완료, 마이페이지 노출, �
 }) => {
 	const ts = Date.now();
 	const email = `reservation_${ts}@tourdoum.test`;
-	const password = "Password1!";
+	const password = "E2eTestSecure!9x";
 	const nickname = `예약자${ts % 10000}`;
 	const checkIn = addDays(new Date(), 10);
 	const checkOut = addDays(new Date(), 12);
