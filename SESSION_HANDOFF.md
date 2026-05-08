@@ -1,200 +1,226 @@
-# SESSION_HANDOFF — TourDoum (2026-05-07 EOS, 3회차)
+# SESSION_HANDOFF — TourDoum (2026-05-08 EOS, 4회차)
 
-다음 회차 architect 재개용 박제. 본 파일은 일회용 — 다음 회차 architect가 정독 후 archive(`docs/sessions/2026-05-07-3.md`로 이동) 또는 삭제.
+다음 회차 architect 재개용 박제. 본 회차 = ADR-0013 Phase 1 BE+QA 종료 + Azure prod-lite/scale-lab 사전 박제 + 다음 회차 = **Azure 실 배포 (Phase 2 진입)**.
 
-본 회차 develop = 141 commits ahead of origin/develop. 이전 회차 종료 시점(47a42d8)에서 27 commit 추가 머지.
-
----
-
-## 1. 본 회차 develop 머지 (커밋 순)
-
-### Group 1 — JWT 인증 라인 (ADR-0011)
-- **c7b65bf** be #63 BE-2 머지 (refresh rotation + token family + Redis denylist + previous-kid 활성). `--skip-build` 승인 (BE-only, FE 무관).
-- **c08e335** be #1 BE-3 머지 (httpOnly cookie + CSRF token + Set-Cookie clear + body fallback). IT Testcontainers MySQL+Redis full flow PASS.
-- **f5807f8** fe #11 FE-2 머지 (X-XSRF-TOKEN auto-injection + cookie credentials 통일 + reservations.ts direct fetch + 161 vitest).
-- **f8d90d5** ADR-0011 §"BE-4 비밀번호 보안 강화" 7-box 분해 박제 (researcher #6 + Codex 교차 검토). 법정 vs 프로젝트 정책 분리 명시. KISA/개보위 2025-9호/ISMS-P/NIST 800-63B Rev.4/OWASP 출처 박제.
-
-### Group 2 — 채팅 keyset paging (ADR-0012)
-- **ede9a30** be #8 BE-1 머지 (Cursor DTO base64url JSON + /messages/older + LIMIT clamp 1≤?≤50 + content @Size 4000 + ?sinceId= 한시 호환).
-- **d3c780e** be #12 BE-2 머지 (V17 4단계: chat_messages keyset idx / chat_members 역방향 / chat_channels DM pair UNIQUE+CHECK + last_message_id/at + idx + ROW_NUMBER backfill / JOIN 패턴 + ChatDmCreator REQUIRES_NEW + last_message guarded UPDATE).
-- **9babe24** be #15 BE-3 머지 (dev-only seed runner profile 'chat-seed' + JdbcTemplate batch + --scenario=public|dm|mixed + Zipf 1/rank + 멱등 sentinel 채널명).
-
-### Group 3 — ADR-0013 사전 인프라 + brainstorm
-- **e716ecd** infra #10 머지 (AWS env 템플릿 `infra/aws/.env.aws.example` + IAM 최소 권한 + Observability 4종 docker-compose: Prometheus/Grafana/Loki/Promtail + backend Actuator scrape).
-- **3c39798** ADR-0013 brainstorm notes 박제 (`docs/notes/2026-05-07-adr-0013-brainstorm.md`). **박제 보류, 추후 brainstorm 후 ADR 박제**.
-
-### qa
-- **3ec0bcf** qa #28 머지 (Notifications e2e 4/4: 비로그인/트리거/단건/전체 읽음, BE direct API).
-- **60b7fe0** qa #30 + #28 C/D UI 회귀 머지 (chat-polling spec 골격 두 시나리오 test.skip, #28 C/D는 UI click + waitForResponse PASS).
-
-### UI continuous (3 라운드)
-- **7f8ed16** R7 — motion 토큰 5개 (`--motion-fast/base/slow + ease-standard/emphasized`) + Button micro-interaction + `/dev/me-mock`.
-- **(중간)** R8 — Sheet/AlertDialog/Toast hardcoded duration → motion 토큰 + Input/Select transition 토큰화 + 14 screenshot (320/375/640).
-- **b96a7d1** R9 — me-mock race fix + AlertDialog panel scale-in + Toast emphasized → standard 회귀.
-
-### 하네스 + 운영
-- **`.harness c30a36a`** `_resolve_base_ref` P0 보강 — local develop ahead 시 우선 사용 (5회 반복 false-trigger 처방).
-- **`.harness fc8a94b`** `agent-prompts/researcher.md` 신규 — 외부 자료 조사 + Codex 교차 + architect 보고 역할 박제. CLAUDE.md §3 역할 표 갱신.
+본 회차 develop = e2a5069 → cc7486d, **189 commits ahead of origin/develop** (사용자 push 권장).
 
 ---
 
-## 2. ⚠️ 진행 중 task (다음 회차 첫 처리)
+## 0. 다음 회차 첫 임무 (Phase 2 Azure 실 배포)
 
-### **fe #14 ADR-0012 FE-1 (ChatView keyset state)** — 진행 중, 미커밋
-- worktree: `.worktrees/20-spec-tourdoum-fe-chat-fe1-keyset-observer`
-- 브랜치: `fe/chat-fe1-keyset-observer`
-- 상태: **5 파일 staged, 미커밋** (`client.ts / chat.spec.ts / chat.ts / ChatChannelView.vue / ChatView.spec.ts`)
-- 다음 회차 첫 처리: fe wake → 진행 상황 확인 → finalize → 머지 → qa #30 Scenario A unblock.
+사용자 명시 = "새 세션에서 실 배포 진행". 다음 architect 첫 단계:
 
-### **be #16 ADR-0011 BE-4 (비밀번호 보안 강화)** — 진행 초기
-- worktree: `.worktrees/20-spec-tourdoum-be-jwt-be4-password-security`
-- 브랜치: `be/jwt-be4-password-security`
-- 상태: **handoff.md 14줄 placeholder만 박제, 코드 작업 미시작 또는 초기**
-- 7-box: Argon2id m=64MiB,t=3,p=1 + bcrypt fallback / 12자 / revocation hook (BE-2 family/denylist 재사용) / per-account 5회·30분 + per-IP 10/10 / Reset 30분 1회용 / DelegatingPasswordEncoder rehash on login
-- 다음 회차 첫 처리: be wake → 진행 상황 확인 → 보강 필요시 인계 → finalize → 머지.
-
-### qa 미dispatch (대기)
-- **qa #30 spec 복원**: fe #14 + be #15(이미 머지) 둘 다 머지 후 `chat-polling.spec.ts` `test.skip → test` 복원 + 재실행 5분 mini-task. 본 회차 spec 골격 박제됨, 활성 시나리오 X.
-- **qa #28 BE-4 시나리오** (be #16 머지 후): login 5회 lockout / 30분 자동 해제 / password 변경 family revoke / reset 1회용 / per-IP throttling — handoff §"qa 시나리오 6건"에서 인계 받음.
-
-### ui 미dispatch
-- **R10 후보** — Sheet panel scale 추가 / Tabs/Toggle/Badge transition 토큰화 audit / 미캡처 4 라우트(채팅/예약/플랜/`/me`) screenshot. R8 보류한 dev seed route 신설 vs BE+seed 부팅 결정 필요.
-
-### infra 미dispatch
-- **INFRA-1+** ADR-0013 v1 박제 후 분기. Kind 멀티노드 + nginx LB / Bucket4j Redis / RabbitMQ FIFO sharded / Redis cluster Lua / MariaDB N shard 등 — `docs/notes/2026-05-07-adr-0013-brainstorm.md` §7 task tree 후보 11+5건.
+1. **Azure 계정 검증** — `claude mcp list` (azure-mcp ✓ Connected) + `az account show` 확인
+2. **Cost Management budget 박제** — `infra/azure/cost/*.json` 사용해 `az consumption budget create` (Phase 1 자동 차단 X, alert만)
+3. **Resource Group 3종 생성** — `az deployment sub create --template-file infra/azure/bicep/main.bicep --parameters infra/azure/bicep/parameters/dev.bicepparam` (subscription id / tenant id / region 사용자 입력 후)
+4. **prod-lite 본격 deployment** — `infra/azure/bicep/modules/prod-lite/prod-app-stack.bicep` + `prod-data-stack.bicep` `what-if` 후 사용자 승인 후 deploy
+5. **GitHub Actions OIDC Federated Credential** — `infra/azure/github-oidc-setup.md` 절차서 따라 사용자 dashboard 액션
+6. **Vercel project import** — `infra/vercel/github-integration-setup.md` 절차서 따라 사용자 dashboard 액션
+7. **첫 deployment 검증** — `azure-acr-build-push.yml` workflow_dispatch + `azure-aca-deploy.yml` workflow_dispatch
+8. **QA-K6-2 ACA replica scale-out 측정** — Phase 2 도달 신호
 
 ---
 
-## 3. ADR-0013 brainstorm notes 인계 ⚠️ 핵심
+## 1. 본 회차 develop 머지 누적 (대화 시작 e2a5069 → cc7486d)
 
-**위치**: `docs/notes/2026-05-07-adr-0013-brainstorm.md` (commit `3c39798`).
+### Group 1 — qa #31 22 FAIL 카테고리 정리 (4 commit)
+- `dc0eb6c` qa task #5 SPA nav 리팩터 + navigateTo helper, 19→14 FAIL
+- `ed0bd49` ui task #2 design system contract 복원 (welcome-msg/btn-logout/guest-bar/#brand)
+- `cae9521` fe task #2 + #3: AccommodationDetailView 렌더 크래시 픽스 + plans 셀렉터 + auth strict mode + nav helper 정합 (router.push 단일 경로)
+- `0e8238b` be task #5 reservations contract = BE-3 CSRF 회귀 (Bearer 면제 / cookie credential 강제)
 
-**상태**: ADR 박제 보류. 사용자 추가 brainstorm 후 박제 예정.
+### Group 2 — ADR-0013 Phase 1 BE 박제 (4 commit)
+- `be133dd` BE-13 Reservation FSM 13-state + transition_log + outbox 테이블 + V18 마이그레이션
+- `9f09da8` BE-15 Outbox Publisher Worker (FOR UPDATE SKIP LOCKED + claim_state + retry/backoff + dead_letter + stale recovery)
+- `a451cec` BE-14 PG mock + Toss 매핑 + Idempotency-Key Redis cache + Refund handler
+- `0b35c8d` BE-13.1 wiring 처방 (confirm() 경로도 transition_log + outbox INSERT — qa #6 baseline 회귀 해소)
 
-**필독**: 본 회차에 사용자가 ADR-0013 목표를 정정함:
-- 기존: "30만 RPS 처리 아키텍처 설계"
-- 정정: **"30만 RPS 실제 재현 + 견뎌내는 아키텍처"** (외부 도구 활용)
+### Group 3 — qa baseline 측정 (3 commit)
+- `11cbde4` qa #34 QA-K6-1 baseline 단일 Pod ~325 RPS p95 2.4s + BE-13 service wiring 결손 발견
+- `eb5d6a2` qa #34 phase1 rerun (BE-14 머지 후, BE-13.1 시점 race로 outdated 판정)
+- `4da27b6` **qa #35 phase1 3차 (BE-13.1 wiring 후)** — outbox 70 ev/s drain + transition_log 1:1 + **416 RPS @ p95 1.25s**, ADR-0013 Phase 1 도달 PASS
 
-researcher #9, #13 두 차례 보고 + Codex critical review 완료. 핵심:
-- generator 1순위 = **k6-operator on EKS Seoul** (mixed Graviton spot, 1h <$1)
-- 시나리오 A vs B 비교 학습 (예약 폭주 hot path)
-- **목표 재정의**: "DB writer 병목 앞에서 A=흡수/제한, B=확장 지연/손실 정량화"
-- DB 다중화 7 layer (read replica → vertical → ~~Multi-Master~~ → sharding → Redis Lua token → Kafka WAL)
-- 사용자 7개 미해결 결정 중 3개 답변 완료(성공 기준=confirmed / 전체 layer 포함 / ~$10 예산)
-- 4개 default 권고: pending=auth 5분 mock, contention=Redis token, WAF=IP+cookie/custom, SQS=FIFO-sharded N=10~20
+### Group 4 — Azure prod-lite/scale-lab 사전 박제 (4 commit)
+- `de67f78` INFRA-AZ-0 Cost budget JSON + RG skeleton + kill-switch script
+- `79f1354` INFRA-AZ-2 GitHub Actions OIDC + ACR + ACA + cleanup workflows
+- `7b71565` INFRA-VE-1 Vercel project + GitHub 연동 + CORS allowlist 정책
+- `62bf79b` INFRA-AZ-3a scale-lab Bicep AKS Free + on-demand system + Spot user pool
+- `b9e4a39` INFRA-AZ-3b scale-lab Helm charts (k6 / Redis Cluster / MariaDB shards / RabbitMQ / kube-prom-stack)
 
-**비용 시나리오**: 100% 로컬 ($0, ~85% 학습) / 로컬+AWS 1회 30분 burst (~$2~10) / 100% AWS ($200~1000+).
+### Group 5 — UI R10/R11 + dark 회귀 (3 commit)
+- `a29c05c` R10 Tabs/Badge/Popover/SearchWidget transition 토큰화 + me-mock 캡처
+- `b8e9138` R11.1~3 디자인 토큰 9종 + PeakSeasonBanner + fixture contract + `/dev/r11-reservation-lab`
+- `ed0bd49` R11.1 dark variant 회귀 검증 (변화 X)
 
-**다음 brainstorm 후보 토픽 8건** notes §8에 박제 — 결제 정책 / Overbooking / Inventory 표현 / Terraform 자동화 / Spot fallback / Karpenter NodePool / k6 script / DB writer 분산 IaC.
+### Group 6 — ADR + 운영 정합 (4 commit)
+- `c462a53` **ADR-0013 v1 박제** (218줄, 10 결정 + Phase 1~6 task tree)
+- `b81c6f3` ADR-0013 §8 Vercel 갱신
+- `3c6c687` ADR-0011 + 0013 Codex 4회차 검증 보강 (8건)
+- `1321725` ADR-0013 시간 박제 제거 + WIP 단계 도달 모델 + 30만 1h sustain Phase 6 최종 목표
+- `40d5173` ADR-0013 Codex 5회차 재검토 (NO-GO → GO with caveats), 10건 정정
+- `07b87fa` ADR-0011 §"CSRF 면제/강제 매트릭스" 박제
+- `cc7486d` ADR-0013 §결정 (15) Phase 1 도달 PASS 박제
 
-다음 회차 architect는 본 노트 정독 후 사용자 brainstorm 추가 → ADR-0013 v1 박제 진행.
+### Group 7 — qa #30 Scenario A+B + qa #31 (5 commit, 본 회차 초반)
+- `92f1b1d` qa #30 Scenario A 활성화
+- `ecf7511` qa #30 Scenario A+B + BE-4 password helper 갱신
+- `2d3f20a` qa #31 e2e 인라인 password 6 spec 일괄 갱신 (BE-4 정책 통과)
+
+### Group 8 — fe FE-1 / FE-1.1 + ui R10 (이전 인계분 머지)
+- `f204125` fe #14 ADR-0012 FE-1 keyset paging
+- `e24ea0d` fe FE-1.1 cold-start fallback (qa #30 회귀 가드)
+- `dde6543` be BE-4 비밀번호 보안 강화 (Argon2id + lockout + reset + revocation hook)
+- `1958689` be BE-1.1 chat PUBLIC auto-join on signup (dev profile)
 
 ---
 
-## 4. 운영 사고 / 처방 (본 회차 패턴)
+## 2. ADR-0013 Phase별 진척
 
-### `_resolve_base_ref` P0 — ✅ 처방 박제 완료
-이전 회차 5회 반복 false-trigger. 본 회차 `.harness c30a36a` 박제: local develop이 origin보다 strict ahead면 local 우선. **본 회차 신규 false-trigger 0건** (BE-3 등 모든 worktree에서 정상). 효과 검증 완료.
+| Phase | 상태 | 측정/박제 |
+|---|---|---|
+| **Phase 1 local-dev baseline** | ✅ **도달 PASS (2026-05-08)** | 416 RPS @ p95 1.25s / outbox 70 ev/s / transition_log 1:1 / 0% error |
+| **Phase 2 prod-lite (Azure)** | 🟡 **다음 회차 진입** | INFRA-AZ-0/1/2 + INFRA-VE-1 박제 완료, 실 배포 사용자 승인 후 |
+| Phase 3 scale-lab Layer 0 | ⚪ 사전 박제 (INFRA-AZ-3a/b) | Phase 2 stable 후 진입 |
+| Phase 4 Layer 4 sharding | ⚪ Helm chart 박제 | Phase 3 stable 후 |
+| Phase 5 Layer 5 Redis Lua token | ⚪ Bitnami Redis Cluster Helm 박제 | Phase 4 stable 후 |
+| Phase 6 30만 confirmed/sec 1h sustain | ⚪ 함정 5요소 처방 박제 | 최종 목표, ADR-0013 §결정 (15) |
 
-### Agent → architect 메시지 race (반복 패턴, 4회)
-패턴: agent finalize 보고 송부 → architect가 그 사이 worktree 직접 점검 + 머지 + 다음 dispatch SendMessage → agent가 머지 안내를 새 dispatch로 오해 → "task #N 이미 완료" 회신 → architect 정정 → 정식 진입.
+---
 
-발생: be #1 BE-3 / be #8 BE-1 / be #12 BE-2 / be #15 BE-3 (4회).
+## 3. 진행 중 / 인계 backlog
 
-**처방 후보** (다음 회차 P1):
-- agent prompt에 "architect SendMessage 수신 시 직전 머지 안내인지 새 task인지 명시 확인" 보강
-- architect는 머지 안내 + 다음 dispatch를 한 메시지로 합쳐 송부 (분리 송부 race 회피)
-- 또는 머지 commit hash + 새 task ID를 항상 같이 인용
+### 본 회차 미진행 (사용자 신호 시 진입 가능)
 
-### qa stale BE 사고 — 1회 처방 박제
-qa #28 첫 시도 시 30080 점유한 다른 worktree(qa-e2e-plans) BE PID 51772/51920 잔존 (14h+, BE-1/BE-2 머지 이전 빌드). architect kill 승인 + qa 본 worktree 재기동 후 PASS.
+- **qa task #9** — stage별 latency trend (signup → idle → reserve → payment) + outbox batch-size 50/100/200 튜닝. 5~10분 분량. dispatch 송부됨, 진입 X (race or 본 회차 종료).
+- **be backlog**:
+  1. `Reservation.status` legacy drop migration (V19)
+  2. Toss webhook 대사 job (실 PG 환경 시)
+  3. `/api/payments/start` ↔ `/api/reservations` UX 통합 (현재 분리 호출)
+  4. `ChatChannelRepositoryTest` pre-existing fix (별 task)
+  5. **BE 분할 운영 모델 박제** (Codex GO with caveats, 7 정정 후 spawn 준비)
+- **fe backlog**:
+  1. plans-flow `/plans/plan-001` deep-link 시드 (3 e2e FAIL)
+  2. reservation-flow auth/reload 카스케이드 처방
+  3. R12 fixture wire 협업 (ui R12 진입 시)
+- **ui backlog**:
+  1. **R12** (Checkout / PaymentMock / Timeline / AdminShell+guard / Banner mount + e2e) — R11 fixture contract 재사용
+  2. ui-catalog R10 정정 (R11 토큰 미리보기)
+- **infra backlog**:
+  1. INFRA-AZ-4 (kill-switch automation Phase 2 — Logic App / Azure Automation Runbook)
+  2. INFRA-AZ-5 (scale-lab CI workflow — kind 부팅 → helm install → smoke → teardown)
+  3. Federated Credential 검증 helper (`infra/azure/scripts/verify-oidc.sh`)
 
-**처방 후보**: `wt-new.sh`에 BE cleanup hook 또는 architect agent prompt에 "BE 기동 전 30080 점유 PID 검사" 박제.
+### 잔여 e2e FAIL (qa #34 시점 14건 → BE-13.1 머지로 reservations 4건 자동 통과 예상 → 약 10건)
+- plans-flow deep-link 시드 (3건) — fe/be 공동
+- reservation-flow auth/reload 카스케이드 (1건)
+- 잔여 strict mode (2건)
+- 플레이키 notifications D (1건) — worker race
+- 기타 FE/BE selector drift (3건)
 
-### researcher → architect 보고 race — 2회 (#6, #13)
-researcher가 보고 회수 직전에 idle 송출 → architect가 #6/#13 보고 회수 후 인라인 보고 본문 미수신 상태로 다음 task dispatch → researcher가 "이미 완료" 회신. 본 회차 두 번째 보고는 회수 OK.
+---
 
-처방: researcher.md에 "보고는 항상 SendMessage로 송부, idle 단독 송출 직전 인라인 본문 검증" 박제 권고.
+## 4. 운영 사고 / 패턴 (본 회차 학습)
+
+### 1. infra teammate 응답 패턴 (대표적 패턴)
+- INFRA-AZ-0/1/VE-1/AZ-2/AZ-3a/AZ-3b 6 task 모두 commit + agent-finalize 후 SendMessage 본문 송부 X. idle notification만 송출.
+- 처방 1: `.harness/agent-prompts/infra.md` §"보고 정책" 박제 (commit `.harness 4d108ba`). researcher.md 패턴 차용. 다음 회차 spawn에 적용.
+- 처방 2: architect monitor + ScheduleWakeup autonomous loop 운영 사례 박제 (cycle #1~#6). worktree mtime/git log 직접 점검 + 머지 자동화.
+- cycle #2 직후 한 차례 본문 ack 송부 → 정책 인지 가능. 그 후 다시 idle만 송출.
+- 다음 회차 spawn 시 명시 ping에 "본문 응답 한 문장이라도" 강조 필수.
+
+### 2. agent message race (계속 발생)
+- be #1/#8/#12/#15 (3회차 4회) → be #5/#13.1 (4회차 2회) — 머지 안내 + 새 task dispatch race.
+- qa task #7/#8 race — BE-13.1 머지 직전 시점 측정 → "결손 잔존" outdated 판정. 다음 회차에 architect가 "직전 머지 안내" vs "새 task" 명시 인용 패턴 박제.
+
+### 3. BE-13 wiring 누락 회귀 (qa baseline에서 발견)
+- BE-13에서 신규 `reserve()`만 transition_log + outbox 발행. 기존 `confirm()` legacy V17 INSERT 그대로.
+- BE-13.1 처방 = `confirm()`도 wiring 추가 + ContractIT 회귀 가드.
+- 학습: 신규 메서드 박제 시 기존 메서드 전체 grep + 같은 wiring 적용 검증 필요.
+
+### 4. autonomous loop 운영 (본 회차 신규)
+- background bash polling (`/tmp/infra-idle-monitor.sh`) — Bash timeout 30초로 일회성. 다음 회차에 longer-running 또는 ScheduleWakeup만으로 운영 검토.
+- ScheduleWakeup 270~300초 cycle (cache TTL 5분 안) — cycle #1~#6 운영. infra 6 task 누적 머지 자동화 성공.
+- 한계: teammate 본문 응답 race 시 architect가 직접 worktree 점검 + 머지. 자율 dispatch는 사용자 신호 + 명확한 의존성 그래프 후만.
 
 ---
 
 ## 5. 환경 / 하네스 박제 사항
 
-### `.harness/agent-prompts/researcher.md` 신규 (`fc8a94b`)
-- 외부 자료 조사 + 정제 요약(단어 수 제한) + Codex `codex-call.sh` 교차 검토 + architect 인라인 보고 역할.
-- 책임 / 금지 / 호출 시 명시 항목 / 함정 박제.
-- CLAUDE.md §3 역할 표에 행 추가.
+### `.harness 4d108ba` agent-prompts/infra.md §"보고 정책" 추가
+- task wake 직후 / 차단 시 / 완료 시 SendMessage 본문 필수
+- 형식: commit / 변경 / 검증 / 잔여 risk / 머지+다음 권고
+- 본문 ≤300단어, idle만 송출 금지
+- 다음 회차 spawn에 적용
 
-### `_resolve_base_ref` P0 보강 (`.harness c30a36a`) — 위 §4 인용
+### Azure 환경 (사용자 액션 완료)
+- Free Trial $200 credit 확보
+- Azure CLI + `az login` 완료
+- **Azure MCP `✓ Connected`** (`npx -y @azure/mcp@latest server start`)
+- aws-docs MCP `✗ Failed` (정리 후보 — `claude mcp remove aws-docs`)
 
-### infra observability 박제 (`infra #10`)
-- `infra/aws/.env.aws.example` placeholder + `infra/aws/README.md` IAM 최소 권한
-- `infra/observability/docker-compose.yml` 4 서비스 + Grafana auto-provisioning + Spring Boot overview 대시보드
-- backend `application.yml` `management.endpoints.web.exposure.include=prometheus,health,metrics,info`
-- `.gitignore` + `.gitleaks.toml` 보강
-
-### AWS Documentation MCP 등록 안내 (사용자 액션 대기)
-```bash
-claude mcp add --scope user aws-docs uvx -- awslabs.aws-documentation-mcp-server@latest
-```
-사용자 등록 완료 알림 대기. 등록 후 `mcp__aws-docs__*` 도구로 EKS/Karpenter/HPA/WAF/RDS 공식 문서 직접 회수 가능.
-
----
-
-## 6. Notion + cl-memory 박제 (BE-4 권고안 단편 포스팅)
-
-본 회차 중간에 BE-4 권고안 + 한국 보안 기준 매핑을 Notion 부모 페이지(358ccedc-...) 11번 sub-page로 박제. 회차 종료 session-log와 별도.
-
-- **Notion 페이지**: https://www.notion.so/359ccedc77098190bfaac914f8de2d13 (참조 이미지: NIST + OWASP wikimedia 공식 로고 임베드)
-- **cl-memory 4건**: BE-4 알고리즘 결정 (technical) / 한국 보안 ADR 박제 원칙 (operational) / Researcher teammate 운영 패턴 (operational) / 한국 비밀번호 보안 출처 인덱스 (reference)
-
-회차 종료 session-log는 본 handoff와 함께 별도 박제 예정.
+### Phase 2 진입 직전 사용자 액션 backlog
+- subscription id / tenant id / region 결정 (default `koreacentral`)
+- Bicep parameters/dev.bicepparam placeholder → 실 값 박제
+- Vercel project import (사용자 dashboard 액션)
+- GitHub Actions OIDC Federated Credential (Entra App + RBAC 사용자 액션)
 
 ---
 
-## 7. 사용자 push 이슈 (변동 없음)
+## 6. ADR 누적
 
-develop이 origin/develop보다 **141 commits ahead**. 다음 회차 시작 시 사용자가 `git push origin develop` 권장. push 안 하면 다음 회차도 stale base 우려 (P0 처방으로 회피되긴 하나, fork/clone 분기 시 영향).
+| ADR | 상태 | 본 회차 변경 |
+|---|---|---|
+| 0011 JWT 인증 | Accepted | §"Cookie 정책 cross-origin 갱신" + §"CSRF 면제/강제 매트릭스" 박제 |
+| 0012 chat keyset paging | Accepted | 변경 X (3회차 박제) |
+| 0013 Cloud Load Architecture | **Accepted v1 + Phase 1 PASS** | v1 박제 (218줄) → Codex 4·5회차 보강 (NO-GO→GO) → WIP 단계 모델 → Phase 1 PASS 박제 |
 
 ---
 
-## 8. 미해결 backlog
+## 7. Notion + cl-memory 박제 (본 회차 종료 시 session-log skill로 박제 예정)
 
-- **fe #14 ADR-0012 FE-1** — 진행 중 미커밋 (위 §2)
-- **be #16 ADR-0011 BE-4** — 진행 초기 (위 §2)
-- **qa #30 spec 복원** — fe #14 + be #15 머지 후 5분 mini-task
-- **qa BE-4 e2e** — be #16 머지 후 6 시나리오 dispatch
-- **ADR-0013 brainstorm 추가 + v1 박제** — 사용자 신호 시 진행
-- **AWS Documentation MCP 등록 검증** — 사용자 액션 후 다음 회차 활용
-- **R10+** — UI continuous (Sheet scale / Tabs/Toggle/Badge audit / 미캡처 4 라우트)
-- **agent message race 처방** (P1) — 4회 반복
+부모 페이지 `358ccedc-7709-8154-86fc-e2a46d7d8eef` 13번 sub-page (3회차 EOS, 사용자 휴식 직전) 박제 완료. 본 4회차 EOS sub-page는 **14번** 신규 박제 예정 — session-log skill 호출.
+
+cl-memory 양자화 후보 (회차 종료 session-log에서):
+1. ADR-0013 Phase 1 도달 — 416 RPS @ p95 1.25s + outbox 70 ev/s baseline (technical)
+2. BE FSM + outbox + transition_log 5요소 (FOR UPDATE SKIP LOCKED + claim_state + retry/backoff + dead_letter + stale recovery) (technical)
+3. BE-13 wiring 회귀 패턴 (신규 메서드 박제 시 legacy 메서드 wiring 누락 함정) (operational)
+4. CSRF 면제/강제 매트릭스 (Bearer 면제 / cookie credential 강제) (technical)
+5. infra teammate 응답 무응답 처방 + agent-prompts 보고 정책 (operational)
+6. autonomous loop (background monitor + ScheduleWakeup 270s cycle) (operational)
+7. agent message race 4회차에도 재발 — 처방 누적 backlog (operational)
+8. navigateTo helper router state corruption (window.history.pushState 함정) (technical)
+9. e2e SPA nav 리팩터 패턴 (page.goto 카스케이드 일괄 해소) (operational)
+10. Azure prod-lite/scale-lab 6 IaC task 박제 누적 — Bicep + Helm + workflow + Vercel (operational)
+
+---
+
+## 8. 미해결 backlog (인계)
+
+- **사용자 push origin develop** — develop 189 ahead, push 안 하면 stale 위험
+- **qa task #9** stage별 latency + batch-size 튜닝 (5~10분)
+- **23 e2e 잔여 FAIL** 카테고리별 처리 (deep-link / auth-reload / strict mode / 플레이키)
+- **BE 분할 운영 모델** 박제 (Codex GO with caveats 7 정정 + CODEOWNERS + MIGRATION_REGISTRY 박제 후 spawn)
+- **agent-prompts/infra.md** 갱신 효과 검증 (다음 회차 spawn에 적용)
+- **R12 ui task** (Checkout / PaymentMock / Timeline / AdminShell + guard / Banner mount)
+- **autonomous loop monitor** background polling 안정화 (Bash timeout 처방 또는 systemd-launchd 검토)
+- **ChatChannelRepositoryTest** pre-existing 실패 fix
+- **`Reservation.status` legacy drop** migration V19
 
 ---
 
 ## 9. 다음 회차 시작 체크리스트
 
-1. `cd 20-spec-tourdoum && git status && git log --oneline -10` (본 회차 27 머지 확인)
-2. `git push origin develop` (사용자 권장, 141 ahead)
-3. AWS Documentation MCP 등록 검증 (`claude mcp list` 또는 ToolSearch에서 `mcp__aws-docs__*` 노출 여부)
-4. tmux teammate 모드 5명 + codex pane 재spawn (be / fe / qa / ui / infra / researcher)
-5. 본 SESSION_HANDOFF 정독 → 우선 처리:
-   - **fe #14 진행 상황 확인 + 완료** (worktree 5 파일 staged)
-   - **be #16 진행 상황 확인 + 완료** (handoff 14줄 placeholder)
-   - **머지 후 qa #30 spec 복원 + qa BE-4 e2e dispatch**
-   - **사용자 ADR-0013 brainstorm 추가 신호 대기** — `docs/notes/2026-05-07-adr-0013-brainstorm.md` 정독
-6. 본 파일 archive (`docs/sessions/2026-05-07-3.md`로 이동) 또는 삭제.
+1. `cd 20-spec-tourdoum && git status && git log --oneline -10` (본 회차 30+ 머지 확인)
+2. `git push origin develop` (사용자 권장, 189 ahead)
+3. **본 SESSION_HANDOFF 정독**
+4. `claude mcp list` → azure-mcp ✓ + (aws-docs 정리 후보)
+5. teammate 7명 + codex pane 재spawn (be / fe / qa / ui / infra / researcher + codex)
+   - **infra spawn 시 `agent-prompts/infra.md` 4d108ba 보고 정책 적용 확인**
+6. **Phase 2 진입 절차** — 본 SESSION_HANDOFF §0 사용자 액션 8단계
+7. 본 파일 archive (`docs/sessions/2026-05-08-4.md`로 이동) 또는 삭제
 
 ---
 
-## 10. 본 회차 cl-memory 양자화 후보 (회차 종료 session-log에서 박제 예정)
+## 10. 본 회차 cl-memory 양자화 후보 (위 §7 그대로)
 
-- ADR-0011 cookie+CSRF 흐름 (BE-3 contract 표) — technical
-- BE-2 ChatDmCreator REQUIRES_NEW + findFresh InnoDB snapshot 함정 회피 — technical
-- last_message guarded UPDATE monotonic (deadlock 학습 포인트) — technical
-- ADR-0012 v2 V17 4단계 production 적용 절차 (NULL col → backfill → anomaly 검증 → UNIQUE+CHECK → app 머지) — operational
-- BE-3 chat seed runner profile 가드 + 멱등 sentinel 패턴 — technical
-- FE-2 X-XSRF-TOKEN auto-injection (`document.cookie` 파싱 + jsdom 가드) — technical
-- `_resolve_base_ref` P0 보강 효과 검증 (본 회차 false-trigger 0건) — operational
-- ADR-0013 목표 재정의 + DB 7 layer + Codex critical 8항 (researcher #13) — technical
-- 100% 로컬 ↔ AWS 도구 매핑 + $10 path breakdown — operational
-- agent message race 4회 반복 + 처방 후보 — operational
+회차 종료 session-log에서 박제. 본 SESSION_HANDOFF는 다음 회차 architect 인계용으로 우선 박제 후 archive.
