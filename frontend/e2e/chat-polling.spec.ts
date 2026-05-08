@@ -54,7 +54,8 @@ async function registerUserApi(
 	const ts = Date.now();
 	const rand = Math.floor(Math.random() * 10000);
 	const email = `${prefix}-${ts}-${rand}@example.com`;
-	const password = "password1";
+	// BE-4 PasswordPolicyValidator 회피 (12+자, blocklist/유사값 회피).
+	const password = "E2eTestSecure!9x";
 	const nickname = `${prefix}${ts}${rand}`.slice(0, 20);
 
 	const signupResp = await request.post(`${BACKEND_URL}/api/members/signup`, {
@@ -225,9 +226,77 @@ test.describe("채팅 폴링 (qa #30)", () => {
 		await expect(page.getByText(probeText)).toBeVisible();
 	});
 
-	test.skip("Scenario B (PUBLIC): 공개 채널 폴링 — ADR-0012 BE-3 dev seed 머지 후 재개", async () => {
-		// ADR-0012 BE-3 dev-only seed runner(--scenario=public) 머지 후 활성화.
-		// 현재 baseline: chat_channels 시드 0건. /api/chat/channels 응답 [].
-		// 폴링 대상 채널이 없어 본 시나리오 검증 불가.
+	test("Scenario B (PUBLIC): A가 PUBLIC 채널 진입 → B가 API로 보낸 메시지가 폴링으로 노출", async ({
+		page,
+	}) => {
+		// 전제: BE가 dev,chat-seed --scenario=public로 1회 seed 후 dev 단독 재기동된 상태.
+		// signup 시 ChatPublicAutoJoinListener(@Profile("dev"))가 신규 회원을 seed-public-1 채널에
+		// 자동 join → /api/chat/channels 응답에 PUBLIC 채널 노출.
+		const A = await signupAndLogin(page, "qachatpa");
+		const aToken = await loginApi(page.request, A.email, A.password);
+
+		// B: API direct signup + login (autojoin listener가 동작 → seed-public-1에 join).
+		const B = await registerUserApi(page.request, "qachatpb");
+
+		// A의 채널 목록에서 PUBLIC seed 채널 회수.
+		const channelsResp = await page.request.get(
+			`${BACKEND_URL}/api/chat/channels`,
+			{ headers: { Authorization: `Bearer ${aToken}` } },
+		);
+		expect(channelsResp.ok()).toBeTruthy();
+		const channels = (await channelsResp.json()) as Array<{
+			id: number;
+			name: string;
+			type: string;
+		}>;
+		const pub = channels.find((c) => c.type === "PUBLIC");
+		expect(
+			pub,
+			"seed PUBLIC 채널 미존재 — chat-seed 1단계 부팅 필요",
+		).toBeTruthy();
+		const pubChannel = pub as { id: number; name: string; type: string };
+
+		// SPA nav: 채팅 → (PUBLIC 탭 또는 첫 채널) → /chat/{id}.
+		await page.getByRole("link", { name: "채팅", exact: true }).first().click();
+		await expect(page).toHaveURL(/\/chat$/);
+		// 채널 카드 클릭 — heading 매칭 (탭 default가 PUBLIC이라면 직접 click).
+		await page.getByRole("heading", { name: pubChannel.name }).first().click();
+		await expect(page).toHaveURL(/\/chat\/\d+$/);
+		await expect(
+			page.locator("header h1").filter({ hasText: pubChannel.name }),
+		).toBeVisible({ timeout: 5000 });
+
+		await page.screenshot({
+			path: `${SCREENSHOT_DIR}/chat-polling-public-initial.png`,
+			fullPage: false,
+		});
+
+		// 폴링 트리거: B가 API로 PUBLIC 채널에 메시지 전송.
+		const probeText = `e2e public probe ${Date.now()}`;
+		await sendChatMessage(
+			page,
+			B.accessToken,
+			String(pubChannel.id),
+			probeText,
+		);
+
+		// POLL_INTERVAL_MS = 2_000 → 8s 마진.
+		await expect(page.getByText(probeText)).toBeVisible({ timeout: 8000 });
+
+		await page.screenshot({
+			path: `${SCREENSHOT_DIR}/chat-polling-public-after-poll.png`,
+			fullPage: false,
+		});
+
+		// 두 번째 메시지 — dedupe append 회귀.
+		const probeText2 = `e2e public probe second ${Date.now()}`;
+		await sendChatMessage(
+			page,
+			B.accessToken,
+			String(pubChannel.id),
+			probeText2,
+		);
+		await expect(page.getByText(probeText2)).toBeVisible({ timeout: 8000 });
+		await expect(page.getByText(probeText)).toBeVisible();
 	});
 });
