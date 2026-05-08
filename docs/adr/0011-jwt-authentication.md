@@ -137,6 +137,26 @@ ADR-0013 §8 결정으로 prod-lite 배포 토폴로지가 **Vercel `*.vercel.ap
 
 본 갱신은 ADR-0013 §"Cross-origin 정책 영향"과 한 쌍. researcher #8 보고 + Codex 검증 반영.
 
+#### 4회차 후속 — CSRF 면제/강제 매트릭스 (be task #5 회귀 처방)
+
+qa #5 잔여 reservations 4 FAIL의 진짜 원인 = BE-3 도입 CSRF 회귀 (FSM 도입과 무관). 처방으로 다음 매트릭스 박제:
+
+| 요청 패턴 | CSRF |
+|---|---|
+| GET / HEAD / OPTIONS / TRACE | 면제 (Spring 기본) |
+| `/api/auth/{refresh,logout,password}` (cookie credential) | **강제** |
+| `Authorization: Bearer ...` 동반 (명시 첨부) | **면제** |
+| 그 외 (Bearer 부재 + 위 패턴 외) | **강제** (보수적 default) |
+
+근거:
+- **Bearer**는 클라이언트가 명시적으로 첨부 → CSRF 위협 모델 (제3자가 자동 cookie 전송 유도) 미해당
+- **Cookie credential**은 자동 전송 → CSRF 강제 필수
+- e2e / 외부 client는 Bearer 권장 (`login` flow에서 access token 발급 후 이후 mutation은 Bearer로). cookie credential은 SPA 사용자 facing flow 한정.
+
+구현: `SecurityConfig.requiresCsrf(HttpServletRequest)` static method + `csrf.requireCsrfProtectionMatcher(::requiresCsrf)` 등록 (be commit `6f075ca`).
+
+회귀 가드: `ReservationContractIT` (Bearer+csrf-부재 → 201 / Bearer 부재 → 4xx) + `AuthCookieFlowTest` (`/api/auth/logout` Bearer 있어도 cookie credential이면 CSRF 강제) PASS.
+
 #### 법정 vs 프로젝트 정책 분리 (Codex 교차 검토 반영)
 
 - **법정 의무 (개보위 고시 제2025-9호 §7, 2025-10-31 시행)**: 비밀번호의 일방향 저장.
