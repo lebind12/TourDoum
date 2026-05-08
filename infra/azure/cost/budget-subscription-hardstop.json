@@ -1,0 +1,78 @@
+{
+	"$schema": "https://schema.management.azure.com/schemas/2019-08-01/subscriptionDeploymentTemplate.json#",
+	"contentVersion": "1.0.0.0",
+	"metadata": {
+		"_comment": "ADR-0013 §14 — subscription scope hard-stop budget $80. Phase 1: 알림 only (Action Group X). Phase 2: Logic App → kill scripts chain. 적용: `az deployment sub create -l koreacentral -f budget-subscription-hardstop.json`."
+	},
+	"parameters": {
+		"budgetName": {
+			"type": "string",
+			"defaultValue": "budget-tourdoum-subscription-hardstop"
+		},
+		"amount": {
+			"type": "int",
+			"defaultValue": 80,
+			"metadata": {
+				"description": "USD. Free Trial $200 credit 중 hard stop $80."
+			}
+		},
+		"startDate": {
+			"type": "string",
+			"defaultValue": "2026-05-01"
+		},
+		"endDate": {
+			"type": "string",
+			"defaultValue": "2027-12-31"
+		},
+		"contactEmails": {
+			"type": "array",
+			"defaultValue": ["lebind11@gmail.com"]
+		}
+	},
+	"resources": [
+		{
+			"type": "Microsoft.Consumption/budgets",
+			"apiVersion": "2023-05-01",
+			"name": "[parameters('budgetName')]",
+			"properties": {
+				"category": "Cost",
+				"amount": "[parameters('amount')]",
+				"timeGrain": "Monthly",
+				"timePeriod": {
+					"startDate": "[parameters('startDate')]",
+					"endDate": "[parameters('endDate')]"
+				},
+				"notifications": {
+					"actual_50": {
+						"enabled": true,
+						"operator": "GreaterThan",
+						"threshold": 50,
+						"thresholdType": "Actual",
+						"contactEmails": "[parameters('contactEmails')]"
+					},
+					"actual_80": {
+						"enabled": true,
+						"operator": "GreaterThan",
+						"threshold": 80,
+						"thresholdType": "Actual",
+						"contactEmails": "[parameters('contactEmails')]"
+					},
+					"actual_100": {
+						"enabled": true,
+						"operator": "GreaterThan",
+						"threshold": 100,
+						"thresholdType": "Actual",
+						"contactEmails": "[parameters('contactEmails')]"
+					},
+					"forecast_100": {
+						"enabled": true,
+						"operator": "GreaterThan",
+						"threshold": 100,
+						"thresholdType": "Forecasted",
+						"contactEmails": "[parameters('contactEmails')]"
+					}
+				}
+			}
+		}
+	]
+}
