@@ -6,9 +6,17 @@
 
 ## 컨텍스트
 
-학습 목적: **30만 RPS 부하를 실제 재현 + 견뎌내는 아키텍처를 직접 운영**. 단 (1) 가용 AWS credit 0, (2) Azure 학습 겸함, (3) 단기 3일 미만 burst 실험으로 비용 ~$30~80 한도, (4) 본 프로젝트는 단일 모놀리스 (분산 tx 없음).
+학습 목적: **30만 RPS 부하를 실제 재현 + 견뎌내는 아키텍처를 직접 운영, 30만 confirmed/sec 1h sustain까지 도달**. 단 (1) 가용 AWS credit 0, (2) Azure 학습 겸함, (3) 본 프로젝트는 단일 모놀리스 (분산 tx 없음), (4) **시간 제약 없음 — WIP로 단계적 도달**.
 
 3회차 brainstorm 정리, researcher 6 주제 조사 + Codex 교차 검토를 거쳐 본 ADR로 결정 박제. 세부 IaC/측정 절차는 후속 task로 분리.
+
+### 본 ADR의 운영 모델 = WIP
+
+본 ADR은 "X일 안에 끝낸다" 식의 시간 박제를 두지 않는다. 학습 단계의 본질 = **각 Layer를 직접 안정화하면서 함정을 만나고 처방을 박제**하는 것. 시간을 일정에 묶으면 안정화 시간이 0이 되어 측정 단계 진입 자체가 불가능해지는 게 4회차 Codex 검증의 핵심 지적이었다. 따라서:
+
+- 시간 박제 없음. 각 Phase는 "stable / measured / 다음 Phase 진입 가능" 신호가 떨어진 시점에 끝난다.
+- 비용 박제만 유지: scale-lab burst 실험 1회당 ~$1.5~3 (1h sustain 기준), 월간 누적 cap은 결정 (14) kill-switch에서.
+- 모든 Phase는 backlog에 박제하되 "언젠가 달성" 기조. 1h sustain은 Phase 4 도달 시점에 결정 (15) 측정 절차로 직접 시도.
 
 ## 결정 (1) — 환경 분리 3종
 
@@ -148,12 +156,13 @@ Vercel `*.vercel.app` + ACA `*.azurecontainerapps.io` = cross-origin. ADR-0011 �
 - preflight OPTIONS 1회 캐시
 - 같은 root domain(예: `tourdoum.example.com`) 도입 시 same-site 복원 가능 — 학습 단계엔 비도입
 
-### scale-lab (단기 burst)
+### scale-lab (burst 실험실, WIP)
 - **AKS Free** (control plane 무료, SLA 없음, <10 노드 권장)
-- **Spot node pool** (D2s_v5, max-price -1는 capacity eviction 못 막음 — eviction policy `Delete` 명시)
+- **Spot node pool** (D2s_v5, max-price -1는 capacity eviction 못 막음 — eviction policy `Delete` 명시 + multi-zone + 인스턴스 패밀리 mixed + on-demand fallback 1대로 1h sustain 보장)
 - **k6-operator** (JWT pool은 PVC/initContainer, ConfigMap 1MiB 제한)
 - **Self-host**: Redis Cluster + MariaDB shards + RabbitMQ + Prometheus/Grafana
-- 1h burst 목표 비용 < $1, 끝나면 `az group delete --name rg-tourdoum-scale-lab --yes`
+- burst 실험 1회당 비용: 30s burst ~$0.10~$0.30 / 1h sustain ~$1.5~$3
+- 실험 끝나면 `az group delete --name rg-tourdoum-scale-lab --yes` (RG kill-switch)
 
 ### 공통
 - **Region**: `koreacentral`. Retail Prices API로 4종 가격 (D2s_v5 spot/on-demand, B1ms, Container Apps GiB-s, Storage) 박제 후 시작.
@@ -212,16 +221,46 @@ Azure Cost Management budget은 **알림만**, **자동 차단 chain은 별도 �
 - **Phase 2 (시간 여유 시)**: Action Group → Logic App / Azure Automation Runbook → 자동 RG delete (scale-lab만, prod-data는 절대 X).
 - **수기 점검 cadence**: Day 1~3 동안 매일 1회 `az consumption usage list` 또는 Cost Management 대시보드 확인.
 
-## 결정 (15) — 부하 목표 현실화 (Codex 보강)
+## 결정 (15) — 부하 목표 (WIP 단계적 도달)
 
-3일 / $80 / 단일 모놀리스 + 학습 단계에서 **"30만 confirmed/sec 1h sustain"은 비현실**. 본 ADR의 측정 목표 재정의:
+본 ADR의 최종 목표 = **30만 confirmed/sec 1h sustain**. 시간 박제 없음. 단계는 다음 순서:
 
-- **Generator**: 30만 RPS ingress **30s burst** 발생 (사용자 facing 부하 시뮬). 1h sustain 아님.
-- **App accept**: 가상 대기열로 admission rate 제한 → 실제 reservation hot path는 **3k~10k confirmed/sec 30s sustain** 목표.
-- **Scale-out 측정**: HPA cold-start gap (90~145s 추정) + 그동안 ingress 429/queue depth/drop rate 박제.
-- **Layer별 비교**: Layer 0 (1 writer) → Layer 4 (sharding) → Layer 5 (Redis Lua token) 순차 측정. 각 Layer 30s burst 결과 박제.
+### confirmed 정의 (hard requirement)
 
-진짜 30만 confirmed/sec 1h sustain은 Phase 2 별도 ADR 후 ($200~500 budget + 1주+ 학습) 시도.
+> **"confirmed = Redis Lua token 영속 시점"**. DB writer 영속은 비동기 (eventual). 본 정의 없이 "DB writer 영속" confirmed면 30만/sec 1h sustain은 단일 모놀리스에서 비현실이며, 본 ADR 결정 (5)·(6)의 Layer 5 Redis Lua token 도입 의의가 사라진다.
+
+### Phase별 측정 목표
+
+| Phase | 측정 목표 | 도달 신호 |
+|---|---|---|
+| **Phase 1** | local-dev 단일 Pod baseline — p95 SLA RPS | 측정값 박제 |
+| **Phase 2** | prod-lite ACA 2~4 replica scale-out — HPA cold-start gap (90~145s 추정) + ingress 429/queue depth/drop rate | 시연 가능 + 측정값 박제 |
+| **Phase 3** | scale-lab Layer 0 (MySQL 1 writer) baseline — 3k~5k confirmed/sec 30s burst | 측정값 + 한계 박제 |
+| **Phase 4** | Layer 4 (MariaDB shard N=10) — shard당 30k confirmed/sec 30s burst → 합 30만 30s burst | 측정값 박제 |
+| **Phase 5** | Layer 5 (Redis Lua token) — 30만 confirmed/sec 30s burst (DB는 비동기 영속) | 측정값 박제 |
+| **Phase 6 (최종)** | **30만 confirmed/sec 1h sustain** — Layer 5 stable + Spot eviction 처방 + memory/TTL 정책 검증 | 측정값 박제 + ADR-0013 v2 close |
+
+각 Phase는 stable + measured 후 다음 진입. Phase 5 직후 Phase 6 진입 권장 (스택 신선도 유지).
+
+### Phase 6 sustain 처방 (Codex 4회차 비현실 판단의 함정 해소)
+
+**메모리 폭발 회피 (Redis Cluster)**:
+- token TTL = **5분** (admission token + reservation hold 평균 lifetime)
+- 비동기 DB sync로 confirmed token 영속 후 Redis에서 회수
+- 동시 holding token = 30만/sec × 300s = **9000만 token**
+- key 평균 100B × 9000만 = **9GB** (ElastiCache cache.r6g.large × 3 = 39GB total → 충분)
+
+**Spot eviction 회피 (1h sustain 안정성)**:
+- multi-zone (3 AZ) + 인스턴스 패밀리 mixed (D2s_v5 + D2as_v5 + D4s_v5)
+- on-demand fallback 1대 (control-plane 역할: k6-operator coordinator + Prometheus master)
+- eviction 알림 30s grace → graceful drain → 새 노드 join (HPA + Karpenter NAP)
+
+**Generator JWT pool**:
+- 30만 unique user는 비현실. **같은 user 30만 reservation 발생 패턴** 시뮬 (PG mock + admission token 재사용)
+- JWT pre-gen 100~1000개를 PVC/initContainer로 k6 worker 주입
+
+**측정 후 박제**:
+- Phase 6 결과 → ADR-0013 v2 (실측치 + Karpenter cold-start gap 실측 + 비용 정리 + 함정 처방 완성판)
 
 ## 후속 ADR / Task 분해
 
@@ -230,31 +269,50 @@ Azure Cost Management budget은 **알림만**, **자동 차단 chain은 별도 �
 - ADR-0015 — Azure prod-lite 운영 절차 + kill switch policy
 - ADR-0016 — Outbox 구현 표준 + idempotency key 정책
 
-### Task tree (3일 학습 기준)
+### Task tree (Phase 단위, 시간 박제 없음 — WIP)
+
+각 Phase는 의존성과 stable/measured 신호로 진입/종료. 시간 일정은 사용자 운영 자유.
 
 ```
-Day 1
-  INFRA-AZ-0  Azure 계정 / az login / Cost budget $50/$80 / Resource Group 3종 / Bicep skeleton 박제
-  INFRA-AZ-1  prod-lite Bicep — ACA + MySQL B1ms + ACR + Log Analytics 30d (Frontend는 Vercel 별도 워크플로우)
-  INFRA-VE-1  Vercel project import + GitHub 연동 + 환경변수(api base URL) + preview URL allowlist 정책 박제
-  INFRA-AZ-2  GitHub Actions OIDC + Federated Credential + ACR build/push + ACA revision deploy
+Phase 1 — local-dev baseline (선행 의존성 0)
   BE-13       Reservation FSM + transition_log + outbox 테이블 + ReservationService 골격
-  UI-R11      QueueLobby + ReservationTimeline + Admin route skeleton (5종)
-
-Day 2
   BE-14       PG mock + REFUND 잡스케줄러 (@Scheduled + Shedlock)
-  BE-15       Conditional UPDATE 패턴 적용 + idempotency key + outbox publisher worker
-  QA-K6-1     local k6 saturation curve (단일 Pod p95 SLA RPS 측정)
-  QA-K6-2     ACA replica 2~4 scale-out + 부하 측정 + Application Insights 관측
-  ADMIN-1     Admin route 5종 데이터 wire (queue depth, payments state count, inventory, sagas, load-test panel)
+  BE-15       Conditional UPDATE + idempotency key + outbox publisher worker (FOR UPDATE SKIP LOCKED 5요소)
+  UI-R11      QueueLobby + ReservationTimeline + Admin route skeleton (5종)
+  ADMIN-1     Admin route 5종 데이터 wire
+  QA-K6-1     local k6 saturation curve (단일 Pod p95 SLA RPS 측정) ← 도달 신호
 
-Day 3
-  INFRA-AZ-3  scale-lab Bicep — AKS Free + Spot + k6-operator + self-host Redis/MariaDB/RabbitMQ
+Phase 2 — prod-lite (Phase 1 stable 후)
+  INFRA-AZ-0  Azure 계정 / az login / Cost budget $50/$80 / Resource Group 3종 / Bicep skeleton 박제
+  INFRA-AZ-1  prod-lite Bicep — ACA + MySQL B1ms + ACR + Log Analytics 30d
+  INFRA-VE-1  Vercel project import + GitHub 연동 + 환경변수 + preview URL allowlist
+  INFRA-AZ-2  GitHub Actions OIDC + Federated Credential + ACR build/push + ACA revision deploy (workflow_dispatch)
+  QA-K6-2     ACA replica 2~4 scale-out + 부하 측정 + Application Insights 관측 ← 도달 신호 (시연 가능)
+
+Phase 3 — scale-lab Layer 0 baseline (Phase 2 stable 후)
+  INFRA-AZ-3a scale-lab Bicep skeleton — AKS Free + Spot 단일 node pool 만 (HPA 없음, Spring 1 Pod)
   INFRA-AZ-4  Kill switch script 4종 (DRY_RUN guard + subscription guard)
-  QA-K6-3     30만 RPS burst 측정 (1h 이내, 비용 < $1)
-  QA-K6-4     Layer별 confirmed/sec 비교 + 비용 정리
-  ARCH-1      ADR-0013 v2 박제 (실측 결과 + Azure 가격 고정 + Karpenter cold-start gap 실측)
+  QA-K6-3a    Layer 0 (MySQL 1 writer) — 3k~5k confirmed/sec 30s burst 측정 ← 도달 신호
+
+Phase 4 — Layer 4 sharding (Phase 3 stable 후)
+  INFRA-AZ-5  MariaDB N=10 shard Helm chart + Spring shard router (accommodation_id hash)
+  QA-K6-4     shard당 30k confirmed/sec 30s burst → 합 30만 30s burst 측정 ← 도달 신호
+
+Phase 5 — Layer 5 Redis Lua token (Phase 4 stable 후)
+  INFRA-AZ-6  ElastiCache 또는 Bitnami Redis Cluster Helm chart (3 master)
+  BE-16       Redis Lua 좌석 token 선점 스크립트 + ReservationService 통합
+  BE-17       비동기 DB sync worker (outbox + token 회수)
+  QA-K6-5     30만 confirmed/sec 30s burst (Layer 5) 측정 ← 도달 신호
+
+Phase 6 — 30만 confirmed/sec 1h sustain (최종 목표)
+  INFRA-AZ-7  multi-zone + 인스턴스 패밀리 mixed Spot pool + on-demand fallback 1대
+  INFRA-AZ-8  k6 JWT pool PVC/initContainer (1000 pre-gen)
+  QA-K6-6     1h sustain 시도 (warm-up 0.5h + sustain 1h + cool-down 0.5h, 시도당 ~$2.5)
+              실패 시 함정 분석 → 처방 박제 → 재시도. 5회 시도까지 budget 안에서 가능.
+  ARCH-1      ADR-0013 v2 박제 (실측 결과 + Azure 가격 고정 + 함정 처방 완성판) ← ADR close
 ```
+
+후속 ADR 0014/0015/0016은 Phase 4/5/6 진입 직전 별도 박제 가능.
 
 ## 측정 관점
 
