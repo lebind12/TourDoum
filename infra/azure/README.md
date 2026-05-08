@@ -50,14 +50,26 @@ RabbitMQ                   queue/backpressure
 Prometheus/Grafana         self-host (Azure Monitor managed은 Phase 2)
 ```
 
-## 5. 박제된 산출물 (INFRA-AZ-0)
+## 5. 박제된 산출물 (INFRA-AZ-0 + INFRA-AZ-1)
 
 ```text
 infra/azure/
 ├── README.md                        ← 본 문서
 ├── bicep/
-│   ├── main.bicep                   ← RG 3종 (subscription scope) + tags
-│   └── README.md
+│   ├── main.bicep                   ← sub scope: RG 3종 + prod-data/prod-app stack wiring
+│   ├── README.md
+│   ├── parameters/
+│   │   └── dev.bicepparam           ← placeholder, 시크릿은 ENV 주입
+│   └── modules/prod-lite/           ← INFRA-AZ-1 (Vercel 결정 → SWA 박제 X)
+│       ├── README.md
+│       ├── acr.bicep                ← ACR Basic, admin disabled
+│       ├── log-analytics.bicep      ← retention 30d, dailyQuotaGb=1
+│       ├── appinsights.bicep        ← workspace-based, sampling 100%
+│       ├── container-apps-env.bicep ← ACA managed env, Consumption
+│       ├── container-app.bicep      ← Spring Boot ACA, min=0/max=2, MI ACR pull
+│       ├── mysql.bicep              ← Flexible B1ms, 32 GiB, 7d backup
+│       ├── prod-data-stack.bicep    ← RG-scope wrapper for MySQL
+│       └── prod-app-stack.bicep     ← RG-scope wrapper + AcrPull RBAC + listKeys()
 ├── cost/
 │   ├── budget-prod-app.json         ← $50 alert (50/80/100% Actual + 100% Forecast)
 │   ├── budget-scale-lab.json        ← $30 alert
@@ -71,7 +83,10 @@ infra/azure/
     └── README.md
 ```
 
-박제 X (보류): `kill-prod-data-rg.sh` — stateful data 삭제는 사용자 명시 승인 + 백업 게이트.
+박제 X (보류):
+- `kill-prod-data-rg.sh` — stateful data 삭제는 사용자 명시 승인 + 백업 게이트.
+- `keyvault.bicep` — Phase 2. ACA secrets 로 시작.
+- Static Web Apps — ADR-0013 §8 Vercel 결정으로 폐기.
 
 ## 6. 운영 정책
 
@@ -83,8 +98,14 @@ infra/azure/
 ## 7. 검증 명령
 
 ```bash
-# Bicep lint
+# Bicep lint (모듈 + entrypoint)
 az bicep build -f infra/azure/bicep/main.bicep --stdout > /dev/null
+for f in infra/azure/bicep/modules/prod-lite/*.bicep; do
+  az bicep build -f "$f" --stdout > /dev/null
+done
+
+# bicepparam compile
+az bicep build-params -f infra/azure/bicep/parameters/dev.bicepparam --stdout > /dev/null
 
 # JSON syntax
 jq -e . infra/azure/cost/*.json
@@ -97,15 +118,20 @@ shellcheck infra/azure/scripts/*.sh
 az deployment sub what-if -l koreacentral \
   -f infra/azure/cost/budget-subscription-hardstop.json
 
-# RG skeleton what-if
-az deployment sub what-if -l koreacentral -f infra/azure/bicep/main.bicep
+# prod-lite full what-if (사용자 명시 승인 + 시크릿 ENV 주입 후)
+AZURE_MYSQL_PW=*** AZURE_JWT_PRIVATE_KEY="$(< jwt_private.pem)" \
+az deployment sub what-if -l koreacentral \
+  -f infra/azure/bicep/main.bicep \
+  -p infra/azure/bicep/parameters/dev.bicepparam
 ```
 
 ## 8. 다음 dispatch 후보
 
-- **INFRA-AZ-1** — prod-lite 본격 박제 (Static Web Apps + Container Apps + MySQL Flexible + ACR + Key Vault + Log Analytics).
-- **INFRA-VE-1** — Federated Credential 셋업 + GitHub Actions skeleton (`azure-acr-build-push`, `azure-aca-deploy`, `azure-swa-deploy`).
-- **INFRA-AZ-2** — scale-lab AKS Bicep + Helm values (k6-operator / NGINX / Redis / MariaDB / RabbitMQ / kube-prom-stack) + kind dry-run.
+- ✅ **INFRA-AZ-0** — RG skeleton + Cost budget + Kill switch (commit b3d84f9).
+- ✅ **INFRA-AZ-1** — prod-lite Bicep modules (ACR + LA + AI + ACA env/app + MySQL Flexible). Frontend = Vercel (ADR-0013 §8) → SWA 박제 X.
+- **INFRA-VE-1** — Vercel project + Frontend GitHub 연동 + preview URL allowlist 정책 (`allowedOrigins` 갱신).
+- **INFRA-AZ-2** — GitHub Actions OIDC + Federated Credential + `azure-acr-build-push.yml` + `azure-aca-deploy.yml` (revision update).
+- **INFRA-AZ-3** — scale-lab AKS Bicep + Helm values (k6-operator / NGINX / Redis / MariaDB / RabbitMQ / kube-prom-stack) + kind dry-run.
 
 ## 9. Kill Switch 명령 (참조)
 
