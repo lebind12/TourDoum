@@ -6,7 +6,8 @@ type AvatarSize = "sm" | "md" | "lg";
 type AvatarVariant = "sky" | "emerald" | "slate" | "primary";
 
 interface Props {
-	name: string;
+	/** 표시 이름. undefined/빈 문자열이면 fallback "?"로 렌더 (qa #31 회귀 가드 — 호스트/저자 미상 데이터). */
+	name?: string;
 	size?: AvatarSize;
 	variant?: AvatarVariant;
 	class?: string;
@@ -15,6 +16,7 @@ interface Props {
 const props = withDefaults(defineProps<Props>(), {
 	size: "md",
 	variant: "slate",
+	name: "",
 });
 
 const sizeClass: Record<AvatarSize, string> = {
@@ -31,7 +33,10 @@ const variantClass: Record<AvatarVariant, string> = {
 	slate: "bg-muted text-muted-foreground",
 };
 
-const initials = computed(() => props.name.charAt(0).toUpperCase());
+const initials = computed(() => {
+	const n = props.name?.trim() ?? "";
+	return n.length > 0 ? n.charAt(0).toUpperCase() : "?";
+});
 </script>
 
 <template>

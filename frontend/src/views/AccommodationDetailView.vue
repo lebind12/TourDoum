@@ -258,8 +258,10 @@ function handleReserve() {
           </CardContent>
         </Card>
 
-        <!-- 호스트 -->
-        <Card>
+        <!-- 호스트 — BE-비제공 필드(hostId/hostName) 누락 시 카드 자체 숨김 (qa #31 회귀 가드).
+             RouterLink :to.params.userId가 undefined면 vue-router가 "Missing required param" 던지며
+             /accommodations/:id 페이지 전체 렌더가 깨져 예약 카드까지 사라진다. -->
+        <Card v-if="acc.hostId !== undefined && acc.hostName">
           <CardHeader class="pb-2">
             <CardTitle class="text-base">호스트</CardTitle>
           </CardHeader>

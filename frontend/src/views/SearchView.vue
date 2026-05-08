@@ -315,7 +315,7 @@ function formatDate(iso: string) {
                            text-xs font-semibold text-primary select-none"
                     aria-hidden="true"
                   >
-                    {{ item.authorNickname.charAt(0).toUpperCase() }}
+                    {{ (item.authorNickname?.charAt(0) ?? "?").toUpperCase() }}
                   </span>
                   <span class="text-sm font-medium">{{ item.authorNickname }}</span>
                   <span class="text-xs text-amber-500 font-medium">★ {{ item.rating }}</span>

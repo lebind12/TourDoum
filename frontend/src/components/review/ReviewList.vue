@@ -72,7 +72,7 @@ function formatDate(iso: string): string {
             class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary select-none"
             aria-hidden="true"
           >
-            {{ review.authorNickname.charAt(0).toUpperCase() }}
+            {{ (review.authorNickname?.charAt(0) ?? "?").toUpperCase() }}
           </div>
 
           <div class="min-w-0 flex-1">
