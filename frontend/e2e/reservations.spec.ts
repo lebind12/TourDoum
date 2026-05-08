@@ -23,8 +23,10 @@
  */
 import { type Page, expect, test } from "@playwright/test";
 import { signupAndLogin } from "./_helpers/auth";
+import { navigateTo } from "./_helpers/nav";
 
 const RUN = process.env.E2E_BACKEND === "1";
+const BACKEND_URL = process.env.VITE_API_BASE_URL ?? "http://localhost:30080";
 
 /**
  * 첫 accommodation ID를 BE API에서 직접 캡처.
@@ -33,9 +35,7 @@ const RUN = process.env.E2E_BACKEND === "1";
  *  거치지 않고 /reservations 라우트로 직접 진입.)
  */
 async function getFirstAccommodationId(page: Page): Promise<number> {
-	const r = await page.request.get(
-		"http://localhost:8080/api/accommodations?size=1",
-	);
+	const r = await page.request.get(`${BACKEND_URL}/api/accommodations?size=1`);
 	expect(r.ok()).toBeTruthy();
 	const body = await r.json();
 	const id = body?.content?.[0]?.id;
@@ -56,7 +56,7 @@ test.describe("예약 — 3단계 흐름 + 멱등성 + 회귀", () => {
 	test("Scenario A: 비로그인 /reservations/new/1/dates → /login 리다이렉트", async ({
 		page,
 	}) => {
-		await page.goto("/reservations/new/1/dates");
+		await navigateTo(page, "/reservations/new/1/dates");
 		await expect(page).toHaveURL(/\/login/);
 	});
 
@@ -67,7 +67,7 @@ test.describe("예약 — 3단계 흐름 + 멱등성 + 회귀", () => {
 		const accommodationId = await getFirstAccommodationId(page);
 
 		// detail UI 우회 — /reservations/new/:id/dates 직접 진입 (handoff 참조)
-		await page.goto(`/reservations/new/${accommodationId}/dates`);
+		await navigateTo(page, `/reservations/new/${accommodationId}/dates`);
 		await expect(page).toHaveURL(
 			new RegExp(`/reservations/new/${accommodationId}/dates`),
 		);
@@ -129,7 +129,7 @@ test.describe("예약 — 3단계 흐름 + 멱등성 + 회귀", () => {
 
 		// 0. 견적 (UNIQUE INDEX는 confirm 단계에서 검증되므로 quote 생략 가능하지만
 		//    BE 일부 구현은 quote 선행을 요구할 수 있어 안전상 호출).
-		await page.request.post("http://localhost:8080/api/reservations/quote", {
+		await page.request.post(`${BACKEND_URL}/api/reservations/quote`, {
 			data: {
 				accommodationId,
 				checkIn,
@@ -147,13 +147,10 @@ test.describe("예약 — 3단계 흐름 + 멱등성 + 회귀", () => {
 		};
 
 		// 1차 호출 — 신규 INSERT 기대
-		const r1 = await page.request.post(
-			"http://localhost:8080/api/reservations",
-			{
-				headers: { "Idempotency-Key": idempotencyKey },
-				data: body,
-			},
-		);
+		const r1 = await page.request.post(`${BACKEND_URL}/api/reservations`, {
+			headers: { "Idempotency-Key": idempotencyKey },
+			data: body,
+		});
 		expect(r1.ok()).toBeTruthy();
 		const j1 = await r1.json();
 		expect(j1.id).toBeTruthy();
@@ -161,13 +158,10 @@ test.describe("예약 — 3단계 흐름 + 멱등성 + 회귀", () => {
 		// 2차 호출 — 같은 키 + 같은 body → 기존 예약 반환.
 		// BE 컨트롤러는 신규/기존 모두 201 반환 (ReservationController.confirm은
 		// HttpStatus.CREATED 고정). 멱등성은 reservationId 동일성으로 검증.
-		const r2 = await page.request.post(
-			"http://localhost:8080/api/reservations",
-			{
-				headers: { "Idempotency-Key": idempotencyKey },
-				data: body,
-			},
-		);
+		const r2 = await page.request.post(`${BACKEND_URL}/api/reservations`, {
+			headers: { "Idempotency-Key": idempotencyKey },
+			data: body,
+		});
 		expect(r2.ok()).toBeTruthy();
 		const j2 = await r2.json();
 		expect(j2.id).toBe(j1.id);
@@ -183,26 +177,23 @@ test.describe("예약 — 3단계 흐름 + 멱등성 + 회귀", () => {
 		// 인증 쿠키는 page 컨텍스트에 자동 전파.
 		const checkIn = dateAfter(10);
 		const checkOut = dateAfter(12);
-		await page.request.post("http://localhost:8080/api/reservations/quote", {
+		await page.request.post(`${BACKEND_URL}/api/reservations/quote`, {
 			data: { accommodationId, checkIn, checkOut, guests: 1 },
 		});
-		const create = await page.request.post(
-			"http://localhost:8080/api/reservations",
-			{
-				headers: { "Idempotency-Key": crypto.randomUUID() },
-				data: {
-					accommodationId,
-					checkIn,
-					checkOut,
-					guests: 1,
-					paymentMethod: "CARD",
-				},
+		const create = await page.request.post(`${BACKEND_URL}/api/reservations`, {
+			headers: { "Idempotency-Key": crypto.randomUUID() },
+			data: {
+				accommodationId,
+				checkIn,
+				checkOut,
+				guests: 1,
+				paymentMethod: "CARD",
 			},
-		);
+		});
 		expect(create.ok()).toBeTruthy();
 
 		// /me 진입 → "내 예약" 섹션 노출 + 1건 이상 (BE에서 fetchMyReservations)
-		await page.goto("/me");
+		await navigateTo(page, "/me");
 		const section = page.locator(
 			'section[aria-labelledby="my-reservations-heading"]',
 		);

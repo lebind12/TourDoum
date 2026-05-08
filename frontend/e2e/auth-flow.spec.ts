@@ -18,6 +18,7 @@
  *   - login  form submit → data-testid="login-submit"   (LoginView.vue)
  */
 import { expect, test } from "@playwright/test";
+import { navigateTo } from "./_helpers/nav";
 
 const RUN = process.env.E2E_BACKEND === "1";
 
@@ -44,21 +45,23 @@ test.describe("도메인횡단 인증 및 가드 검증", () => {
 		await page.getByTestId("signup-submit").click();
 
 		await expect(page).toHaveURL("/");
-		await expect(page.getByText(new RegExp(`.*${nickname}.*`))).toBeVisible();
+		await expect(
+			page.getByText(new RegExp(`.*${nickname}.*`)).first(),
+		).toBeVisible();
 
-		await page.goto("/me");
+		await navigateTo(page, "/me");
 		await expect(page).toHaveURL("/me");
 		await expect(page.locator("h1, h2, body")).toContainText(
 			/본인|프로필|계정|profile|account|me/i,
 		);
 
-		await page.goto("/attractions");
+		await navigateTo(page, "/attractions");
 		await expect(page).toHaveURL("/attractions");
 		await expect(page.locator("h1, h2, body")).toContainText(
 			/관광지|attraction|여행/i,
 		);
 
-		await page.goto("/favorites");
+		await navigateTo(page, "/favorites");
 		await expect(page).toHaveURL("/favorites");
 		await expect(page.locator("h1, h2, body")).toContainText(
 			/즐겨찾기|favorite/i,
@@ -83,7 +86,7 @@ test.describe("도메인횡단 인증 및 가드 검증", () => {
 	test("Scenario B: 비로그인 /favorites 접근 → /login 리다이렉트 확인", async ({
 		page,
 	}) => {
-		await page.goto("/favorites");
+		await navigateTo(page, "/favorites");
 
 		await expect(page).toHaveURL(/\/login/);
 		await expect(page.getByLabel(/이메일|email/i)).toBeVisible();
@@ -97,7 +100,7 @@ test.describe("도메인횡단 인증 및 가드 검증", () => {
 	test("Scenario C: 비로그인 /me 접근 → /login 리다이렉트 확인", async ({
 		page,
 	}) => {
-		await page.goto("/me");
+		await navigateTo(page, "/me");
 
 		await expect(page).toHaveURL(/\/login/);
 		await expect(page.getByLabel(/이메일|email/i)).toBeVisible();

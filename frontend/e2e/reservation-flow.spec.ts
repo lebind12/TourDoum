@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { signupAndLogin } from "./_helpers/auth";
+import { navigateTo } from "./_helpers/nav";
 
 const RUN = process.env.E2E_BACKEND === "1";
 
@@ -20,7 +21,7 @@ test("회원가입/로그인 후 숙박 예약 완료, 마이페이지 노출, �
 	// signupAndLogin 헬퍼 — testid 기반으로 AppShell "회원가입" 버튼 strict-mode collision 회피.
 	await signupAndLogin(page, "reservation");
 
-	await page.goto("/accommodations/1");
+	await navigateTo(page, "/accommodations/1");
 	await page.getByRole("button", { name: "예약하기" }).click();
 	await expect(page).toHaveURL(/\/reservations\/new\/1\/dates$/);
 

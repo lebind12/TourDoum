@@ -26,6 +26,7 @@
  * - regex `:has-text` 금지 → .or() 체이닝
  */
 import { type Page, expect, test } from "@playwright/test";
+import { navigateTo } from "./_helpers/nav";
 
 const RUN = process.env.E2E_BACKEND === "1";
 
@@ -70,7 +71,7 @@ test.describe("즐겨찾기 — 가드 + CRUD", () => {
 	test("Scenario A: 비로그인 /favorites 접근 → /login 리다이렉트", async ({
 		page,
 	}) => {
-		await page.goto("/favorites");
+		await navigateTo(page, "/favorites");
 		await expect(page).toHaveURL(/\/login/);
 		// 로그인 폼 노출 확인
 		await expect(page.getByLabel(/이메일|email/i)).toBeVisible();
@@ -79,7 +80,7 @@ test.describe("즐겨찾기 — 가드 + CRUD", () => {
 	test("Scenario B: 로그인 직후 /favorites 빈 상태", async ({ page }) => {
 		await signupAndLogin(page);
 
-		await page.goto("/favorites");
+		await navigateTo(page, "/favorites");
 		await expect(page).toHaveURL("/favorites");
 
 		// 헤더 확인
@@ -98,7 +99,7 @@ test.describe("즐겨찾기 — 가드 + CRUD", () => {
 		await signupAndLogin(page);
 
 		// /attractions 진입 + attraction 카드 로딩 대기
-		await page.goto("/attractions");
+		await navigateTo(page, "/attractions");
 		await expect(page).toHaveURL("/attractions");
 
 		// AttractionsView는 flex 컬럼 레이아웃(grid 미사용) → FavoriteButton 등장을
@@ -120,7 +121,7 @@ test.describe("즐겨찾기 — 가드 + CRUD", () => {
 		await addButton.click();
 
 		// /favorites로 이동
-		await page.goto("/favorites");
+		await navigateTo(page, "/favorites");
 		await expect(page).toHaveURL("/favorites");
 
 		// 빈 상태 메시지가 사라지고 그리드 노출
@@ -143,7 +144,7 @@ test.describe("즐겨찾기 — 가드 + CRUD", () => {
 		await signupAndLogin(page);
 
 		// 사전 조건: /attractions에서 1건 추가 (AttractionsView는 grid 미사용 → button으로 대기)
-		await page.goto("/attractions");
+		await navigateTo(page, "/attractions");
 		const addButton = page
 			.locator('button[aria-label="즐겨찾기 추가"]')
 			.first();
@@ -152,7 +153,7 @@ test.describe("즐겨찾기 — 가드 + CRUD", () => {
 		await addButton.click();
 
 		// /favorites 진입 → 1건 노출 확인
-		await page.goto("/favorites");
+		await navigateTo(page, "/favorites");
 		await expect(page.locator("div.grid").first()).toBeVisible({
 			timeout: 5000,
 		});
