@@ -121,8 +121,8 @@ if (typeof window !== "undefined") {
   <!-- 패널 (Teleport → body) -->
   <Teleport to="body">
     <Transition
-      enter-active-class="transition-all duration-150 ease-out"
-      leave-active-class="transition-all duration-100 ease-in"
+      enter-active-class="transition-all duration-[var(--motion-fast)] ease-[var(--ease-standard)]"
+      leave-active-class="transition-all duration-[var(--motion-fast)] ease-[var(--ease-standard)]"
       enter-from-class="opacity-0 translate-y-1 scale-95"
       leave-to-class="opacity-0 translate-y-1 scale-95"
     >

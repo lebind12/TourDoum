@@ -3,7 +3,9 @@ import { cn } from "@/lib/utils";
 import { type VariantProps, cva } from "class-variance-authority";
 
 const badgeVariants = cva(
-	"inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors",
+	// R10: hardcoded `transition-colors` (tailwind 기본 150ms) → motion 토큰 일원화.
+	// duration `--motion-fast` / easing `--ease-standard` — Button/Input과 동일한 micro feedback 곡선.
+	"inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium transition-[color,background-color,border-color] duration-[var(--motion-fast)] ease-[var(--ease-standard)]",
 	{
 		variants: {
 			variant: {
