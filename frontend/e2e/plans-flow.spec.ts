@@ -42,7 +42,7 @@ test.describe("여행 계획 — 로그인 후 happy path (E2E_BACKEND=1 필요)
 	test("로그인 후 /plans 목록 진입 — 시드 계획 카드 확인", async ({ page }) => {
 		const ts = Date.now();
 		const email = `plan-e2e-${ts}@example.com`;
-		const password = "password1";
+		const password = "E2eTestSecure!9x";
 		const nickname = `planner${ts}`;
 
 		// 회원가입 + 자동 로그인
@@ -69,7 +69,7 @@ test.describe("여행 계획 — 로그인 후 happy path (E2E_BACKEND=1 필요)
 	}) => {
 		const ts = Date.now();
 		const email = `plan-new-${ts}@example.com`;
-		const password = "password1";
+		const password = "E2eTestSecure!9x";
 		const nickname = `newplanner${ts}`;
 
 		await page.goto("/signup");
@@ -101,7 +101,7 @@ test.describe("여행 계획 — 로그인 후 happy path (E2E_BACKEND=1 필요)
 	test("/plans/:id — 시드 계획 상세 진입 + 일자 탭 전환", async ({ page }) => {
 		const ts = Date.now();
 		const email = `plan-detail-${ts}@example.com`;
-		const password = "password1";
+		const password = "E2eTestSecure!9x";
 		const nickname = `detailplanner${ts}`;
 
 		await page.goto("/signup");

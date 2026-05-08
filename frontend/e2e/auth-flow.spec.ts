@@ -29,7 +29,7 @@ test.describe("도메인횡단 인증 및 가드 검증", () => {
 	}) => {
 		const ts = Date.now();
 		const email = `qa-${ts}@example.com`;
-		const password = "password1";
+		const password = "E2eTestSecure!9x";
 		const nickname = `qa${ts}`;
 
 		await page.goto("/signup");
