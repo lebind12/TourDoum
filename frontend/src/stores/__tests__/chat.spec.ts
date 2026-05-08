@@ -394,6 +394,70 @@ describe("pollForward — 폴링", () => {
 		await store.pollForward("1");
 		expect(mockGet).not.toHaveBeenCalled();
 	});
+
+	// ── FE-1.1 cold-start 회귀 가드 (qa #30) ────────────────────────────────
+	it("cold-start: init items=[] 후 폴링은 ?afterCursor= 빈값으로 bootstrap 한다", async () => {
+		// 신규 DM 같은 빈 채널 — init 응답 items=[].
+		mockGet.mockResolvedValueOnce({
+			data: page([], null, false),
+			error: null,
+		});
+		const store = useChatStore();
+		await store.fetchMessagesInitial("1");
+		expect(store.lastSeenIds["1"]).toBeUndefined();
+		expect(store.newerCursors["1"]).toBeNull();
+
+		// 첫 폴 — 빈 afterCursor 호출로 BE 최신 limit건 ASC 재시도.
+		mockGet.mockResolvedValueOnce({
+			data: page([], null, false),
+			error: null,
+		});
+		const added1 = await store.pollForward("1");
+		expect(added1).toBe(0);
+		expect(mockGet).toHaveBeenLastCalledWith(
+			"/api/chat/channels/1/messages?afterCursor=&limit=20",
+		);
+
+		// 다른 사용자가 메시지 1건 보낸 race — 두 번째 폴이 회수.
+		mockGet.mockResolvedValueOnce({
+			data: page([makeMessage(500)], null, false),
+			error: null,
+		});
+		const added2 = await store.pollForward("1");
+		expect(added2).toBe(1);
+		expect(store.messages["1"]).toHaveLength(1);
+		expect(store.lastSeenIds["1"]).toBe("500");
+
+		// 세 번째 폴 — lastSeenId 가 박제됐으므로 sinceId 경로로 수렴.
+		mockGet.mockResolvedValueOnce({
+			data: page([], null, false),
+			error: null,
+		});
+		await store.pollForward("1");
+		expect(mockGet).toHaveBeenLastCalledWith(
+			"/api/chat/channels/1/messages?sinceId=500",
+		);
+	});
+
+	it("cold-start: init 에러로 messages=[] 박제된 경우에도 폴링은 bootstrap 호출", async () => {
+		// init 실패 — error path 도 messages[ch]=[] 로 박제.
+		mockGet.mockResolvedValueOnce({
+			data: null,
+			error: "HTTP 500",
+		});
+		const store = useChatStore();
+		await store.fetchMessagesInitial("1");
+		expect(store.messages["1"]).toEqual([]);
+
+		mockGet.mockResolvedValueOnce({
+			data: page([], null, false),
+			error: null,
+		});
+		await store.pollForward("1");
+		expect(mockGet).toHaveBeenLastCalledWith(
+			"/api/chat/channels/1/messages?afterCursor=&limit=20",
+		);
+	});
 });
 
 // ── sendMessage ──────────────────────────────────────────────────────────────

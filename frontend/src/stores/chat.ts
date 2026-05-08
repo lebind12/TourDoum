@@ -255,6 +255,13 @@ export const useChatStore = defineStore("chat", () => {
 	/**
 	 * 폴링 1 tick — `?afterCursor=newerCursor` 또는 `?sinceId=lastSeenId` 한시 호환.
 	 * append (dedupe) + newerCursor / lastSeenId 갱신.
+	 *
+	 * cold-start fallback (FE-1.1): 초기 로드가 items=[]로 끝난 신규 DM 같은 채널에서는
+	 * newerCursor / lastSeenId 둘 다 없어 영원히 폴링이 정지하던 회귀(qa #30)를 차단한다.
+	 * `messages.value[channelId]` 가 정의돼 있으면 init 이후이므로
+	 * `?afterCursor=&limit=N` 빈 cursor 호출로 BE 의 "최신 limit건 ASC" 경로(ChatService:80)를 재호출한다.
+	 * 빈 채널에서는 items=[]로 무비용 유지, 메시지가 추가되면 즉시 회수되며 lastSeenId가 박제되어
+	 * 다음 tick부터 정상 sinceId/cursor 경로로 수렴한다.
 	 */
 	async function pollForward(channelId: string): Promise<number> {
 		const newer = newerCursors.value[channelId];
@@ -264,8 +271,11 @@ export const useChatStore = defineStore("chat", () => {
 			url = `/api/chat/channels/${channelId}/messages?afterCursor=${encodeURIComponent(newer)}&limit=${PAGE_LIMIT}`;
 		} else if (lastId) {
 			url = `/api/chat/channels/${channelId}/messages?sinceId=${lastId}`;
+		} else if (messages.value[channelId] !== undefined) {
+			// cold-start: init 완료(messages 정의) + cursor/lastId 미박제 → 빈 afterCursor로 forward bootstrap.
+			url = `/api/chat/channels/${channelId}/messages?afterCursor=&limit=${PAGE_LIMIT}`;
 		} else {
-			// cursor 도 lastSeenId 도 없으면 폴링 skip (초기 로드 전).
+			// 초기 로드 전 — skip.
 			return 0;
 		}
 		const result = await get<ChatMessagePageApiResponse>(url);
