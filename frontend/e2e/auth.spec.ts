@@ -41,7 +41,10 @@ test("Scenario A: 회원가입 → 로그인 → /me → /attractions → /favor
 	// 4. /me 진입 (본인 정보 페이지)
 	await page.goto("/me");
 	await expect(page).toHaveURL("/me");
-	await expect(page.locator("h1, h2")).toContainText(/본인|프로필|계정/);
+	// "내 정보"는 현재 디자인 시스템 카피 — 본인/프로필/계정과 동치 의도.
+	await expect(page.locator("h1, h2")).toContainText(
+		/내 정보|본인|프로필|계정/,
+	);
 
 	// 5. /attractions 진입 (관광지 목록)
 	await page.goto("/attractions");
@@ -88,10 +91,10 @@ test("Scenario B: 비로그인 /favorites 접근 → /login 리다이렉트 → 
 	await page.fill('input[id="nickname"]', nickname);
 	await page.click('button[type="submit"]');
 
-	// 자동 로그인됨 → 이미 /favorites 접근 가능
+	// 자동 로그인 후 홈으로 이동 — Scenario A와 동일한 race 방지.
+	await page.waitForURL("/");
 
 	// 5. 홈에서 로그아웃 후 다시 테스트
-	await page.goto("/");
 	await page.click(".btn-logout");
 
 	// 6. /me에 비로그인 상태로 접근 시도
@@ -107,9 +110,7 @@ test("Scenario B: 비로그인 /favorites 접근 → /login 리다이렉트 → 
 
 	// 9. 로그인 후 원래 라우트인 /me로 복귀 (SavedRequest)
 	// (주의: 현재 구현에서 SavedRequest가 활성화되어 있으면 /me로 복귀, 아니면 홈으로 이동)
-	await page.waitForNavigation();
-	const url = page.url();
-	const urlPath =
-		url.split("localhost:")[1]?.split("/").slice(1).join("/") || "";
+	await page.waitForURL(/\/(me)?$/);
+	const urlPath = new URL(page.url()).pathname;
 	expect(urlPath === "/me" || urlPath === "/").toBeTruthy();
 });

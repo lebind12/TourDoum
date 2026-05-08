@@ -59,7 +59,7 @@ onMounted(() => {
             aria-label="시·도 선택"
             @change="onSidoChange"
           >
-            <option value="">전체 시·도</option>
+            <option value="">전체 지역</option>
             <option v-for="sido in store.sidos" :key="sido" :value="sido">{{ sido }}</option>
           </Select>
           <Select
