@@ -130,6 +130,45 @@ public class SecurityConfig {
     return new JwtAuthenticationFilter(tokenProvider, denylist, revocationStore);
   }
 
+  /**
+   * CSRF 강제 여부 — true면 CSRF 토큰 검증 필요, false면 면제.
+   *
+   * <p>규칙:
+   *
+   * <ul>
+   *   <li>안전 메서드(GET/HEAD/OPTIONS/TRACE) → 면제 (Spring 기본 동작과 동일).
+   *   <li>cookie credential 사용 endpoint(refresh/logout/password) → 강제. Bearer 동반 여부 무관.
+   *   <li>그 외 mutation + Authorization: Bearer 동반 → 면제 (Bearer만으론 CSRF 위협 X).
+   *   <li>그 외 mutation + Bearer 부재 → 강제 (cookie 잠재 가능, 보수적 default).
+   * </ul>
+   */
+  static boolean requiresCsrf(jakarta.servlet.http.HttpServletRequest request) {
+    String method = request.getMethod();
+    if ("GET".equals(method)
+        || "HEAD".equals(method)
+        || "OPTIONS".equals(method)
+        || "TRACE".equals(method)) {
+      return false;
+    }
+    // MockMvc 환경에서 getServletPath()가 빈 문자열을 반환하므로 getRequestURI() 사용.
+    String path = request.getRequestURI();
+    if (path == null) {
+      path = "";
+    }
+    // cookie credential 사용 — refresh_token cookie + (logout은 access bearer + cookie clear).
+    if ("/api/auth/refresh".equals(path)
+        || "/api/auth/logout".equals(path)
+        || "/api/auth/password".equals(path)) {
+      return true;
+    }
+    String auth = request.getHeader("Authorization");
+    if (auth != null && auth.startsWith("Bearer ")) {
+      // Bearer 토큰만으로 인증되는 mutation — cookie credential 미사용 → CSRF 면제.
+      return false;
+    }
+    return true;
+  }
+
   @Bean
   public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
     // CSRF — double-submit cookie pattern. JS가 XSRF-TOKEN cookie를 읽고 X-XSRF-TOKEN 헤더로 보낸다.
@@ -143,7 +182,19 @@ public class SecurityConfig {
         // CORS
         .cors(Customizer.withDefaults())
 
-        // CSRF: cookie 기반 double-submit. 사전인증 단계(login/signup)는 면제.
+        // CSRF: cookie 기반 double-submit + Bearer 토큰 면제.
+        //
+        // CSRF 위협 모델은 브라우저가 자동 전송하는 cookie credential을 가정한다. ADR-0011 §"access token
+        // 메모리 보관" 박제로 access는 cookie 아닌 Authorization 헤더로 명시 첨부 → CSRF 위협 X.
+        // 따라서 Authorization: Bearer 헤더가 있는 요청은 CSRF 면제.
+        //
+        // Cookie credential 사용 endpoint(refresh_token cookie):
+        //   - POST /api/auth/refresh
+        //   - POST /api/auth/logout
+        //   - POST /api/auth/password (access bearer + cookie clear)
+        // 위 endpoint는 Bearer 헤더와 무관하게 CSRF 강제 — withRequireCsrfProtectionMatcher 람다에서 처리.
+        //
+        // 사전인증 단계(login/signup/password-reset)는 인증 자체가 없으므로 항상 면제.
         .csrf(
             csrf ->
                 csrf.csrfTokenRepository(csrfRepo)
@@ -152,7 +203,8 @@ public class SecurityConfig {
                         "/api/auth/login",
                         "/api/members/signup",
                         "/api/auth/password-reset/initiate",
-                        "/api/auth/password-reset/complete"))
+                        "/api/auth/password-reset/complete")
+                    .requireCsrfProtectionMatcher(SecurityConfig::requiresCsrf))
 
         // STATELESS — ADR-0011 핵심. Spring Security가 HttpSession을 만들거나 사용하지 않음.
         .sessionManagement(
