@@ -15,6 +15,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
+import java.util.Map;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -22,6 +23,7 @@ import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -51,18 +53,30 @@ public class AuthController {
   private final JwtTokenProvider tokenProvider;
   private final MemberRepository memberRepository;
   private final AuthCookieService authCookieService;
+  private final LoginLockoutService lockoutService;
+  private final PasswordEncoder passwordEncoder;
+  private final PasswordPolicyValidator passwordPolicy;
+  private final PasswordResetService passwordResetService;
 
   public AuthController(
       AuthenticationManager authenticationManager,
       AuthService authService,
       JwtTokenProvider tokenProvider,
       MemberRepository memberRepository,
-      AuthCookieService authCookieService) {
+      AuthCookieService authCookieService,
+      LoginLockoutService lockoutService,
+      PasswordEncoder passwordEncoder,
+      PasswordPolicyValidator passwordPolicy,
+      PasswordResetService passwordResetService) {
     this.authenticationManager = authenticationManager;
     this.authService = authService;
     this.tokenProvider = tokenProvider;
     this.memberRepository = memberRepository;
     this.authCookieService = authCookieService;
+    this.lockoutService = lockoutService;
+    this.passwordEncoder = passwordEncoder;
+    this.passwordPolicy = passwordPolicy;
+    this.passwordResetService = passwordResetService;
   }
 
   @Operation(
@@ -75,21 +89,106 @@ public class AuthController {
     @ApiResponse(responseCode = "401", description = "이메일 또는 비밀번호 불일치")
   })
   @PostMapping("/auth/login")
-  public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
+  public ResponseEntity<LoginResponse> login(
+      @Valid @RequestBody LoginRequest request, HttpServletRequest httpRequest) {
     String email = request.email() != null ? request.email().trim() : "";
     String password = request.password() != null ? request.password() : "";
+    String ip = clientIp(httpRequest);
+    // BE-4.4: per-account 잠금 / per-IP throttling pre-check.
+    lockoutService.preCheck(email, ip);
     try {
       authenticationManager.authenticate(
           UsernamePasswordAuthenticationToken.unauthenticated(email, password));
     } catch (AuthenticationException ex) {
+      lockoutService.recordFailure(email, ip);
       throw new BadCredentialsException("이메일 또는 비밀번호가 올바르지 않습니다.", ex);
     }
     Member member =
         memberRepository
             .findByEmail(email)
             .orElseThrow(() -> new UsernameNotFoundException("회원 없음: " + email));
+    // BE-4.6: legacy(BCrypt 등) 해시 → Argon2id rehash on login.
+    if (passwordEncoder.upgradeEncoding(member.getPassword())) {
+      member.changePassword(passwordEncoder.encode(password));
+      memberRepository.save(member);
+    }
+    lockoutService.recordSuccess(email);
     LoginResponse body = authService.issueOnLogin(member);
     return withRefreshCookie(body);
+  }
+
+  @Operation(
+      summary = "비밀번호 변경",
+      description =
+          "현재 비밀번호 확인 → 정책 검증 → encode + 저장 → revocation epoch bump + 현재 access denylist 추가."
+              + " 다른 디바이스 토큰은 epoch 비교로 차단(BE-4.3).")
+  @ApiResponses({
+    @ApiResponse(responseCode = "204", description = "변경 성공"),
+    @ApiResponse(responseCode = "400", description = "정책 위반"),
+    @ApiResponse(responseCode = "401", description = "인증 누락 또는 현재 비밀번호 불일치")
+  })
+  @SecurityRequirement(name = "bearerAuth")
+  @PostMapping("/auth/password")
+  public ResponseEntity<Void> changePassword(
+      @Valid @RequestBody PasswordChangeRequest request,
+      @AuthenticationPrincipal UserDetails userDetails,
+      HttpServletRequest httpRequest) {
+    if (userDetails == null) {
+      throw new BadCredentialsException("인증이 필요합니다.");
+    }
+    Member member =
+        memberRepository
+            .findByEmail(userDetails.getUsername())
+            .orElseThrow(() -> new UsernameNotFoundException("회원 없음: " + userDetails.getUsername()));
+    String currentJti = (String) httpRequest.getAttribute(JwtAuthenticationFilter.ATTR_ACCESS_JTI);
+    Object expAttr = httpRequest.getAttribute(JwtAuthenticationFilter.ATTR_ACCESS_EXPIRES_AT_EPOCH_SECOND);
+    long ttlSec = expAttr instanceof Number n ? n.longValue() - java.time.Instant.now().getEpochSecond() : 0L;
+    authService.changePassword(
+        member, request.currentPassword(), request.newPassword(),
+        passwordEncoder, passwordPolicy, currentJti, ttlSec);
+    return ResponseEntity.status(HttpStatus.NO_CONTENT)
+        .header(HttpHeaders.SET_COOKIE, authCookieService.clearRefresh().toString())
+        .build();
+  }
+
+  @Operation(
+      summary = "비밀번호 reset 시작",
+      description =
+          "이메일 입력 → 30분 1회용 토큰 발급. 응답은 사용자 존재 여부와 무관하게 200(enumeration 방지)."
+              + " 학습 단계에선 콘솔 로그에 토큰을 출력한다.")
+  @ApiResponse(responseCode = "200", description = "OK (사용자 존재 여부 노출 안 함)")
+  @PostMapping("/auth/password-reset/initiate")
+  public ResponseEntity<Map<String, Object>> resetInitiate(
+      @Valid @RequestBody PasswordResetInitiateRequest request) {
+    java.util.Optional<String> token = passwordResetService.initiate(request.email());
+    Map<String, Object> body = new java.util.HashMap<>();
+    body.put("status", "ok");
+    // 학습 단계: 토큰을 응답에도 동봉(production은 절대 금지). e2e 편의용.
+    token.ifPresent(t -> body.put("debugToken", t));
+    return ResponseEntity.ok(body);
+  }
+
+  @Operation(
+      summary = "비밀번호 reset 완료",
+      description = "토큰 검증(1회용) → 정책 검증 → encode + 저장 + revocation epoch bump.")
+  @ApiResponses({
+    @ApiResponse(responseCode = "204", description = "OK"),
+    @ApiResponse(responseCode = "400", description = "토큰 무효 또는 정책 위반")
+  })
+  @PostMapping("/auth/password-reset/complete")
+  public ResponseEntity<Void> resetComplete(@Valid @RequestBody PasswordResetCompleteRequest request) {
+    passwordResetService.complete(request.token(), request.newPassword());
+    return ResponseEntity.noContent().build();
+  }
+
+  /** X-Forwarded-For 우선, 없으면 remoteAddr. 학습 단계 단순 처리. */
+  private static String clientIp(HttpServletRequest req) {
+    String xff = req.getHeader("X-Forwarded-For");
+    if (xff != null && !xff.isBlank()) {
+      int comma = xff.indexOf(',');
+      return (comma > 0 ? xff.substring(0, comma) : xff).trim();
+    }
+    return req.getRemoteAddr();
   }
 
   @Operation(

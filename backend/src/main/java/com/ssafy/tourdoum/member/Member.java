@@ -58,4 +58,12 @@ public class Member {
     this.nickname = nickname;
     this.role = role != null ? role : MemberRole.ROLE_USER;
   }
+
+  /**
+   * 비밀번호 변경 — ADR-0011 BE-4. 호출자(AuthService/PasswordResetService)가 정책 검증 + encode 후
+   * 호출. {@code @LastModifiedDate}로 updatedAt 자동 갱신.
+   */
+  public void changePassword(String encodedPassword) {
+    this.password = encodedPassword;
+  }
 }

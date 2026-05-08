@@ -13,19 +13,21 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import com.ssafy.tourdoum.auth.PasswordPolicyValidator;
 
 @ExtendWith(MockitoExtension.class)
 class MemberServiceTest {
 
   @Mock private MemberRepository memberRepository;
   @Mock private PasswordEncoder passwordEncoder;
+  @Mock private PasswordPolicyValidator passwordPolicy;
   @InjectMocks private MemberService memberService;
 
   @Test
   @DisplayName("정상 회원가입 - 저장 검증")
   void signup_success() {
     // given
-    SignupRequest request = new SignupRequest("test@example.com", "password123", "tester");
+    SignupRequest request = new SignupRequest("test@example.com", "Str0ngPass!2026", "tester");
     given(memberRepository.existsByEmail(request.email())).willReturn(false);
     given(memberRepository.existsByNickname(request.nickname())).willReturn(false);
     given(passwordEncoder.encode(request.password())).willReturn("encoded_password");
@@ -53,7 +55,7 @@ class MemberServiceTest {
   @DisplayName("이메일 중복 - DuplicateEmailException 발생")
   void signup_duplicate_email() {
     // given
-    SignupRequest request = new SignupRequest("dup@example.com", "password123", "nick");
+    SignupRequest request = new SignupRequest("dup@example.com", "Str0ngPass!2026", "nick");
     given(memberRepository.existsByEmail(request.email())).willReturn(true);
 
     // when / then

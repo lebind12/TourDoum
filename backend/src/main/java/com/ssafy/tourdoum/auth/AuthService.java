@@ -8,7 +8,9 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,6 +29,7 @@ public class AuthService {
   private final MemberRepository memberRepository;
   private final RefreshTokenStore refreshStore;
   private final AccessTokenDenylist denylist;
+  private final UserRevocationStore revocationStore;
   private final Clock clock;
 
   @Autowired
@@ -35,8 +38,16 @@ public class AuthService {
       JwtProperties properties,
       MemberRepository memberRepository,
       RefreshTokenStore refreshStore,
-      AccessTokenDenylist denylist) {
-    this(tokenProvider, properties, memberRepository, refreshStore, denylist, Clock.systemUTC());
+      AccessTokenDenylist denylist,
+      UserRevocationStore revocationStore) {
+    this(
+        tokenProvider,
+        properties,
+        memberRepository,
+        refreshStore,
+        denylist,
+        revocationStore,
+        Clock.systemUTC());
   }
 
   /** 테스트 친화 — Clock 주입. */
@@ -46,12 +57,14 @@ public class AuthService {
       MemberRepository memberRepository,
       RefreshTokenStore refreshStore,
       AccessTokenDenylist denylist,
+      UserRevocationStore revocationStore,
       Clock clock) {
     this.tokenProvider = tokenProvider;
     this.properties = properties;
     this.memberRepository = memberRepository;
     this.refreshStore = refreshStore;
     this.denylist = denylist;
+    this.revocationStore = revocationStore;
     this.clock = clock;
   }
 
@@ -98,6 +111,13 @@ public class AuthService {
       throw new RefreshTokenException("refresh token에 family_id/jti 누락");
     }
 
+    // BE-4.3: revocation epoch 체크 — password 변경 후 발급된 epoch 이전 토큰은 무효.
+    long iatSec = claims.getIssuedAt() != null ? claims.getIssuedAt().toInstant().getEpochSecond() : 0L;
+    if (iatSec > 0 && iatSec < revocationStore.currentEpoch(userId)) {
+      refreshStore.delete(familyId);
+      throw new RefreshTokenException("password 변경으로 무효화된 refresh token");
+    }
+
     RefreshTokenFamily family =
         refreshStore
             .find(familyId)
@@ -142,6 +162,33 @@ public class AuthService {
     }
     if (accessJti != null) {
       denylist.add(accessJti, Math.max(ttlSeconds, 0));
+    }
+  }
+
+  /**
+   * 인증된 사용자의 비밀번호 변경 — ADR-0011 BE-4.3.
+   *
+   * <p>현재 비밀번호 검증 → 정책 검증 → encode + 저장 → revocation epoch bump → 현재 access denylist 추가.
+   * 호출자(컨트롤러)가 현재 access JTI/expiresAt을 알고 있으므로 그 토큰만 즉시 무효화하면 된다.
+   * 다른 디바이스 토큰들은 epoch 비교로 차단된다.
+   */
+  public void changePassword(
+      Member member,
+      String currentPassword,
+      String newPassword,
+      PasswordEncoder encoder,
+      PasswordPolicyValidator policy,
+      String currentAccessJti,
+      long currentAccessTtlSeconds) {
+    if (!encoder.matches(currentPassword, member.getPassword())) {
+      throw new BadCredentialsException("현재 비밀번호가 올바르지 않습니다.");
+    }
+    policy.validate(newPassword, member.getEmail(), member.getNickname());
+    member.changePassword(encoder.encode(newPassword));
+    memberRepository.save(member);
+    revocationStore.bump(member.getId());
+    if (currentAccessJti != null) {
+      denylist.add(currentAccessJti, Math.max(currentAccessTtlSeconds, 0));
     }
   }
 
