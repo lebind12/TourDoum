@@ -28,13 +28,9 @@ public final class InProcessLoggingHandlers {
     }
   }
 
-  @Component
-  public static class PaymentRequestedHandler extends LoggingHandler {
-    @Override
-    public String eventType() {
-      return "PaymentRequested";
-    }
-  }
+  // BE-14: PaymentRequestedHandler + RefundScheduledHandler는 실제 handler로 교체됨
+  // (com.ssafy.tourdoum.payment.handler.* 참조). Notify / InventoryRelease는 ADMIN-1 /
+  // 알림 도메인 task에서 외부 호출로 교체 예정.
 
   @Component
   public static class NotifyHandler extends LoggingHandler {
@@ -49,14 +45,6 @@ public final class InProcessLoggingHandlers {
     @Override
     public String eventType() {
       return "InventoryRelease";
-    }
-  }
-
-  @Component
-  public static class RefundScheduledHandler extends LoggingHandler {
-    @Override
-    public String eventType() {
-      return "RefundScheduled";
     }
   }
 }
