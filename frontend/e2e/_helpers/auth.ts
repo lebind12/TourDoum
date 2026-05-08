@@ -36,7 +36,9 @@ export async function signupAndLogin(
 	const ts = Date.now();
 	const rand = Math.floor(Math.random() * 10000);
 	const email = `${prefix}-${ts}-${rand}@example.com`;
-	const password = "password1";
+	// BE-4 PasswordPolicyValidator: 12자 이상, COMMON_BLOCKLIST 회피,
+	// email-local/nickname 부분일치 회피. "password1"은 blocklist hit.
+	const password = "E2eTestSecure!9x";
 	// 닉네임은 영문/숫자, 길이 제한 회피 위해 20자로 절단
 	const nickname = `${prefix}${ts}${rand}`.slice(0, 20);
 
