@@ -1,0 +1,108 @@
+name: azure / aca revision deploy
+
+# INFRA-AZ-2 — ACA revision update (`az containerapp update --image ...`).
+# 100% traffic to latest revision. canary는 별 task.
+# workflow_dispatch only.
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Image tag to deploy (must exist in ACR)'
+        required: true
+        type: string
+      acr_name:
+        description: 'ACR name'
+        required: false
+        default: 'acrtourdoumprodapp'
+        type: string
+      app_name:
+        description: 'Container App name (Bicep param acaAppName)'
+        required: false
+        default: 'ca-tourdoum-api'
+        type: string
+      resource_group:
+        description: 'Resource group'
+        required: false
+        default: 'rg-tourdoum-prod-app'
+        type: string
+      min_replicas:
+        description: 'Minimum replicas (0=cost / 1=demo)'
+        required: false
+        default: '0'
+        type: string
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  IMAGE_REPO: tourdoum-backend
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Validate tag exists in ACR
+        run: |
+          set -euo pipefail
+          az acr repository show-tags \
+            --name '${{ inputs.acr_name }}' \
+            --repository '${{ env.IMAGE_REPO }}' \
+            --output tsv \
+          | grep -Fxq '${{ inputs.tag }}' \
+          || { echo "::error::tag '${{ inputs.tag }}' not in ACR ${{ inputs.acr_name }}/${{ env.IMAGE_REPO }}"; exit 2; }
+
+      - name: Update Container App revision
+        id: update
+        run: |
+          set -euo pipefail
+          IMAGE='${{ inputs.acr_name }}.azurecr.io/${{ env.IMAGE_REPO }}:${{ inputs.tag }}'
+          echo "Deploying ${IMAGE}"
+          az containerapp update \
+            --name '${{ inputs.app_name }}' \
+            --resource-group '${{ inputs.resource_group }}' \
+            --image "${IMAGE}" \
+            --min-replicas '${{ inputs.min_replicas }}' \
+            --revision-suffix "gh$(echo '${{ github.run_id }}' | tail -c7)"
+
+      - name: Wait for revision Provisioned
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 30); do
+            STATUS=$(az containerapp revision list \
+              --name '${{ inputs.app_name }}' \
+              --resource-group '${{ inputs.resource_group }}' \
+              --query '[?properties.active].properties.provisioningState' \
+              --output tsv | head -n1)
+            echo "[$i/30] active revision provisioningState=${STATUS}"
+            case "${STATUS}" in
+              Provisioned) exit 0 ;;
+              Failed) echo "::error::revision provisioning failed"; exit 3 ;;
+            esac
+            sleep 10
+          done
+          echo "::error::timeout waiting for Provisioned"
+          exit 4
+
+      - name: Show FQDN + summary
+        run: |
+          set -euo pipefail
+          FQDN=$(az containerapp show \
+            --name '${{ inputs.app_name }}' \
+            --resource-group '${{ inputs.resource_group }}' \
+            --query properties.configuration.ingress.fqdn -o tsv)
+          echo "## ACA deploy complete" >> "$GITHUB_STEP_SUMMARY"
+          echo "- app: \`${{ inputs.app_name }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- image tag: \`${{ inputs.tag }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- FQDN: https://${FQDN}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- minReplicas: ${{ inputs.min_replicas }}" >> "$GITHUB_STEP_SUMMARY"

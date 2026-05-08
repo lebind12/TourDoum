@@ -1,0 +1,93 @@
+name: azure / acr build & push
+
+# INFRA-AZ-2 — Spring Boot Docker build → ACR push.
+# OIDC + Federated Credential. workflow_dispatch only (cost guardrail, ADR-0013 결정 8).
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Image tag (default: dev-<sha>)'
+        required: false
+        type: string
+      acr_name:
+        description: 'ACR resource name (Bicep param acrName)'
+        required: false
+        default: 'acrtourdoumprodapp'
+        type: string
+
+permissions:
+  id-token: write   # OIDC
+  contents: read
+
+env:
+  IMAGE_REPO: tourdoum-backend
+  JAVA_VERSION: '21'
+
+jobs:
+  build-push:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Resolve tag
+        id: tag
+        run: |
+          set -euo pipefail
+          TAG="${{ inputs.tag }}"
+          if [[ -z "${TAG}" ]]; then
+            TAG="dev-$(echo '${{ github.sha }}' | cut -c1-7)"
+          fi
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "Resolved tag: ${TAG}"
+
+      - name: Maven package (skip ITs)
+        working-directory: backend
+        run: ./mvnw -B -DskipITs -Dspring-boot.run.profiles=prod-lite package
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: ACR login
+        run: az acr login --name ${{ inputs.acr_name }}
+
+      - name: Build & push image
+        uses: docker/build-push-action@v6
+        with:
+          context: backend
+          file: backend/Dockerfile
+          push: true
+          tags: |
+            ${{ inputs.acr_name }}.azurecr.io/${{ env.IMAGE_REPO }}:${{ steps.tag.outputs.tag }}
+            ${{ inputs.acr_name }}.azurecr.io/${{ env.IMAGE_REPO }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.created=${{ github.event.repository.updated_at }}
+
+      - name: Summary
+        run: |
+          echo "## ACR push complete" >> "$GITHUB_STEP_SUMMARY"
+          echo "- registry: \`${{ inputs.acr_name }}.azurecr.io\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- image: \`${{ env.IMAGE_REPO }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- tag: \`${{ steps.tag.outputs.tag }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- next: trigger \`azure-aca-deploy.yml\` with image tag" >> "$GITHUB_STEP_SUMMARY"

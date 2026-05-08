@@ -1,0 +1,90 @@
+name: azure / cleanup (kill-switch trigger)
+
+# INFRA-AZ-2 — kill-switch wrapper for GitHub Actions.
+# infra/azure/scripts/kill-*.sh 를 OIDC 인증으로 호출.
+# prod-data RG 삭제는 명시 차단 (사용자 명시 승인 + 백업 게이트, ADR-0013 §14).
+#
+# trigger: workflow_dispatch 만. cron 자동화는 Phase 2.
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'Cleanup target'
+        required: true
+        type: choice
+        options:
+          - scale-lab
+          - prod-app-scale-down
+          - aks-pool-zero
+      confirm:
+        description: 'Type "yes" to confirm (case-sensitive)'
+        required: true
+        type: string
+      acr_name:
+        description: 'ACR (only used if target=scale-lab AKS)'
+        required: false
+        default: 'acrtourdoumprodapp'
+        type: string
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  kill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Validate confirm
+        run: |
+          if [[ '${{ inputs.confirm }}' != 'yes' ]]; then
+            echo "::error::confirm must be exactly 'yes' (got: '${{ inputs.confirm }}')"
+            exit 1
+          fi
+
+      - name: Block prod-data
+        run: |
+          # 방어: target choice 에 prod-data 미포함이지만, 누군가 list 변경 시 ENV 차단
+          case '${{ inputs.target }}' in
+            *prod-data*|*prod_data*)
+              echo "::error::prod-data RG cleanup is BLOCKED (manual approval + backup required)"
+              exit 2 ;;
+          esac
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Run kill script
+        env:
+          AZURE_EXPECTED_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          DRY_RUN: '0'
+          FORCE: '1'   # non-TTY (GitHub Actions runner)
+        run: |
+          set -euo pipefail
+          chmod +x infra/azure/scripts/*.sh
+          case '${{ inputs.target }}' in
+            scale-lab)
+              infra/azure/scripts/kill-scale-lab.sh ;;
+            prod-app-scale-down)
+              infra/azure/scripts/kill-prod-app.sh ;;
+            aks-pool-zero)
+              infra/azure/scripts/aks-pool-zero.sh ;;
+            *)
+              echo "::error::unknown target '${{ inputs.target }}'"; exit 3 ;;
+          esac
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## Cleanup ${{ inputs.target }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- result: ${{ job.status }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- run: ${{ github.run_id }}" >> "$GITHUB_STEP_SUMMARY"
