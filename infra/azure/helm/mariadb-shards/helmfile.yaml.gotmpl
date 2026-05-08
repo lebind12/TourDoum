@@ -1,0 +1,28 @@
+# helmfile.yaml — 10 shard 일괄 박제 (helmfile sync).
+# install:
+#   helm plugin install https://github.com/helmfile/helmfile
+#   helmfile -f infra/azure/helm/mariadb-shards/helmfile.yaml apply
+#
+# 평시 박제 X (Phase 6 진입 시 사용자 승인 게이트). Phase 1 학습 단계는 1 shard 만 수동.
+
+repositories:
+  - name: bitnami
+    url: oci://registry-1.docker.io/bitnamicharts
+    oci: true
+
+releases:
+  {{- range $i := until 10 }}
+  - name: mariadb-shard-{{ $i }}
+    namespace: data-shard-{{ $i }}
+    chart: bitnami/mariadb
+    version: 19.0.0
+    values:
+      - values-template.yaml
+      - fullnameOverride: mariadb-shard-{{ $i }}
+        commonAnnotations:
+          tourdoum.io/shard: "{{ $i }}"
+        commonLabels:
+          tourdoum.io/shard: "{{ $i }}"
+    secrets:
+      - secrets-shard-{{ $i }}.yaml.gpg   # SOPS / git-crypt — 본 repo 에 평문 X
+  {{- end }}

@@ -1,0 +1,73 @@
+# bitnami/mariadb Helm values — shard template.
+# repo: oci://registry-1.docker.io/bitnamicharts/mariadb
+#
+# accommodation_id hash 기준 shard. 본 values 는 1 shard 기준 — shard count 만큼 release 박제.
+# install (shard 0 예시):
+#   helm install mariadb-shard-0 bitnami/mariadb \
+#     -n data-shard-0 --create-namespace \
+#     --set primary.persistence.size=20Gi \
+#     --set fullnameOverride=mariadb-shard-0 \
+#     -f values-template.yaml
+#
+# 일괄 박제는 helmfile 또는 kustomize overlays 권장 — README §운영 절차.
+
+architecture: replication
+
+auth:
+  rootPassword: ''       # --set 으로 주입 (또는 existingSecret)
+  existingSecret: mariadb-shard-auth
+  database: tourdoum
+  username: tourdoum_app
+  replicationUser: replicator
+  replicationPassword: ''  # --set 또는 existingSecret
+
+primary:
+  persistence:
+    enabled: true
+    size: 20Gi
+    storageClass: managed-csi
+  resources:
+    requests:
+      cpu: 500m
+      memory: 2Gi
+    limits:
+      cpu: 1000m
+      memory: 4Gi
+  configuration: |-
+    [mysqld]
+    default_storage_engine=InnoDB
+    character-set-server=utf8mb4
+    collation-server=utf8mb4_unicode_ci
+    innodb_buffer_pool_size=1G
+    innodb_log_file_size=256M
+    max_connections=200
+    skip-name-resolve
+    slow_query_log=1
+    slow_query_log_file=/var/log/mysql/slow.log
+    long_query_time=1.0
+  nodeSelector:
+    tourdoum.io/pool: system
+  tolerations: []
+
+secondary:
+  replicaCount: 1
+  persistence:
+    enabled: true
+    size: 20Gi
+    storageClass: managed-csi
+  resources:
+    requests:
+      cpu: 250m
+      memory: 1Gi
+    limits:
+      cpu: 500m
+      memory: 2Gi
+  nodeSelector:
+    tourdoum.io/pool: system
+
+metrics:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+    namespace: monitoring
+    interval: 30s

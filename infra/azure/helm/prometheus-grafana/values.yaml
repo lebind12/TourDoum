@@ -1,0 +1,145 @@
+# prometheus-community/kube-prometheus-stack Helm values — scale-lab.
+# repo: https://prometheus-community.github.io/helm-charts
+# install:
+#   helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+#   helm install kube-prom-stack prometheus-community/kube-prometheus-stack \
+#     -n monitoring --create-namespace -f values.yaml
+#
+# Spring Boot Actuator scrape + k6/Redis/MariaDB/RabbitMQ ServiceMonitor 통합.
+
+fullnameOverride: kube-prom-stack
+
+# ---- Prometheus ----
+prometheus:
+  prometheusSpec:
+    retention: 7d            # 학습 단계 — 운영은 30d+
+    retentionSize: '10GB'
+    resources:
+      requests:
+        cpu: 500m
+        memory: 2Gi
+      limits:
+        cpu: 1500m
+        memory: 4Gi
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: managed-csi
+          accessModes: [ ReadWriteOnce ]
+          resources:
+            requests:
+              storage: 20Gi
+    # ServiceMonitor / PodMonitor 자동 발견 (label selector 비움 = 모든 네임스페이스)
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+    ruleSelectorNilUsesHelmValues: false
+    nodeSelector:
+      tourdoum.io/pool: system
+
+# ---- Spring Boot Actuator scrape (PodMonitor) ----
+# 본 values 와 별도로 manifests 박제:
+#   kubectl apply -f spring-podmonitor.yaml -n tourdoum-prod-app
+
+# ---- Grafana ----
+grafana:
+  enabled: true
+  # admin password 는 별도 Secret 으로 주입 (본 values 에 평문 박제 X)
+  admin:
+    existingSecret: grafana-admin-auth
+    userKey: admin-user
+    passwordKey: admin-password
+  persistence:
+    enabled: true
+    size: 5Gi
+    storageClassName: managed-csi
+  service:
+    type: ClusterIP
+  ingress:
+    enabled: false           # NGINX Ingress 별 박제
+  defaultDashboardsEnabled: true
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  nodeSelector:
+    tourdoum.io/pool: system
+  # 사전 dashboard provision (Spring Boot / Redis / MariaDB / RabbitMQ / k6)
+  dashboardProviders:
+    dashboardproviders.yaml:
+      apiVersion: 1
+      providers:
+        - name: 'tourdoum'
+          orgId: 1
+          folder: 'TourDoum'
+          type: file
+          disableDeletion: false
+          editable: true
+          options:
+            path: /var/lib/grafana/dashboards/tourdoum
+  dashboards:
+    tourdoum:
+      spring-boot:
+        gnetId: 12900
+        revision: 1
+        datasource: Prometheus
+      redis:
+        gnetId: 11835
+        revision: 1
+        datasource: Prometheus
+      rabbitmq:
+        gnetId: 10991
+        revision: 12
+        datasource: Prometheus
+      mariadb:
+        gnetId: 7362
+        revision: 5
+        datasource: Prometheus
+      k6:
+        gnetId: 19665
+        revision: 2
+        datasource: Prometheus
+
+# ---- Alertmanager ----
+alertmanager:
+  alertmanagerSpec:
+    retention: 120h
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 200m
+        memory: 256Mi
+    storage:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: managed-csi
+          accessModes: [ ReadWriteOnce ]
+          resources:
+            requests:
+              storage: 5Gi
+    nodeSelector:
+      tourdoum.io/pool: system
+  config:
+    route:
+      receiver: 'null'
+    receivers:
+      - name: 'null'   # Phase 1 — 알림 미연동, dashboard 만 사용
+
+# ---- Operator / kube-state / node-exporter ----
+prometheusOperator:
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+  nodeSelector:
+    tourdoum.io/pool: system
+
+kubeStateMetrics:
+  enabled: true
+
+nodeExporter:
+  enabled: true   # spot 노드 포함 — node-exporter 는 DaemonSet, toleration 자동

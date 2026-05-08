@@ -132,8 +132,11 @@ az deployment sub what-if -l koreacentral \
 - ✅ **INFRA-VE-1** — Vercel project + GitHub 연동 절차서 + CORS allowlist 정책 (commit cb2e73f).
 - ✅ **INFRA-AZ-2** — GitHub Actions OIDC + Federated Credential + `azure-acr-build-push.yml` + `azure-aca-deploy.yml` + `azure-cleanup.yml` + `backend/Dockerfile` + `infra/azure/github-oidc-setup.md`.
 - ✅ **INFRA-AZ-3a** — scale-lab Bicep skeleton (AKS Free + system pool + Spot user pool, kubenet) + `scale-lab-dev.bicepparam`. 실 deployment X (Phase 3 진입 게이트).
-- **INFRA-AZ-3b** — scale-lab Helm charts (k6-operator / NGINX / Redis Cluster / MariaDB shards / RabbitMQ / kube-prom-stack) + kind dry-run.
+- ✅ **INFRA-AZ-3b** — scale-lab Helm charts skeleton (`infra/azure/helm/`): k6-operator + Redis Cluster (noeviction) + MariaDB shards × 10 + RabbitMQ + kube-prom-stack. ADR-0013 §15 Phase 6 진입 처방 5요소 README 박제.
+- **INFRA-AZ-3c** — AKS NAT Gateway Bicep (Phase 6 처방 §2 SNAT 고갈 회피).
+- **INFRA-AZ-3d** — `infra/azure/k8s/scale-lab/` Spring Deployment + HPA + JWT loader Job + RBAC.
 - **INFRA-AZ-4** — kill-switch Phase 2 자동화 (Logic App / Automation Runbook, 보류 가능).
+- **INFRA-AZ-5** — kind + helmfile CI workflow (smoke test → teardown).
 - **BE-CORS-VE1** — Spring CORS allowlist regex (`infra/vercel/preview-allowlist-policy.md` 인계).
 
 ## 9. Kill Switch 명령 (참조)

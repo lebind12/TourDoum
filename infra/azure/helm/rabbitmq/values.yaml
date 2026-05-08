@@ -1,0 +1,63 @@
+# bitnami/rabbitmq Helm values — scale-lab.
+# repo: oci://registry-1.docker.io/bitnamicharts/rabbitmq
+# install:
+#   helm install rabbitmq bitnami/rabbitmq -n messaging --create-namespace -f values.yaml
+#
+# Reservation outbox + dead-letter queue. 학습 단계 single namespace.
+
+replicaCount: 3
+clustering:
+  enabled: true
+  forceBoot: false
+
+auth:
+  username: tourdoum
+  existingPasswordSecret: rabbitmq-auth   # external Secret 로 주입
+  existingErlangSecret: rabbitmq-auth
+
+persistence:
+  enabled: true
+  size: 8Gi
+  storageClass: managed-csi
+
+resources:
+  requests:
+    cpu: 250m
+    memory: 1Gi
+  limits:
+    cpu: 1000m
+    memory: 2Gi
+
+# 운영 워크로드 — system pool 권장 (Spot eviction 시 message loss 위험).
+nodeSelector:
+  tourdoum.io/pool: system
+
+tolerations: []
+
+# 기본 plugin + 큐 / DLX 정책
+extraConfiguration: |-
+  default_user = tourdoum
+  default_vhost = /
+  loopback_users.guest = false
+  log.console.level = info
+  cluster_partition_handling = pause_minority
+
+extraPlugins: 'rabbitmq_management rabbitmq_prometheus rabbitmq_shovel rabbitmq_shovel_management'
+
+loadDefinition:
+  enabled: true
+  existingSecret: rabbitmq-load-definition
+  # secret 은 별도 박제 — vhosts / users / queues / exchanges / policies (DLX) 정의
+
+metrics:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+    namespace: monitoring
+    interval: 30s
+
+# Management UI (개발자 접근, prod 차단)
+service:
+  type: ClusterIP
+ingress:
+  enabled: false   # NGINX Ingress + auth-required annotation 별 박제
