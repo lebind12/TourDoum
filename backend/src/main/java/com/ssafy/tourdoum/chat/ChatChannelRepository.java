@@ -40,6 +40,9 @@ public interface ChatChannelRepository extends JpaRepository<ChatChannel, Long> 
   /** DM pair UNIQUE 인덱스 단일 lookup (V17). caller는 min &lt; max로 정렬해 호출한다. */
   Optional<ChatChannel> findByDmMemberMinAndDmMemberMax(Long dmMemberMin, Long dmMemberMax);
 
+  /** 채널명 단일 lookup. seed PUBLIC sentinel 조회 등 dev/IT 용도. */
+  Optional<ChatChannel> findByName(String name);
+
   /**
    * @deprecated ADR-0012 v2 BE-2: {@link #findByDmMemberMinAndDmMemberMax} + UNIQUE 인덱스 사용. 본 쿼리는
    *     IN 서브쿼리 패턴으로 인덱스 활용 약함. FE-1 cleanup 후 BE-2.1에서 제거 예정.
