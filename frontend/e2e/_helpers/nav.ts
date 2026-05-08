@@ -19,17 +19,6 @@
  */
 import { type Page, expect } from "@playwright/test";
 
-/** AppShell 데스크톱 nav-bar 에 노출되는 라우트 → role=button 텍스트. */
-const NAV_BAR_LABELS: Record<string, string> = {
-	"/attractions": "여행지",
-	"/accommodations": "숙박",
-	"/chat": "채팅",
-	"/favorites": "즐겨찾기",
-	"/me": "내 정보",
-	"/login": "로그인",
-	"/signup": "회원가입",
-};
-
 /**
  * SPA navigation. 가능하면 실 사용자 클릭, 매핑 없으면 history API 로 SPA push.
  *
@@ -42,22 +31,28 @@ export async function navigateTo(page: Page, path: string): Promise<void> {
 		await page.goto(path);
 		return;
 	}
-	// 1. nav-bar 매핑이 있으면 클릭 (실 사용자 동선 우선).
-	const label = NAV_BAR_LABELS[path];
-	if (label) {
-		// AppShell 데스크톱 + 모바일 drawer 에 동일 텍스트 → .first()
-		await page.getByRole("link", { name: label, exact: true }).first().click();
-		await page.waitForURL(new RegExp(`${escapeRegExp(path)}/?$`));
-		return;
-	}
 
-	// 2. 매핑 없으면 SPA push. Vue Router 4(createWebHistory)는 popstate 리스너로
-	//    history 변경을 감지해 라우트를 업데이트한다.
-	await page.evaluate((p) => {
-		window.history.pushState({}, "", p);
-		window.dispatchEvent(new PopStateEvent("popstate", { state: {} }));
+	// 1. SPA push — Vue Router 의 push API 를 직접 호출.
+	//    이전 구현은 nav-bar role=link 클릭 또는 `window.history.pushState({}, "", p)` 직접 호출이었으나:
+	//      (a) 로그아웃 직후 AppShell re-render 와 race 하여 link click 이 detached element 로 실패 (qa #5 auth.spec B)
+	//      (b) `pushState({}, ...)` 가 vue-router 의 historyState (back/current/forward 형태) 를 빈 `{}` 로
+	//          덮어써, 후속 router.push 가 `currentState.current = undefined` 를 직렬화하다
+	//          `Failed to execute 'replace' on 'Location': 'origin' + 'undefined' + path` 회귀 (qa #5 plans Scenario B)
+	//    →  단일 경로: 모듈 dynamic import 로 router.push 호출. requiresAuth 가드도 동일하게 통과.
+	//    waitForURL 은 router.push 의 동기 직후가 아니라 popstate 처리 완료까지 polling 한다.
+	await page.evaluate(async (p) => {
+		const m = await import("/src/router/index.ts");
+		const r = (m as { default: { push: (to: string) => Promise<void> } })
+			.default;
+		await r.push(p);
 	}, path);
-	await page.waitForURL(new RegExp(`${escapeRegExp(path)}/?$`));
+	// 보호 라우트 가드가 /login 으로 리다이렉트할 수 있으므로, 목표 path 또는 /login 둘 중 하나를 허용.
+	// `page.waitForURL` 의 기본 waitUntil 이 "load" 라 SPA pushState 에서는 load 이벤트가 발화하지
+	// 않아 timeout 한다 (qa #5 auth.spec B 회귀). `expect(page).toHaveURL` 는 URL 만 polling 한다.
+	await expect(page).toHaveURL(
+		new RegExp(`(${escapeRegExp(path)}/?$|/login(\\?.*)?$)`),
+		{ timeout: 5000 },
+	);
 }
 
 /** "/" 진입 — RouterLink "TourDoum" 브랜드 클릭. */

@@ -51,21 +51,17 @@ test.describe("도메인횡단 인증 및 가드 검증", () => {
 
 		await navigateTo(page, "/me");
 		await expect(page).toHaveURL("/me");
-		await expect(page.locator("h1, h2, body")).toContainText(
+		await expect(page.locator("body")).toContainText(
 			/본인|프로필|계정|profile|account|me/i,
 		);
 
 		await navigateTo(page, "/attractions");
 		await expect(page).toHaveURL("/attractions");
-		await expect(page.locator("h1, h2, body")).toContainText(
-			/관광지|attraction|여행/i,
-		);
+		await expect(page.locator("body")).toContainText(/관광지|attraction|여행/i);
 
 		await navigateTo(page, "/favorites");
 		await expect(page).toHaveURL("/favorites");
-		await expect(page.locator("h1, h2, body")).toContainText(
-			/즐겨찾기|favorite/i,
-		);
+		await expect(page.locator("body")).toContainText(/즐겨찾기|favorite/i);
 
 		// 로그아웃 버튼은 헤더에만 존재 → 충돌 없음
 		await page
