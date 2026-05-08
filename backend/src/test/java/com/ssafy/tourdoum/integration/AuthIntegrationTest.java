@@ -88,7 +88,7 @@ class AuthIntegrationTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(
                     """
-                    {"email":"it@example.com","password":"password123","nickname":"ituser"}
+                    {"email":"it@example.com","password":"Str0ngPass!2026","nickname":"ituser"}
                     """))
         .andExpect(status().isCreated())
         .andExpect(jsonPath("$.email").value("it@example.com"))
@@ -102,7 +102,7 @@ class AuthIntegrationTest {
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(
                         """
-                        {"email":"it@example.com","password":"password123"}
+                        {"email":"it@example.com","password":"Str0ngPass!2026"}
                         """))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.accessToken").isNotEmpty())
@@ -181,7 +181,7 @@ class AuthIntegrationTest {
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(
                         """
-                        {"email":"it@example.com","password":"password123"}
+                        {"email":"it@example.com","password":"Str0ngPass!2026"}
                         """))
             .andExpect(status().isOk())
             .andReturn();

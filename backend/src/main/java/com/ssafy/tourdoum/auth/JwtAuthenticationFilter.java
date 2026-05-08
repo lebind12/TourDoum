@@ -38,10 +38,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
   private final JwtTokenProvider tokenProvider;
   private final AccessTokenDenylist denylist;
+  private final UserRevocationStore revocationStore;
 
-  public JwtAuthenticationFilter(JwtTokenProvider tokenProvider, AccessTokenDenylist denylist) {
+  public JwtAuthenticationFilter(
+      JwtTokenProvider tokenProvider,
+      AccessTokenDenylist denylist,
+      UserRevocationStore revocationStore) {
     this.tokenProvider = tokenProvider;
     this.denylist = denylist;
+    this.revocationStore = revocationStore;
   }
 
   @Override
@@ -53,8 +58,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
       try {
         Claims claims = tokenProvider.parseAccessToken(token);
         String jti = claims.getId();
-        if (jti != null && denylist.contains(jti)) {
-          // logout/revoke 처리된 access — 인증 실패로 간주.
+        Object uidClaim = claims.get("uid");
+        long memberId = uidClaim instanceof Number n ? n.longValue() : -1L;
+        long iatSec =
+            claims.getIssuedAt() != null ? claims.getIssuedAt().toInstant().getEpochSecond() : 0L;
+        boolean denied = jti != null && denylist.contains(jti);
+        // BE-4.3: revocation epoch — password 변경 시 bump된 epoch 이전 발급 토큰은 무효.
+        boolean revoked = memberId > 0 && iatSec > 0 && iatSec < revocationStore.currentEpoch(memberId);
+        if (denied || revoked) {
           SecurityContextHolder.clearContext();
         } else {
           Object roleClaim = claims.get("role");

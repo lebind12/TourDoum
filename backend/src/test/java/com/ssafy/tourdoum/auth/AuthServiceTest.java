@@ -29,6 +29,7 @@ class AuthServiceTest {
   private MemberRepository memberRepository;
   private InMemoryRefreshTokenStore store;
   private InMemoryAccessTokenDenylist denylist;
+  private InMemoryUserRevocationStore revocationStore;
   private AuthService service;
   private Member member;
 
@@ -48,8 +49,16 @@ class AuthServiceTest {
     memberRepository = Mockito.mock(MemberRepository.class);
     store = new InMemoryRefreshTokenStore();
     denylist = new InMemoryAccessTokenDenylist();
+    revocationStore = new InMemoryUserRevocationStore();
     service =
-        new AuthService(provider, properties, memberRepository, store, denylist, Clock.systemUTC());
+        new AuthService(
+            provider,
+            properties,
+            memberRepository,
+            store,
+            denylist,
+            revocationStore,
+            Clock.systemUTC());
 
     member = Mockito.mock(Member.class);
     Mockito.when(member.getId()).thenReturn(11L);

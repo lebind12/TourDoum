@@ -125,6 +125,14 @@
             <artifactId>spring-boot-starter-security</artifactId>
         </dependency>
 
+        <!-- BouncyCastle for Argon2id (ADR-0011 BE-4). spring-security-crypto의
+             Argon2PasswordEncoder가 BC provider를 사용한다. -->
+        <dependency>
+            <groupId>org.bouncycastle</groupId>
+            <artifactId>bcprov-jdk18on</artifactId>
+            <version>1.78.1</version>
+        </dependency>
+
         <!-- Spring Security Test -->
         <dependency>
             <groupId>org.springframework.security</groupId>

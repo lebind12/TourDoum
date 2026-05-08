@@ -61,7 +61,7 @@ class JwtAuthenticationFilterTest {
   void valid_bearer_populates_context() throws Exception {
     JwtTokenProvider tp = provider();
     String token = tp.issueAccessToken(fakeMember()).token();
-    JwtAuthenticationFilter filter = new JwtAuthenticationFilter(tp, denylist);
+    JwtAuthenticationFilter filter = new JwtAuthenticationFilter(tp, denylist, new InMemoryUserRevocationStore());
 
     MockHttpServletRequest req = new MockHttpServletRequest();
     req.addHeader("Authorization", "Bearer " + token);
@@ -84,7 +84,7 @@ class JwtAuthenticationFilterTest {
   @DisplayName("Authorization 헤더 부재 → SecurityContext 비어 있음 + chain 통과")
   void missing_header_passes_through() throws Exception {
     JwtTokenProvider tp = provider();
-    JwtAuthenticationFilter filter = new JwtAuthenticationFilter(tp, denylist);
+    JwtAuthenticationFilter filter = new JwtAuthenticationFilter(tp, denylist, new InMemoryUserRevocationStore());
 
     MockHttpServletRequest req = new MockHttpServletRequest();
     MockHttpServletResponse res = new MockHttpServletResponse();
@@ -100,7 +100,7 @@ class JwtAuthenticationFilterTest {
   @DisplayName("Bearer 무효 토큰 → context 비움 + chain 통과")
   void invalid_bearer_clears_context() throws Exception {
     JwtTokenProvider tp = provider();
-    JwtAuthenticationFilter filter = new JwtAuthenticationFilter(tp, denylist);
+    JwtAuthenticationFilter filter = new JwtAuthenticationFilter(tp, denylist, new InMemoryUserRevocationStore());
 
     MockHttpServletRequest req = new MockHttpServletRequest();
     req.addHeader("Authorization", "Bearer not-a-real-jwt");
@@ -121,7 +121,7 @@ class JwtAuthenticationFilterTest {
     String token = tp.issueAccessToken(fakeMember(), accessJti).token();
     denylist.add(accessJti, 900); // logout/revoke 시뮬
 
-    JwtAuthenticationFilter filter = new JwtAuthenticationFilter(tp, denylist);
+    JwtAuthenticationFilter filter = new JwtAuthenticationFilter(tp, denylist, new InMemoryUserRevocationStore());
     MockHttpServletRequest req = new MockHttpServletRequest();
     req.addHeader("Authorization", "Bearer " + token);
     MockHttpServletResponse res = new MockHttpServletResponse();

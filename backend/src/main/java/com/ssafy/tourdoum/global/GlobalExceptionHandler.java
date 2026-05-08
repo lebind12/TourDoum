@@ -2,7 +2,11 @@ package com.ssafy.tourdoum.global;
 
 import com.ssafy.tourdoum.accommodation.AccommodationNotFoundException;
 import com.ssafy.tourdoum.attraction.AttractionNotFoundException;
+import com.ssafy.tourdoum.auth.InvalidPasswordException;
+import com.ssafy.tourdoum.auth.InvalidResetTokenException;
+import com.ssafy.tourdoum.auth.LoginLockedException;
 import com.ssafy.tourdoum.auth.RefreshTokenException;
+import com.ssafy.tourdoum.auth.TooManyLoginAttemptsException;
 import com.ssafy.tourdoum.chat.ChatChannelNotFoundException;
 import com.ssafy.tourdoum.chat.ChatForbiddenException;
 import com.ssafy.tourdoum.member.DuplicateEmailException;
@@ -164,5 +168,33 @@ public class GlobalExceptionHandler {
   @ResponseStatus(HttpStatus.UNAUTHORIZED)
   public ErrorResponse handleRefreshTokenException(RefreshTokenException ex) {
     return new ErrorResponse("refreshToken", ex.getMessage());
+  }
+
+  /** 비밀번호 정책 위반 → 400 (ADR-0011 BE-4.2). */
+  @ExceptionHandler(InvalidPasswordException.class)
+  @ResponseStatus(HttpStatus.BAD_REQUEST)
+  public ErrorResponse handleInvalidPassword(InvalidPasswordException ex) {
+    return new ErrorResponse("password", ex.getMessage());
+  }
+
+  /** Reset 토큰 무효 → 400 (ADR-0011 BE-4.5). */
+  @ExceptionHandler(InvalidResetTokenException.class)
+  @ResponseStatus(HttpStatus.BAD_REQUEST)
+  public ErrorResponse handleInvalidResetToken(InvalidResetTokenException ex) {
+    return new ErrorResponse("token", ex.getMessage());
+  }
+
+  /** 계정 잠금 → 423 Locked (ADR-0011 BE-4.4). */
+  @ExceptionHandler(LoginLockedException.class)
+  @ResponseStatus(HttpStatus.LOCKED)
+  public ErrorResponse handleLoginLocked(LoginLockedException ex) {
+    return new ErrorResponse("account", ex.getMessage());
+  }
+
+  /** per-IP throttle 초과 → 429 Too Many Requests (ADR-0011 BE-4.4). */
+  @ExceptionHandler(TooManyLoginAttemptsException.class)
+  @ResponseStatus(HttpStatus.TOO_MANY_REQUESTS)
+  public ErrorResponse handleTooMany(TooManyLoginAttemptsException ex) {
+    return new ErrorResponse("ip", ex.getMessage());
   }
 }
