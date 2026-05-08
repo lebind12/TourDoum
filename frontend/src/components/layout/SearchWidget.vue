@@ -71,8 +71,8 @@ if (typeof window !== "undefined") {
 
   <!-- 검색 바 (확장 상태) — width transition -->
   <Transition
-    enter-active-class="transition-all duration-200 ease-out"
-    leave-active-class="transition-all duration-150 ease-in"
+    enter-active-class="transition-all duration-[var(--motion-base)] ease-[var(--ease-standard)]"
+    leave-active-class="transition-all duration-[var(--motion-fast)] ease-[var(--ease-standard)]"
     enter-from-class="opacity-0 scale-x-95 origin-right"
     leave-to-class="opacity-0 scale-x-95 origin-right"
   >
