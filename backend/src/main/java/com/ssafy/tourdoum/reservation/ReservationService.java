@@ -133,10 +133,24 @@ public class ReservationService {
             .totalPrice(totalPrice)
             .paymentMethod(request.paymentMethod())
             .idempotencyKey(idempotencyKey)
+            .initialState(ReservationState.CONFIRMED)
             .build();
 
-    ReservationResponse response =
-        ReservationResponse.from(reservationRepository.save(reservation));
+    Reservation saved = reservationRepository.save(reservation);
+
+    // BE-13.1 wiring (qa #6 baseline 발견 — 누락) — legacy confirm() 경로도 transition_log + outbox
+    // SOT artifact를 INSERT해야 ADR-0013 §결정 (15) Phase 1 outbox drain rate / audit trail 측정 가능.
+    // 본 메서드는 PG/FSM stage를 우회하고 곧장 CONFIRMED를 박는 단순 흐름이므로 from_state=null + to=CONFIRMED.
+    transitionLogRepository.save(
+        ReservationTransitionLog.builder()
+            .reservationId(saved.getId())
+            .fromState(null)
+            .toState(ReservationState.CONFIRMED)
+            .metadata("{\"via\":\"confirm\",\"idempotencyKey\":\"" + idempotencyKey + "\"}")
+            .build());
+    emitOutbox(saved.getId(), ReservationState.CONFIRMED);
+
+    ReservationResponse response = ReservationResponse.from(saved);
     notificationService.publish(
         memberId,
         NotificationType.RESERVATION_CONFIRMED,
