@@ -93,10 +93,10 @@ BE-2(refresh family + denylist) 이후 병렬 가능. password 변경/reset 시 
 BE-4.1 PasswordEncoder 알고리즘
    - Argon2id (m=64MiB, t=3, p=1) 1차 + bcrypt(cost=12) fallback (DelegatingPasswordEncoder).
    - 벤치 실패(p99 > 200ms 등) 시 Argon2id m=32MiB, t=3 까지 허용.
-   - DelegatingPasswordEncoder prefix 기반(`{argon2id$v=19$...}` / `{bcrypt}...`).
+   - DelegatingPasswordEncoder 형식: `{id}encodedPassword` — 예: `{argon2id}$argon2id$v=19$m=65536,t=3,p=1$...` / `{bcrypt}$2a$12$...`. id prefix와 알고리즘 자체 인코딩은 분리. (Codex 4회차 정정)
 
 BE-4.2 Password Policy
-   - 최소 12자, 최대 ≥ 64자, 공백·유니코드 허용.
+   - 최소 12자, 최대 ≥ 64자, 공백·유니코드 허용. **본 정책은 프로젝트 자율 정책이며 NIST 800-63B Rev.4 단일비밀번호 최소 15자 기준은 미준수** (학습 단계 trade-off).
    - HIBP top-N + 자체 blocklist 차단. ID·이메일 유사값 차단.
    - 정기 변경 강제 X (NIST 800-63B Rev.4 기준).
    - 3종 결합 강제 X (KISA 8자/3종은 옵션이지 의무 아님).
@@ -120,6 +120,22 @@ BE-4.6 Migration
 
 BE-4.7 한국 기준 매핑 표 박제 (본 ADR §"근거"에 별도 추가)
 ```
+
+#### 4회차 후속 — Cookie 정책 cross-origin 갱신 (Vercel + ACA)
+
+ADR-0013 §8 결정으로 prod-lite 배포 토폴로지가 **Vercel `*.vercel.app` 프론트엔드 + Azure Container Apps `*.azurecontainerapps.io` 백엔드**로 확정됨. 두 도메인은 cross-site이므로 본 ADR 원안 `SameSite=Strict`는 cookie 인증이 작동하지 않는다. 다음으로 갱신:
+
+- **prod-lite cookie**: `HttpOnly; Secure; SameSite=None`. `SameSite=Strict`는 같은 root domain(예: `tourdoum.example.com` 도입) 운영 프로필에서만 허용.
+- **CORS**: credentials 쓰는 cross-site에서 `Access-Control-Allow-Origin: *` **금지**. 정확히 허용된 Origin만 반사 + `Access-Control-Allow-Credentials: true`. allowlist 관리:
+  - 운영 origin (확정 도메인)
+  - 승인된 Vercel preview URL (commit/branch별 generated URL — `<project>-<hash>-<team>.vercel.app` 패턴, regex 또는 수동 승인)
+  - local dev origin (`http://localhost:5173`)
+- **Origin/Referer 검증**: 모든 상태 변경 cookie 요청에 적용.
+- **CSRF token cookie**: non-HttpOnly (JS read 필수). access/refresh cookie는 HttpOnly로 분리. signed double-submit 또는 `X-XSRF-TOKEN` header 둘 중 하나로 검증.
+- **Bearer API**: 별도 transport. cookie CSRF 정책은 cookie 인증 요청에만 적용.
+- **함정**: 브라우저 third-party cookie 정책 변화 추적 (Chrome/Safari ITP). prod-lite는 cross-site cookie 의존이므로 추후 same root domain 이행 backlog.
+
+본 갱신은 ADR-0013 §"Cross-origin 정책 영향"과 한 쌍. researcher #8 보고 + Codex 검증 반영.
 
 #### 법정 vs 프로젝트 정책 분리 (Codex 교차 검토 반영)
 

@@ -101,7 +101,7 @@ JWT + `@PreAuthorize("hasRole('ADMIN')")` 기존 인증 그대로. 별도 admin 
 | `/admin/queue` | QUEUED depth / admit rate / drop rate | Redis token store |
 | `/admin/payments` | state별 카운트 + latency 히스토그램 | reservations / transition_log |
 | `/admin/inventory` | shard별 잠금 현황 | inventory shard query |
-| `/admin/sagas` | 실패/보상 진행 중 outbox 목록 | outbox table |
+| `/admin/outbox` | 실패/보상/대기 outbox 이벤트 + claim 상태 + retry 횟수 | outbox table |
 
 ## 결정 (6) — 30만 RPS 처방 layer
 
@@ -174,6 +174,55 @@ Vercel `*.vercel.app` + ACA `*.azurecontainerapps.io` = cross-origin. ADR-0011 �
 본 ADR Phase 1에서 **금지**. 외부 경계는 outbox + in-process worker로 처리.
 Phase 2 학습으로 미룸: outbox consumer를 별도 ACA revision으로 분리 → 배포 단위 분산 학습 → Service Bus 도입.
 
+## 결정 (11) — Outbox Publisher 동시성 (Codex 4회차 보강)
+
+다중 replica 환경에서 outbox 폴링이 동일 row를 중복 처리하지 않도록 다음 5요소 박제:
+
+1. **`SELECT ... FOR UPDATE SKIP LOCKED`** + `LIMIT N` claim — replica 간 경합 회피, MySQL 8 지원.
+2. **`outbox.claim_state` enum**: `PENDING / CLAIMED / DONE / FAILED`. claim 시 `claimed_by`(replica id) + `claimed_at`(TTL 30s) 기록.
+3. **Retry/backoff**: `attempt_count` + exponential backoff. max 5회 실패 시 `FAILED` + Admin 알림.
+4. **Idempotent consumer**: 모든 외부 호출(PG mock / Email / SSE) 멱등 — `idempotency_key = outbox.id` 또는 `aggregate_id + transition`.
+5. **Poison event 격리**: `FAILED` row는 별도 `outbox_dead_letter` 테이블로 이관. Admin UI `/admin/outbox` 에서 수동 재시도 가능.
+
+`@Scheduled(fixedDelay=500)` worker + Shedlock(global lease) 또는 `FOR UPDATE SKIP LOCKED` 둘 중 하나. 모놀리스 단계엔 후자가 단순.
+
+## 결정 (12) — Cold-start ↔ admission token TTL
+
+ACA `minReplicas=0`은 평시 비용 0이지만 burst 진입 시 **cold-start gap** (image pull + JVM warm-up, 추정 30~90s) 동안 admission token TTL이 만료될 수 있음. 처방:
+
+- **시연/부하 직전 `minReplicas=1`** (Container Apps secret + revision 갱신만으로 toggle 가능, 추가 비용 active 단가)
+- **Admission token TTL = 5분 + grace 30s** + 만료 시 자동 재발급 endpoint (`/api/queue/refresh-admission`)
+- **Token replay 방지**: token id를 outbox 또는 Redis에 기록, 재발급 시 invalidate
+
+scale-lab(AKS Spot)은 별도 — HPA cold-start gap 90~145s 그대로 측정.
+
+## 결정 (13) — MySQL B1ms CPU credit 감시
+
+Burstable B1ms는 baseline 20% CPU + credit accumulation 모델. burst가 길면 credit 소진 → baseline으로 강제 throttle → 응답 latency 폭증. 처방:
+
+- **Application Insights metric**: `mysql.cpu_credits_remaining` 알림 임계값 = **20%** (소진 임박 시 알림).
+- **Day 2 측정 시 credit 소진 시나리오 1회 의도적 재현** — credit 0 상태에서 30s sustain → 결과 박제 (학습).
+- credit 소진 빈번 시 GP 등급(Burstable 아님) 이행 검토 — 단 비용 폭증.
+
+## 결정 (14) — $80 hard stop은 alert만으론 불가 (Codex 보강)
+
+Azure Cost Management budget은 **알림만**, **자동 차단 chain은 별도 구성** 필요. 평가/알림 지연 8~24h 가능. 진짜 hard stop = runbook/automation:
+
+- **Phase 1 (Day 1)**: budget $50 alert + $80 alert (이메일/Action Group) + **수동 kill-switch script** (`infra/azure/scripts/kill-scale-lab.sh` / `kill-prod-app.sh`) 박제.
+- **Phase 2 (시간 여유 시)**: Action Group → Logic App / Azure Automation Runbook → 자동 RG delete (scale-lab만, prod-data는 절대 X).
+- **수기 점검 cadence**: Day 1~3 동안 매일 1회 `az consumption usage list` 또는 Cost Management 대시보드 확인.
+
+## 결정 (15) — 부하 목표 현실화 (Codex 보강)
+
+3일 / $80 / 단일 모놀리스 + 학습 단계에서 **"30만 confirmed/sec 1h sustain"은 비현실**. 본 ADR의 측정 목표 재정의:
+
+- **Generator**: 30만 RPS ingress **30s burst** 발생 (사용자 facing 부하 시뮬). 1h sustain 아님.
+- **App accept**: 가상 대기열로 admission rate 제한 → 실제 reservation hot path는 **3k~10k confirmed/sec 30s sustain** 목표.
+- **Scale-out 측정**: HPA cold-start gap (90~145s 추정) + 그동안 ingress 429/queue depth/drop rate 박제.
+- **Layer별 비교**: Layer 0 (1 writer) → Layer 4 (sharding) → Layer 5 (Redis Lua token) 순차 측정. 각 Layer 30s burst 결과 박제.
+
+진짜 30만 confirmed/sec 1h sustain은 Phase 2 별도 ADR 후 ($200~500 budget + 1주+ 학습) 시도.
+
 ## 후속 ADR / Task 분해
 
 ### 후속 ADR 후보
@@ -186,7 +235,8 @@ Phase 2 학습으로 미룸: outbox consumer를 별도 ACA revision으로 분리
 ```
 Day 1
   INFRA-AZ-0  Azure 계정 / az login / Cost budget $50/$80 / Resource Group 3종 / Bicep skeleton 박제
-  INFRA-AZ-1  prod-lite Bicep — SWA + ACA + MySQL B1ms + ACR + Log Analytics 30d
+  INFRA-AZ-1  prod-lite Bicep — ACA + MySQL B1ms + ACR + Log Analytics 30d (Frontend는 Vercel 별도 워크플로우)
+  INFRA-VE-1  Vercel project import + GitHub 연동 + 환경변수(api base URL) + preview URL allowlist 정책 박제
   INFRA-AZ-2  GitHub Actions OIDC + Federated Credential + ACR build/push + ACA revision deploy
   BE-13       Reservation FSM + transition_log + outbox 테이블 + ReservationService 골격
   UI-R11      QueueLobby + ReservationTimeline + Admin route skeleton (5종)
