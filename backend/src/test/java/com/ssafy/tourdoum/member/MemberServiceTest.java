@@ -12,6 +12,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import com.ssafy.tourdoum.auth.PasswordPolicyValidator;
 
@@ -21,6 +22,7 @@ class MemberServiceTest {
   @Mock private MemberRepository memberRepository;
   @Mock private PasswordEncoder passwordEncoder;
   @Mock private PasswordPolicyValidator passwordPolicy;
+  @Mock private ApplicationEventPublisher eventPublisher;
   @InjectMocks private MemberService memberService;
 
   @Test
@@ -49,6 +51,8 @@ class MemberServiceTest {
     assertThat(result.getNickname()).isEqualTo("tester");
     assertThat(result.getRole()).isEqualTo(MemberRole.ROLE_USER);
     verify(memberRepository).save(any(Member.class));
+    // BE-1.1: 가입 이벤트 발행 검증.
+    verify(eventPublisher).publishEvent(any(MemberSignedUpEvent.class));
   }
 
   @Test

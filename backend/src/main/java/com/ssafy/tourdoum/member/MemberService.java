@@ -1,6 +1,7 @@
 package com.ssafy.tourdoum.member;
 
 import com.ssafy.tourdoum.auth.PasswordPolicyValidator;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -13,14 +14,17 @@ public class MemberService {
   private final MemberRepository memberRepository;
   private final PasswordEncoder passwordEncoder;
   private final PasswordPolicyValidator passwordPolicy;
+  private final ApplicationEventPublisher eventPublisher;
 
   public MemberService(
       MemberRepository memberRepository,
       PasswordEncoder passwordEncoder,
-      PasswordPolicyValidator passwordPolicy) {
+      PasswordPolicyValidator passwordPolicy,
+      ApplicationEventPublisher eventPublisher) {
     this.memberRepository = memberRepository;
     this.passwordEncoder = passwordEncoder;
     this.passwordPolicy = passwordPolicy;
+    this.eventPublisher = eventPublisher;
   }
 
   /**
@@ -50,6 +54,11 @@ public class MemberService {
             .role(MemberRole.ROLE_USER)
             .build();
 
-    return memberRepository.save(member);
+    Member saved = memberRepository.save(member);
+    // BE-1.1: 가입 이벤트 publish — listener는 트랜잭션 커밋 이후(AFTER_COMMIT)에 후속 작업.
+    // 핵심 가입 흐름과 분리되며, listener 실패는 가입 결과에 영향 없음.
+    eventPublisher.publishEvent(
+        new MemberSignedUpEvent(saved.getId(), saved.getEmail(), saved.getNickname()));
+    return saved;
   }
 }
