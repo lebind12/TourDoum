@@ -7,7 +7,9 @@ spring:
     name: tourdoum-backend
 
   datasource:
-    url: ${DB_URL:jdbc:mysql://localhost:3306/tourdoum?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true}
+    # ADR-0012 v2 BE-3: rewriteBatchedStatements=true → JdbcTemplate.batchUpdate가 multi-VALUES INSERT로
+    # 묶여 전송된다(default false면 1행씩 N번 → batch 효과 없음). seed 시나리오 + 일반 batch 양쪽 이득.
+    url: ${DB_URL:jdbc:mysql://localhost:3306/tourdoum?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true&rewriteBatchedStatements=true}
     username: ${DB_USER:tourdoum}
     password: ${DB_PASSWORD:tourdoum}
     driver-class-name: com.mysql.cj.jdbc.Driver
