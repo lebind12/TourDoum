@@ -158,7 +158,7 @@ Vercel `*.vercel.app` + ACA `*.azurecontainerapps.io` = cross-origin. ADR-0011 �
 
 ### scale-lab (burst 실험실, WIP)
 - **AKS Free** (control plane 무료, SLA 없음, <10 노드 권장)
-- **Spot node pool** (D2s_v5, max-price -1는 capacity eviction 못 막음 — eviction policy `Delete` 명시 + multi-zone + 인스턴스 패밀리 mixed + on-demand fallback 1대로 1h sustain 보장)
+- **Spot node pool** (D2s_v5, max-price -1는 capacity eviction 못 막음 — eviction policy `Delete` 명시 + multi-zone + 인스턴스 패밀리 mixed + critical path별 on-demand fallback Pool로 1h sustain 안정성 완화)
 - **k6-operator** (JWT pool은 PVC/initContainer, ConfigMap 1MiB 제한)
 - **Self-host**: Redis Cluster + MariaDB shards + RabbitMQ + Prometheus/Grafana
 - burst 실험 1회당 비용: 30s burst ~$0.10~$0.30 / 1h sustain ~$1.5~$3
@@ -227,7 +227,12 @@ Azure Cost Management budget은 **알림만**, **자동 차단 chain은 별도 �
 
 ### confirmed 정의 (hard requirement)
 
-> **"confirmed = Redis Lua token 영속 시점"**. DB writer 영속은 비동기 (eventual). 본 정의 없이 "DB writer 영속" confirmed면 30만/sec 1h sustain은 단일 모놀리스에서 비현실이며, 본 ADR 결정 (5)·(6)의 Layer 5 Redis Lua token 도입 의의가 사라진다.
+> **"confirmed = Redis master 메모리 반영 시점 (sync replica ack 또는 AOF fsync는 미보장, eventual)"**. DB writer 영속은 outbox 기반 비동기 (eventual). 본 정의 없이 "DB writer 영속" confirmed면 30만/sec 1h sustain은 단일 모놀리스에서 비현실이며, 본 ADR 결정 (5)·(6)의 Layer 5 Redis Lua token 도입 의의가 사라진다.
+
+**confirmed durability 트레이드오프 (Codex 권고)**:
+- 본 ADR Phase 6 default = master 메모리 반영. failover 시 in-flight token 손실 허용.
+- replica ack 보장 또는 AOF fsync는 별도 옵션 (latency ↑ throughput ↓). Phase 6 결과에서 trade-off 측정 후 별도 ADR(0017 후보) 결정.
+- 손실 허용 범위: failover ≤ 1회/시간, in-flight token ≤ 5초 분(=150만 token) 손실 SLO. 사용자 facing은 "예약 다시 시도해주세요" 안내로 처리.
 
 ### Phase별 측정 목표
 
@@ -242,25 +247,44 @@ Azure Cost Management budget은 **알림만**, **자동 차단 chain은 별도 �
 
 각 Phase는 stable + measured 후 다음 진입. Phase 5 직후 Phase 6 진입 권장 (스택 신선도 유지).
 
-### Phase 6 sustain 처방 (Codex 4회차 비현실 판단의 함정 해소)
+### Phase 6 sustain 처방 (Codex 4·5회차 검증 반영, "보장" 아닌 "완화")
 
-**메모리 폭발 회피 (Redis Cluster)**:
-- token TTL = **5분** (admission token + reservation hold 평균 lifetime)
+> 본 처방은 1h sustain의 **성공 가능성을 높이는 완화책**이지 보장이 아니다. 실패 시 함정 분석 → 처방 갱신 → 재시도 사이클 박제.
+
+**Redis 메모리 산정 (Codex 5회차 정정)**:
+- token TTL = **5분 base + ±30s jitter** (expiry storm 회피)
 - 비동기 DB sync로 confirmed token 영속 후 Redis에서 회수
 - 동시 holding token = 30만/sec × 300s = **9000만 token**
-- key 평균 100B × 9000만 = **9GB** (ElastiCache cache.r6g.large × 3 = 39GB total → 충분)
+- 메모리 산식 = key+value+object overhead+expire dict+allocator fragmentation+replication buffer ≈ **key당 200~500B (실측 기준)**
+- 9000만 token × 350B 평균 = **31.5GB master memory 추정** (key당 100B 과소 산정 정정)
+- self-host Redis Cluster (3 master + 3 replica) on AKS, master 노드당 **메모리 32GB+** 인스턴스 (예: Standard_E4s_v5 32GB, koreacentral 가격 Retail API로 사전 고정)
+- replica는 별도 메모리 — total 64GB+ provision
+- **eviction policy = `noeviction`** (allkeys-lru 아님 — live confirmed token evict되면 정확성 깨짐). `noeviction` 시 메모리 부족하면 OOM error → Phase 6 진입 gate에 **9000만 key 사전 적재 부하 테스트** 박제.
 
-**Spot eviction 회피 (1h sustain 안정성)**:
+**confirmed token uniqueness (Codex 5회차 정정)**:
+- JWT pool 100~1000은 **auth 비용 줄이는 generator 편의**용. user identity는 재사용 OK.
+- 단 **admission token / reservation id / idempotency key는 매 요청 unique** 필수 (replay detection / Redis token uniqueness / outbox dedupe 정확성).
+- k6 script: `${JWT_FROM_POOL}` 재사용 + `${UUID()}` admission/reservation/idempotency 매번 신규.
+
+**Spot eviction 완화 (보장 아님)**:
 - multi-zone (3 AZ) + 인스턴스 패밀리 mixed (D2s_v5 + D2as_v5 + D4s_v5)
-- on-demand fallback 1대 (control-plane 역할: k6-operator coordinator + Prometheus master)
-- eviction 알림 30s grace → graceful drain → 새 노드 join (HPA + Karpenter NAP)
+- **on-demand fallback Pool**: critical path 별도 박제 (k6-operator coordinator + Prometheus master + Redis cluster master 1대 최소). worker/replica는 spot OK.
+- **PDB (PodDisruptionBudget)**: Redis master `maxUnavailable=0`, BE Spring `minAvailable=50%`, k6 worker `maxUnavailable=33%`
+- **Anti-affinity**: Redis master 3 replica 같은 노드 회피. zone spread topology constraint.
+- **Spare capacity**: target replica의 1.5× provision (HPA target=66%).
+- **Eviction 측정 SLO**: 1h 중 eviction 발생 시 p99 latency / error rate / confirmed loss 박제. eviction 0회 보장은 안 함.
 
-**Generator JWT pool**:
-- 30만 unique user는 비현실. **같은 user 30만 reservation 발생 패턴** 시뮬 (PG mock + admission token 재사용)
-- JWT pre-gen 100~1000개를 PVC/initContainer로 k6 worker 주입
+**Phase 6 진입 gate (추가, Codex 5회차)**:
+- Redis cluster 9000만 token 사전 적재 부하 테스트 PASS
+- AKS subscription quota 확인 (vCPU / public IP / load balancer)
+- SNAT port 고갈 회피 (NAT Gateway 도입 또는 outbound rule 명시)
+- Prometheus metric cardinality 한계 (per-pod / per-shard label 폭발 회피)
+- k6 generator NIC PPS 한계 (c-series spot SR-IOV enabled)
+- DB 비동기 영속 = **전량 (sample 아님)**. outbox publisher backlog drain SLO = 5분 이내.
 
 **측정 후 박제**:
 - Phase 6 결과 → ADR-0013 v2 (실측치 + Karpenter cold-start gap 실측 + 비용 정리 + 함정 처방 완성판)
+- replica ack / AOF fsync durability 비교는 별도 ADR (0017 후보)
 
 ## 후속 ADR / Task 분해
 
@@ -299,7 +323,7 @@ Phase 4 — Layer 4 sharding (Phase 3 stable 후)
   QA-K6-4     shard당 30k confirmed/sec 30s burst → 합 30만 30s burst 측정 ← 도달 신호
 
 Phase 5 — Layer 5 Redis Lua token (Phase 4 stable 후)
-  INFRA-AZ-6  ElastiCache 또는 Bitnami Redis Cluster Helm chart (3 master)
+  INFRA-AZ-6  Bitnami Redis Cluster Helm chart on AKS (3 master + 3 replica, Standard_E4s_v5 메모리 32GB+, eviction=noeviction). Azure Managed Redis는 Phase 2 비용/관리 비교용 옵션 (Phase 1 금지 결정 (1) 유지).
   BE-16       Redis Lua 좌석 token 선점 스크립트 + ReservationService 통합
   BE-17       비동기 DB sync worker (outbox + token 회수)
   QA-K6-5     30만 confirmed/sec 30s burst (Layer 5) 측정 ← 도달 신호
