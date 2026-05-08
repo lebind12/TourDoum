@@ -5,5 +5,6 @@ import { expect, test } from "@playwright/test";
 
 test('홈 페이지에 "TourDoum" 타이틀이 표시된다', async ({ page }) => {
 	await page.goto("/");
-	await expect(page.locator("h1")).toContainText("TourDoum");
+	// 브랜드 h1은 #brand로 스코프 (hero 안에 마케팅 카피용 별도 h1이 공존).
+	await expect(page.locator("h1#brand")).toContainText("TourDoum");
 });

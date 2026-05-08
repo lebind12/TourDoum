@@ -185,6 +185,8 @@ const mockAccommodations = [
 <template>
   <!-- 전체 스냅 스크롤 컨테이너 (AppShell <main> 가득 채움) -->
   <div :class="snapClass" aria-label="랜딩 페이지 섹션">
+    <!-- 브랜드 h1 (스크린리더 + e2e contract). 시각 카피는 hero 안의 h1이 담당. -->
+    <h1 id="brand" class="sr-only">TourDoum</h1>
 
     <!-- ══════════════════════════════════════════════
          섹션 1 — Hero
@@ -249,7 +251,7 @@ const mockAccommodations = [
           이미 계정이 있으신가요?
           <RouterLink to="/login" class="font-medium text-primary underline-offset-4 hover:underline">로그인</RouterLink>
         </p>
-        <p v-else class="text-sm text-muted-foreground">
+        <p v-else class="welcome-msg text-sm text-muted-foreground">
           안녕하세요, <strong class="font-semibold text-foreground">{{ authStore.currentUser.nickname }}</strong>님! 오늘의 여행을 시작해볼까요?
         </p>
       </div>

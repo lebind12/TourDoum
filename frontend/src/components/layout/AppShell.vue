@@ -101,6 +101,7 @@ function closeDrawer() {
             <Button
               variant="outline"
               size="sm"
+              class="btn-logout"
               :disabled="authStore.loading"
               @click="handleLogout"
             >
@@ -108,12 +109,15 @@ function closeDrawer() {
             </Button>
           </template>
           <template v-else>
-            <RouterLink to="/login">
-              <Button variant="ghost" size="sm">로그인</Button>
-            </RouterLink>
-            <RouterLink to="/signup">
-              <Button size="sm">회원가입</Button>
-            </RouterLink>
+            <!-- guest-bar: 비로그인 시 노출되는 인증 진입 묶음 (e2e contract). `contents`로 부모 flex 흐름 유지. -->
+            <span class="guest-bar contents">
+              <RouterLink to="/login">
+                <Button variant="ghost" size="sm">로그인</Button>
+              </RouterLink>
+              <RouterLink to="/signup">
+                <Button size="sm">회원가입</Button>
+              </RouterLink>
+            </span>
           </template>
           <ThemeToggle />
         </nav>
