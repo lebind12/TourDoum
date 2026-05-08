@@ -99,8 +99,18 @@ test("Scenario B: 비로그인 /favorites 접근 → /login 리다이렉트 → 
 	// 자동 로그인 후 홈으로 이동 — Scenario A와 동일한 race 방지.
 	await page.waitForURL("/");
 
-	// 5. 홈에서 로그아웃 후 다시 테스트
-	await page.click(".btn-logout");
+	// 5. 홈에서 로그아웃 후 다시 테스트.
+	// AppShell.handleLogout 이 `await authStore.logout()` 후 `router.push("/")` 하므로,
+	// URL 가 이미 "/" 이라 toHaveURL 만으로는 logout 완료를 보장 못 함. logout API 응답 + 짧은 미세
+	// 대기로 store currentUser=null 박제 완료 시점까지 기다린다 (qa #5 회귀).
+	await Promise.all([
+		page.waitForResponse(
+			(r) =>
+				r.url().includes("/api/auth/logout") && r.request().method() === "POST",
+		),
+		page.click(".btn-logout"),
+	]);
+	await expect(page).toHaveURL("/");
 
 	// 6. /me에 비로그인 상태로 접근 시도
 	await navigateTo(page, "/me");
