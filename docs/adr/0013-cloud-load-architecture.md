@@ -130,11 +130,23 @@ scale-lab은 Layer 0~4 우선, Layer 5~6은 시간 여유 시.
 상세는 다음 회의에서 확정. 본 ADR엔 큰 결정만:
 
 ### prod-lite (장기 시연)
-- **Frontend**: Azure Static Web Apps (Vue dist)
-- **Backend**: Azure Container Apps (`minReplicas=0, maxReplicas=2`, 시연 직전 1)
-- **DB**: Azure Database for MySQL Flexible Server **B1ms** (Free 12개월 — 750h + 32GB storage + 32GB backup)
+- **Frontend**: **Vercel** (Vue dist, `*.vercel.app` 도메인). Azure SWA 폐기.
+- **Backend**: Azure Container Apps (`minReplicas=0, maxReplicas=2`, 시연 직전 1, `*.azurecontainerapps.io`)
+- **DB**: Azure Database for MySQL Flexible Server **B1ms** (Free 12개월 — 750h + 32GB storage + 32GB backup, retention 1일)
+- **Container Registry**: Azure Container Registry (ACR Basic ~$5/월) + Managed Identity pull
 - **Auth state / outbox**: Phase 1 = MySQL fallback (Redis managed 비용 회피)
-- **Secrets**: Phase 1 = Container Apps secrets, Phase 2 = Key Vault + Managed Identity
+- **Secrets**: Phase 1 = ACA secrets (`az containerapp secret set`), Phase 2 = Key Vault + Managed Identity (시간 여유 시)
+- **Observability**: Application Insights + Log Analytics 30d (Free 5GB/월)
+- **CI/CD**: GitHub Actions OIDC + Federated Credential. 트리거 = `workflow_dispatch` 수동만 (auto deploy 금지, cost guardrail).
+- **Bicep param**: `dev` 환경만 (demo 별도 환경 만들지 않음).
+
+### Cross-origin 정책 영향 (Vercel + ACA)
+
+Vercel `*.vercel.app` + ACA `*.azurecontainerapps.io` = cross-origin. ADR-0011 §"Cookie 정책" 다음으로 갱신:
+- `SameSite=Strict` → **`SameSite=None; Secure`** 강제 (Lax도 POST cookie X)
+- **CORS 필수**: `Access-Control-Allow-Origin: https://<…>.vercel.app`, `Allow-Credentials: true`, allowlist methods/headers (X-XSRF-TOKEN 포함)
+- preflight OPTIONS 1회 캐시
+- 같은 root domain(예: `tourdoum.example.com`) 도입 시 same-site 복원 가능 — 학습 단계엔 비도입
 
 ### scale-lab (단기 burst)
 - **AKS Free** (control plane 무료, SLA 없음, <10 노드 권장)
