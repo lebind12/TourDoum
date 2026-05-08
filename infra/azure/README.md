@@ -131,7 +131,9 @@ az deployment sub what-if -l koreacentral \
 - ✅ **INFRA-AZ-1** — prod-lite Bicep modules (ACR + LA + AI + ACA env/app + MySQL Flexible). Frontend = Vercel (ADR-0013 §8) → SWA 박제 X.
 - ✅ **INFRA-VE-1** — Vercel project + GitHub 연동 절차서 + CORS allowlist 정책 (commit cb2e73f).
 - ✅ **INFRA-AZ-2** — GitHub Actions OIDC + Federated Credential + `azure-acr-build-push.yml` + `azure-aca-deploy.yml` + `azure-cleanup.yml` + `backend/Dockerfile` + `infra/azure/github-oidc-setup.md`.
-- **INFRA-AZ-3** — scale-lab AKS Bicep + Helm values (k6-operator / NGINX / Redis / MariaDB / RabbitMQ / kube-prom-stack) + kind dry-run.
+- ✅ **INFRA-AZ-3a** — scale-lab Bicep skeleton (AKS Free + system pool + Spot user pool, kubenet) + `scale-lab-dev.bicepparam`. 실 deployment X (Phase 3 진입 게이트).
+- **INFRA-AZ-3b** — scale-lab Helm charts (k6-operator / NGINX / Redis Cluster / MariaDB shards / RabbitMQ / kube-prom-stack) + kind dry-run.
+- **INFRA-AZ-4** — kill-switch Phase 2 자동화 (Logic App / Automation Runbook, 보류 가능).
 - **BE-CORS-VE1** — Spring CORS allowlist regex (`infra/vercel/preview-allowlist-policy.md` 인계).
 
 ## 9. Kill Switch 명령 (참조)
